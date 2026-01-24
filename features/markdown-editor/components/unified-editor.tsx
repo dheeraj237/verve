@@ -22,6 +22,8 @@ import { MarkdownFile } from "@/shared/types";
 import { useTocStore } from "@/features/markdown-preview/store/toc-store";
 import { useTableOfContents } from "@/features/markdown-preview/hooks/use-table-of-contents";
 import { useActiveHeading } from "@/features/markdown-preview/hooks/use-active-heading";
+import { sanitizeMarkdown } from "@/shared/utils/sanitize";
+import { toast } from "@/shared/utils/toast";
 import "@milkdown/theme-nord/style.css";
 
 function MilkdownEditorContent({ file, onContentChange }: { file: MarkdownFile; onContentChange: (content: string) => void }) {
@@ -96,20 +98,29 @@ export function UnifiedEditor() {
     if (!currentFile || !hasChanges) return;
 
     setIsSaving(true);
+
+      // Sanitize content before saving
+      const sanitizedContent = sanitizeMarkdown(editableContent);
+
     try {
         // If it's a local file with fileHandle, save directly to local file system
         if (currentFile.isLocal && currentFile.fileHandle) {
             try {
                 const writable = await currentFile.fileHandle.createWritable();
-                await writable.write(editableContent);
+                await writable.write(sanitizedContent);
                 await writable.close();
 
-                updateFileContent(currentFile.id, editableContent);
+                updateFileContent(currentFile.id, sanitizedContent);
                 setHasChanges(false);
                 setLastSaved(new Date());
+
+                if (!isAutoSave) {
+                    toast.success("File saved", `${currentFile.name} saved successfully`);
+                }
                 return;
             } catch (error) {
                 console.error("Failed to save local file:", error);
+                toast.error("Save failed", (error as Error).message);
                 throw new Error("Failed to save local file: " + (error as Error).message);
             }
         }
@@ -120,20 +131,27 @@ export function UnifiedEditor() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ content: editableContent }),
+          body: JSON.stringify({ content: sanitizedContent }),
       });
 
       if (!response.ok) {
         const error = await response.json();
+          toast.error("Save failed", error.error || "Failed to save file");
         throw new Error(error.error || "Failed to save file");
       }
 
-      updateFileContent(currentFile.id, editableContent);
+        updateFileContent(currentFile.id, sanitizedContent);
       setHasChanges(false);
       setLastSaved(new Date());
+
+        if (!isAutoSave) {
+            toast.success("File saved", `${currentFile.name} saved successfully`);
+        }
     } catch (error) {
       console.error("Failed to save file:", error);
-      alert(`Failed to save file: ${error instanceof Error ? error.message : "Unknown error"}`);
+        if (!isAutoSave) {
+            toast.error("Save failed", error instanceof Error ? error.message : "Unknown error");
+        }
     } finally {
       setIsSaving(false);
     }

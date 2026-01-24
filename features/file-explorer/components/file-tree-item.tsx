@@ -8,6 +8,7 @@ import { cn } from "@/shared/utils/cn";
 import { useEditorStore } from "@/features/markdown-editor/store/editor-store";
 import { ContextMenu } from "./context-menu";
 import { InlineInput } from "./inline-input";
+import { toast } from "@/shared/utils/toast";
 
 interface FileTreeItemProps {
   node: FileNode;
@@ -176,10 +177,14 @@ export function FileTreeItem({ node, level, parentNode }: FileTreeItemProps) {
       : `Delete file "${node.name}"?`;
 
     if (confirm(confirmMsg)) {
+      const toastId = toast.loading(`Deleting ${node.type}...`, node.name);
       try {
         await deleteNode(node.path, node.type === 'folder');
+        toast.dismiss(toastId);
+        toast.success(`${node.type === 'folder' ? 'Folder' : 'File'} deleted`, node.name);
       } catch (error) {
-        alert('Failed to delete: ' + (error as Error).message);
+        toast.dismiss(toastId);
+        toast.error('Delete failed', (error as Error).message);
       }
     }
   };
@@ -188,23 +193,33 @@ export function FileTreeItem({ node, level, parentNode }: FileTreeItemProps) {
     setIsRenaming(false);
     if (newName === node.name) return;
 
+    const toastId = toast.loading('Renaming...', `${node.name} → ${newName}`);
     try {
       await renameNode(node.path, newName);
+      toast.dismiss(toastId);
+      toast.success('Renamed successfully', `${node.name} → ${newName}`);
     } catch (error) {
-      alert('Failed to rename: ' + (error as Error).message);
+      toast.dismiss(toastId);
+      toast.error('Rename failed', (error as Error).message);
     }
   };
 
   const handleNewItemConfirm = async (name: string) => {
     setNewItemType(null);
+    const itemType = newItemType === 'file' ? 'File' : 'Folder';
+    const toastId = toast.loading(`Creating ${itemType.toLowerCase()}...`, name);
+
     try {
       if (newItemType === 'file') {
         await createFile(node.id, name);
       } else if (newItemType === 'folder') {
         await createFolder(node.id, name);
       }
+      toast.dismiss(toastId);
+      toast.success(`${itemType} created`, name);
     } catch (error) {
-      alert(`Failed to create ${newItemType}: ` + (error as Error).message);
+      toast.dismiss(toastId);
+      toast.error(`Failed to create ${itemType.toLowerCase()}`, (error as Error).message);
     }
   };
 

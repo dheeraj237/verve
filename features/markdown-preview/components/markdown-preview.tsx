@@ -3,6 +3,8 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypePrism from "rehype-prism-plus";
+import rehypeRaw from "rehype-raw";
+import rehypeSanitize from "rehype-sanitize";
 import { FileText } from "lucide-react";
 import { useEditorStore } from "@/features/markdown-editor/store/editor-store";
 import { useEffect, useRef, useMemo, memo } from "react";
@@ -11,6 +13,7 @@ import { useTableOfContents } from "../hooks/use-table-of-contents";
 import { useActiveHeading } from "../hooks/use-active-heading";
 import { MermaidDiagram } from "./mermaid-diagram";
 import { CodeBlock } from "./code-block";
+import { sanitizeMarkdown } from "@/shared/utils/sanitize";
 
 const MarkdownContent = memo(({ content, headings }: { content: string; headings: any[] }) => {
   // Memoize markdown components to prevent re-renders
@@ -65,8 +68,17 @@ const MarkdownContent = memo(({ content, headings }: { content: string; headings
       const match = /language-(\w+)/.exec(className || '');
       const language = match ? match[1] : '';
 
+      // Inline code - single backticks (no language class or explicitly inline)
+      if (inline || (!className && !language)) {
+        return (
+          <code className="text-primary bg-muted px-1.5 py-0.5 rounded text-[0.9em] font-mono text-amber-700" {...props}>
+            {children}
+          </code>
+        );
+      }
+
       // Check if it's a mermaid diagram
-      if (!inline && language === 'mermaid') {
+      if (language === 'mermaid') {
         // Extract text content
         const getTextContent = (child: any): string => {
           if (typeof child === 'string') return child;
@@ -79,16 +91,7 @@ const MarkdownContent = memo(({ content, headings }: { content: string; headings
         return <MermaidDiagram code={codeString.trim()} />;
       }
 
-      // Inline code
-      if (inline) {
-        return (
-          <code className="text-primary bg-muted px-1.5 py-0.5 rounded text-[0.9em] font-mono" {...props}>
-            {children}
-          </code>
-        );
-      }
-
-      // Code block with proper UI and syntax highlighting
+      // Code block with proper UI and syntax highlighting (triple backticks with language)
       const codeString = String(children).replace(/\n$/, '');
       return (
         <CodeBlock language={language}>
@@ -123,7 +126,7 @@ const MarkdownContent = memo(({ content, headings }: { content: string; headings
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
-      rehypePlugins={[rehypePrism as any]}
+      rehypePlugins={[rehypeRaw, rehypePrism as any]}
       components={components}
     >
       {content}
@@ -139,7 +142,11 @@ interface MarkdownPreviewProps {
 
 export function MarkdownPreview({ content: propContent }: MarkdownPreviewProps = {}) {
   const { setItems, setActiveId } = useTocStore();
-  const content = propContent || "";
+  const rawContent = propContent || "";
+
+  // Sanitize content before processing
+  const content = useMemo(() => sanitizeMarkdown(rawContent), [rawContent]);
+
   const headings = useTableOfContents(content);
   const activeId = useActiveHeading(headings.map(h => h.id));
 

@@ -2,6 +2,7 @@
 
 ## Headers
 
+
 # H1 - Main Title
 ## H2 - Section Title  
 ### H3 - Subsection Title
@@ -334,4 +335,4 @@ This document demonstrates various Markdown syntax elements including:
 - Math expressions and footnotes
 - HTML integration and special features
 
-Perfect for testing Markdown renderers and learning syntax! 
+Perfect for testing Markdown renderers and learning syntax!
