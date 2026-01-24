@@ -10,9 +10,12 @@ export function useTableOfContents(content: string) {
   const [headings, setHeadings] = useState<TocItem[]>([]);
 
   useEffect(() => {
+      // Remove code blocks first to avoid matching headings inside them
+      const contentWithoutCodeBlocks = content.replace(/```[\s\S]*?```/g, '');
+
     // Parse headings from markdown content
     const headingRegex = /^(#{1,6})\s+(.+)$/gm;
-    const matches = Array.from(content.matchAll(headingRegex));
+      const matches = Array.from(contentWithoutCodeBlocks.matchAll(headingRegex));
     
     const tocItems = matches.map((match, index) => {
       const level = match[1].length;

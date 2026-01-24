@@ -22,7 +22,7 @@ export function ThemeToggle() {
       variant="ghost"
       size="icon"
       onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-      className="w-9 h-9"
+      className="w-9 h-9 cursor-pointer"
     >
       {theme === "dark" ? (
         <Sun className="h-4 w-4" />

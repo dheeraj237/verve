@@ -158,15 +158,6 @@ export function UnifiedEditor() {
     }
   }, [currentFile]);
 
-  if (isLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-        <p className="mt-4 text-sm text-muted-foreground">Loading...</p>
-      </div>
-    );
-  }
-
   if (!currentFile) {
     return (
       <div className="flex flex-col items-center justify-center h-full p-8">
@@ -212,28 +203,37 @@ export function UnifiedEditor() {
         </div>
       </div>
 
-      {viewMode === "preview" && (
-        <div id="markdown-content" className="flex-1 overflow-auto">
-          <div className="max-w-[800px] mx-auto px-12 py-12">
-            <MarkdownPreview content={editableContent} />
-          </div>
-        </div>
-      )}
+          {isLoading ? (
+              <div className="flex-1 flex flex-col items-center justify-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                  <p className="mt-4 text-sm text-muted-foreground">Loading...</p>
+              </div>
+          ) : (
+              <>
+                      {viewMode === "preview" && (
+                          <div id="markdown-content" className="flex-1 overflow-auto">
+                              <div className="max-w-[800px] mx-auto px-12 py-12">
+                                  <MarkdownPreview content={editableContent} />
+                              </div>
+                          </div>
+                      )}
 
-      {viewMode === "editor" && (
-        <MilkdownProvider>
-          <MilkdownEditorContent 
-            file={{ ...currentFile, content: editableContent }} 
-            onContentChange={handleContentChange}
-          />
-        </MilkdownProvider>
-      )}
+                      {viewMode === "editor" && (
+                          <MilkdownProvider>
+                              <MilkdownEditorContent
+                                  file={{ ...currentFile, content: editableContent }}
+                                  onContentChange={handleContentChange}
+                              />
+                          </MilkdownProvider>
+                      )}
 
-      {viewMode === "code" && (
-        <CodeEditor 
-          file={{ ...currentFile, content: editableContent }}
-          onContentChange={handleContentChange}
-        />
+                      {viewMode === "code" && (
+                          <CodeEditor
+                              file={{ ...currentFile, content: editableContent }}
+                              onContentChange={handleContentChange}
+                          />
+                      )}
+                  </>
       )}
     </div>
   );

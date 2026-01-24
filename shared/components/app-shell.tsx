@@ -7,6 +7,7 @@ import { AppToolbar } from "@/shared/components/app-toolbar";
 import { FileExplorer } from "@/features/file-explorer/components/file-explorer";
 import { TableOfContents } from "@/features/markdown-preview/components/table-of-contents";
 import { useTocStore } from "@/features/markdown-preview/store/toc-store";
+import { useEditorStore } from "@/features/markdown-editor/store/editor-store";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const leftPanelRef = useRef<ImperativePanelHandle>(null);
@@ -21,8 +22,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     setRightPanelSize,
   } = usePanelStore();
 
-
+  const { activeTabId, viewMode } = useEditorStore();
   const { items: tocItems, activeId } = useTocStore();
+
+  // Show TOC only when a file is open and in preview mode
+  const showToc = activeTabId !== null && viewMode === "preview";
 
   useEffect(() => {
     if (leftPanelRef.current) {
@@ -80,20 +84,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           </Panel>
 
-          <PanelResizeHandle className="w-1 bg-sidebar-border hover:bg-primary hover:w-1.5 transition-all cursor-col-resize data-[panel-group-direction=horizontal]:w-1" />
+          {showToc && (
+            <>
+              <PanelResizeHandle className="w-1 bg-sidebar-border hover:bg-primary hover:w-1.5 transition-all cursor-col-resize data-[panel-group-direction=horizontal]:w-1" />
 
-          <Panel
-            ref={rightPanelRef}
-            id="right-panel"
-            defaultSize={rightPanelSize}
-            minSize={10}
-            maxSize={30}
-            collapsible
-            onResize={setRightPanelSize}
-            className="bg-sidebar-background border-l border-sidebar-border"
-          >
-            <TableOfContents items={tocItems} activeId={activeId} />
-          </Panel>
+              <Panel
+                ref={rightPanelRef}
+                id="right-panel"
+                defaultSize={rightPanelSize}
+                minSize={10}
+                maxSize={30}
+                collapsible
+                onResize={setRightPanelSize}
+                className="bg-sidebar-background border-l border-sidebar-border"
+              >
+                <TableOfContents items={tocItems} activeId={activeId} />
+              </Panel>
+            </>
+          )}
         </PanelGroup>
       </div>
     </div>

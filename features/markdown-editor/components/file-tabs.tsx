@@ -22,7 +22,7 @@ export function FileTabs() {
         >
           <span className="text-sm truncate flex-1">{tab.name}</span>
           <button
-            className="opacity-0 group-hover:opacity-100 hover:bg-muted rounded p-0.5 transition-opacity"
+            className="opacity-0 group-hover:opacity-100 hover:bg-muted rounded p-0.5 transition-opacity *:cursor-pointer"
             onClick={(e) => {
               e.stopPropagation();
               closeTab(tab.id);

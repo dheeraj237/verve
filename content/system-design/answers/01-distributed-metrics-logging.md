@@ -2,7 +2,7 @@
 
 [← Back to Topics](../topics.md#distributed-metrics-logging-and-aggregation-system-like-datadog-prometheus)
 
-## Problem Statements
+## Problem Statement
 
 Design a system that can collect, aggregate, and query metrics from millions of servers processing billions of events per day. Support real-time alerting and historical analysis.
 

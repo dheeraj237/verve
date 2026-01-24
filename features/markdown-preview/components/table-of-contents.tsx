@@ -34,7 +34,7 @@ export function TableOfContents({ items, activeId }: TableOfContentsProps) {
       
       // Calculate if we can scroll to top
       const maxScroll = contentHeight - containerHeight;
-      const targetScroll = elementTop - 80;
+      const targetScroll = elementTop - 100;
       
       if (targetScroll <= maxScroll) {
         container.scrollTo({
