@@ -12,6 +12,7 @@ interface EditorStore {
   updateFileContent: (fileId: string, content: string) => void;
   setViewMode: (mode: ViewMode) => void;
   setIsLoading: (loading: boolean) => void;
+  openLocalFile: () => Promise<void>;
 }
 
 export const useEditorStore = create<EditorStore>((set, get) => ({
@@ -61,6 +62,49 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       tab.id === fileId ? { ...tab, content } : tab
     ),
   })),
+
+  openLocalFile: async () => {
+    try {
+      // Check if File System Access API is supported
+      if (!('showOpenFilePicker' in window)) {
+        alert('File System Access API is not supported in this browser. Please use Chrome, Edge, or another Chromium-based browser.');
+        return;
+      }
+
+      const [fileHandle] = await (window as any).showOpenFilePicker({
+        types: [
+          {
+            description: 'Markdown Files',
+            accept: {
+              'text/markdown': ['.md', '.markdown'],
+              'text/plain': ['.txt'],
+            },
+          },
+        ],
+        multiple: false,
+      });
+
+      const file = await fileHandle.getFile();
+      const content = await file.text();
+
+      const markdownFile: MarkdownFile = {
+        id: `local-${file.name}-${Date.now()}`,
+        path: file.name,
+        name: file.name,
+        content,
+        category: 'local',
+        fileHandle,
+        isLocal: true,
+      };
+
+      get().openFile(markdownFile);
+    } catch (error) {
+      if ((error as Error).name !== 'AbortError') {
+        console.error('Error opening local file:', error);
+        alert('Failed to open file: ' + (error as Error).message);
+      }
+    }
+  },
 
   setViewMode: (mode) => set({ viewMode: mode }),
   setIsLoading: (loading) => set({ isLoading: loading }),

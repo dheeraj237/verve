@@ -14,6 +14,8 @@ export interface MarkdownFile {
   category: string;
   createdAt?: string;
   updatedAt?: string;
+  fileHandle?: FileSystemFileHandle; // For local files opened via File System Access API
+  isLocal?: boolean; // Flag to indicate if file is from local system
 }
 
 export type ViewMode = "preview" | "editor" | "code";

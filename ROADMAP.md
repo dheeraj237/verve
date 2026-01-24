@@ -1,6 +1,6 @@
 # MDNotes Viewer - Development Roadmap
 
-A modern, VSCode-inspired markdown documentation viewer built with Next.js 15, featuring extensible architecture for incremental feature development.
+A modern, VSCode|Milkdown-inspired markdown documentation viewer built with Next.js 15, featuring extensible architecture for incremental feature development.
 
 ---
 

@@ -97,6 +97,24 @@ export function UnifiedEditor() {
 
     setIsSaving(true);
     try {
+        // If it's a local file with fileHandle, save directly to local file system
+        if (currentFile.isLocal && currentFile.fileHandle) {
+            try {
+                const writable = await currentFile.fileHandle.createWritable();
+                await writable.write(editableContent);
+                await writable.close();
+
+                updateFileContent(currentFile.id, editableContent);
+                setHasChanges(false);
+                setLastSaved(new Date());
+                return;
+            } catch (error) {
+                console.error("Failed to save local file:", error);
+                throw new Error("Failed to save local file: " + (error as Error).message);
+            }
+        }
+
+        // Otherwise, save to server
       const response = await fetch(`/api/files/${currentFile.path}`, {
         method: "PUT",
         headers: {
