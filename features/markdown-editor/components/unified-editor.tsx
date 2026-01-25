@@ -19,6 +19,7 @@ import { toast } from "@/shared/utils/toast";
 import { useTheme } from "next-themes";
 import "@milkdown/crepe/theme/common/style.css";
 import "@milkdown/crepe/theme/frame.css";
+import { LiveMarkdownEditor } from "./live-markdown-editor";
 
 function CrepeEditor({ file, onContentChange }: { file: MarkdownFile; onContentChange: (content: string) => void }) {
   const divRef = useRef<HTMLDivElement>(null);
@@ -303,6 +304,13 @@ export function UnifiedEditor() {
                 onContentChange={handleContentChange}
               />
                       )}
+
+            {viewMode === "live" && (
+              <LiveMarkdownEditor
+                file={{ ...currentFile, content: editableContent }}
+                onContentChange={handleContentChange}
+              />
+            )}
 
                       {viewMode === "code" && (
                           <CodeEditor

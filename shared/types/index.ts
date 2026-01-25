@@ -18,7 +18,7 @@ export interface MarkdownFile {
   isLocal?: boolean; // Flag to indicate if file is from local system
 }
 
-export type ViewMode = "preview" | "editor" | "code";
+export type ViewMode = "preview" | "editor" | "code" | "live";
 
 export interface EditorState {
   currentFile: MarkdownFile | null;

@@ -1,6 +1,6 @@
 "use client";
 
-import { FileText, Eye, Code2 } from "lucide-react";
+import { FileText, Eye, Code2, Sparkles } from "lucide-react";
 import { ViewMode } from "@/shared/types";
 import { Button } from "@/shared/components/ui/button";
 import { cn } from "@/shared/utils/cn";
@@ -30,6 +30,18 @@ export function EditorModeToggle({ mode, onModeChange }: EditorModeToggleProps) 
               size="icon"
               className={cn(
                   "h-8 w-8 cursor-pointer",
+                  mode === "live" && "bg-background shadow-sm"
+              )}
+              onClick={() => onModeChange("live")}
+              title="Live Preview Editor (Obsidian-like)"
+          >
+              <Sparkles className="h-4 w-4" />
+          </Button>
+          <Button
+              variant="ghost"
+              size="icon"
+              className={cn(
+                  "h-8 w-8 cursor-pointer",
                   mode === "preview" && "bg-background shadow-sm"
               )}
               onClick={() => onModeChange("preview")}
@@ -45,7 +57,7 @@ export function EditorModeToggle({ mode, onModeChange }: EditorModeToggleProps) 
                   mode === "editor" && "bg-background shadow-sm"
               )}
               onClick={() => onModeChange("editor")}
-              title="Rich Text Editor"
+              title="Rich Text Editor (Milkdown)"
           >
               <FileText className="h-4 w-4" />
           </Button>

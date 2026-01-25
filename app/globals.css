@@ -5,6 +5,9 @@
 @import "./styles/prosemirror.css";
 @import "./styles/crepe.css";
 
+/* Import Obsidian-like editor styles */
+@import "./styles/obsidian-editor.css";
+
 @layer base {
   :root {
     --background: 0 0% 100%;
