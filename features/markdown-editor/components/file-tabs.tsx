@@ -18,7 +18,7 @@ export function FileTabs() {
 
   const formatLastSaved = (lastSaved?: Date) => {
     if (!lastSaved) return "Not saved yet";
-    return `Last saved: ${lastSaved.toLocaleTimeString()}`;
+    return `Last saved: ${lastSaved.toLocaleString()}`;
   };
 
   const togglePreviewMode = () => {
@@ -48,7 +48,7 @@ export function FileTabs() {
             <TooltipTrigger asChild>
               <button
                 className={cn(
-                  "flex items-center gap-2 px-3 py-2.5 border-r border-border cursor-pointer transition-all min-w-30 max-w-50 group relative shrink-0",
+                  "flex items-center gap-2 px-3 py-2.5 border-r border-border cursor-pointer transition-all min-w-32 max-w-56 group relative shrink-0",
                   activeTabId === tab.id
                     ? "bg-editor-background text-foreground border-t-2 border-t-orange-500 shadow-sm"
                     : "bg-muted/30 text-muted-foreground hover:bg-muted/50 hover:text-foreground border-t-2 border-t-transparent"
@@ -62,21 +62,23 @@ export function FileTabs() {
                 {tab.isSaving ? (
                   <Loader2 className="h-3 w-3 animate-spin text-primary shrink-0" />
                 ) : (
-                    <button
-                      className={cn(
-                        "bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 rounded p-0.5 transition-all shrink-0",
-                        activeTabId === tab.id
-                          ? "opacity-70 hover:opacity-100"
-                          : "opacity-0 group-hover:opacity-70 group-hover:hover:opacity-100"
-                      )}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        closeTab(tab.id);
-                      }}
-                      aria-label="Close tab"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
+                  <div
+                    role="button"
+                    tabIndex={-1}
+                    className={cn(
+                      "bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 rounded p-0.5 transition-all shrink-0 cursor-pointer",
+                      activeTabId === tab.id
+                        ? "opacity-70 hover:opacity-100"
+                        : "opacity-0 group-hover:opacity-70 group-hover:hover:opacity-100"
+                    )}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      closeTab(tab.id);
+                    }}
+                    aria-label="Close tab"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </div>
                 )}
               </button>
             </TooltipTrigger>

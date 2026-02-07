@@ -20,6 +20,7 @@ export function UnifiedEditor() {
   const [hasChanges, setHasChanges] = useState(false);
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastContentRef = useRef<string>("");
+  const currentFileRef = useRef(currentFile);
   
   // TOC integration
   const { setItems, setActiveId } = useTocStore();
@@ -27,6 +28,11 @@ export function UnifiedEditor() {
   // Only use useActiveHeading for preview mode (it tracks scroll in #markdown-content)
   // Live mode handles its own scroll tracking in LiveMarkdownEditor
   const activeId = useActiveHeading(viewMode === "preview" ? headings.map(h => h.id) : []);
+
+  // Sync currentFileRef with currentFile
+  useEffect(() => {
+    currentFileRef.current = currentFile;
+  }, [currentFile]);
 
   useEffect(() => {
     if (currentFile) {
@@ -137,10 +143,10 @@ export function UnifiedEditor() {
 
   const handleContentChange = useCallback((content: string) => {
     setEditableContent(content);
-    if (currentFile) {
-      setHasChanges(content !== currentFile.content);
+    if (currentFileRef.current) {
+      setHasChanges(content !== currentFileRef.current.content);
     }
-  }, [currentFile]);
+  }, []);
 
   if (!currentFile) {
     return (

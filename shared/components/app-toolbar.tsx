@@ -48,16 +48,16 @@ export function AppToolbar() {
         {/* Panel toggles */}
         <Button variant="ghost" size="icon" className="cursor-pointer h-8 w-8" onClick={toggleLeftPanel}>
           {leftPanelCollapsed ? (
-            <PanelLeftClose className="h-4 w-4" />
+            <PanelLeft className="h-4 w-4" />
           ) : (
-              <PanelLeft className="h-4 w-4" />
+              <PanelLeftClose className="h-4 w-4" />
           )}
         </Button>
         <Button variant="ghost" size="icon" className="cursor-pointer h-8 w-8" onClick={toggleRightPanel}>
           {rightPanelCollapsed ? (
-            <PanelRightClose className="h-4 w-4" />
+            <PanelRight className="h-4 w-4" />
           ) : (
-              <PanelRight className="h-4 w-4" />
+              <PanelRightClose className="h-4 w-4" />
           )}
         </Button>
 
