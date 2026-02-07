@@ -86,12 +86,12 @@ yarn dev
 ### Critical Security Files
 1. `shared/utils/sanitize.ts` - Enhanced DOMPurify config
 2. `app/api/files/[...path]/route.ts` - File validation
-3. `features/markdown-preview/components/markdown-preview.tsx` - Added rehype-sanitize
-4. `features/markdown-preview/components/mermaid-diagram.tsx` - Strict mode
-5. `features/markdown-editor/plugins/mermaid-plugin.tsx` - Strict mode
-6. `features/markdown-editor/plugins/html-plugin.tsx` - DOMPurify integration
-7. `features/markdown-editor/plugins/details-plugin.tsx` - DOMPurify integration
-8. `features/markdown-editor/plugins/plugin-utils.ts` - Enhanced sanitization
+3. `features/editor/components/markdown-preview.tsx` - Added rehype-sanitize
+4. `features/editor/components/mermaid-diagram.tsx` - Strict mode
+5. `features/editor/plugins/mermaid-plugin.tsx` - Strict mode
+6. `features/editor/plugins/html-plugin.tsx` - DOMPurify integration
+7. `features/editor/plugins/details-plugin.tsx` - DOMPurify integration
+8. `features/editor/plugins/plugin-utils.ts` - Enhanced sanitization
 
 ### Documentation
 - `docs/SECURITY.md` - Complete security guide

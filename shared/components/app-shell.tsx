@@ -5,9 +5,9 @@ import { Panel, PanelGroup, PanelResizeHandle, ImperativePanelHandle } from "rea
 import { usePanelStore } from "@/core/store/panel-store";
 import { AppToolbar } from "@/shared/components/app-toolbar";
 import { FileExplorer } from "@/features/file-explorer/components/file-explorer";
-import { TableOfContents } from "@/features/markdown-preview/components/table-of-contents";
-import { useTocStore } from "@/features/markdown-preview/store/toc-store";
-import { useEditorStore, useCurrentFile } from "@/features/markdown-editor/store/editor-store";
+import { TableOfContents } from "@/features/editor/components/table-of-contents";
+import { useTocStore } from "@/features/editor/store/toc-store";
+import { useEditorStore, useCurrentFile } from "@/features/editor/store/editor-store";
 import { isMarkdownFile } from "@/shared/utils/file-type-detector";
 
 export function AppShell({ children }: { children: React.ReactNode }) {

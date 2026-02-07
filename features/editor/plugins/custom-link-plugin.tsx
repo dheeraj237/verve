@@ -143,7 +143,7 @@ class LinkWidget extends WidgetType {
               return;
             }
 
-            const { useEditorStore } = await import('@/features/markdown-editor/store/editor-store');
+            const { useEditorStore } = await import('@/features/editor/store/editor-store');
             const store = useEditorStore.getState();
             await store.openFileByPath(filePath, this.currentFilePath, anchor);
           } catch (error) {
@@ -260,7 +260,7 @@ class AutolinkWidget extends WidgetType {
               return;
             }
 
-            const { useEditorStore } = await import('@/features/markdown-editor/store/editor-store');
+            const { useEditorStore } = await import('@/features/editor/store/editor-store');
             const store = useEditorStore.getState();
             await store.openFileByPath(filePath, this.currentFilePath, anchor);
           } catch (error) {

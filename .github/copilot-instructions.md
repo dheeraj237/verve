@@ -13,7 +13,7 @@
 
 ## Architecture
 ```
-features/          # Feature-based modules (file-explorer, markdown-editor, markdown-preview)
+features/          # Feature-based modules (file-explorer, editor)
 shared/            # Shared UI components, utils, types
   components/ui/   # shadcn/ui components
 core/              # Config, stores, file-manager

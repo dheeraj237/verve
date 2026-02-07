@@ -3,7 +3,7 @@ import { useTocStore } from "../store/toc-store";
 
 export function useActiveHeading(headingIds: string[]) {
   const [activeId, setActiveId] = useState<string>("");
-    const isManualSelection = useTocStore((state) => state.isManualSelection);
+  const isManualSelection = useTocStore((state) => state.isManualSelection);
 
   useEffect(() => {
     if (headingIds.length === 0) return;
@@ -43,9 +43,9 @@ export function useActiveHeading(headingIds: string[]) {
         }
       }
 
-        // Don't update if user manually selected a heading
-        if (!isManualSelection) {
-          setActiveId(newActiveId);
+      // Don't update if user manually selected a heading
+      if (!isManualSelection) {
+        setActiveId(newActiveId);
       }
       ticking = false;
     };

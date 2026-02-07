@@ -144,7 +144,7 @@ sequenceDiagram
     Browser-->>User: Display Page
 ```
 
-### Class Diagram
+### Class Diagram 
 
 ```mermaid
 classDiagram

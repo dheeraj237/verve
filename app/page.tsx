@@ -5,7 +5,7 @@
 "use client";
 
 import { AppShell } from "@/shared/components/app-shell";
-import { Editor } from "@/features/markdown-editor/components/unified-editor";
+import { Editor } from "@/features/editor/components/unified-editor";
 
 export default function Home() {
   return (

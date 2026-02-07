@@ -5,7 +5,7 @@ import { ChevronRight, File, Folder, FolderOpen, FilePlus, FolderPlus } from "lu
 import { FileNode } from "@/shared/types";
 import { useFileExplorerStore } from "../store/file-explorer-store";
 import { cn } from "@/shared/utils/cn";
-import { useEditorStore } from "@/features/markdown-editor/store/editor-store";
+import { useEditorStore } from "@/features/editor/store/editor-store";
 import { ContextMenu } from "./context-menu";
 import { InlineInput } from "./inline-input";
 import { toast } from "@/shared/utils/toast";

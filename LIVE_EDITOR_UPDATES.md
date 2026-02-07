@@ -5,7 +5,7 @@ Successfully updated the live markdown editor with a unified theme system and sc
 
 ## Changes Made
 
-### 1. **Created Unified Theme System** (`features/markdown-editor/components/editor-theme.ts`)
+### 1. **Created Unified Theme System** (`features/editor/components/editor-theme.ts`)
 - Created a single theme file aligned with app design tokens
 - Implements `getAppTheme(isDark: boolean)` function that returns appropriate theme
 - Includes both light and dark theme variants
@@ -14,8 +14,7 @@ Successfully updated the live markdown editor with a unified theme system and sc
   - Light: `--primary: 221.2 83.2% 53.3%`, `--background: 0 0% 100%`
   - Dark: `--primary: 211 100% 80%`, `--background: 210 9% 11%`
 
-### 2. **Updated Live Markdown Editor** (`features/markdown-editor/components/live-markdown-editor.tsx`)
-- Removed old theme imports (`@uiw/codemirror-theme-eclipse`, `@uiw/codemirror-theme-vscode`)
+### 2. **Updated Live Markdown Editor** (`features/editor/components/live-markdown-editor.tsx`)
 - Integrated new unified theme system using `getAppTheme()`
 - Added syntax highlighting extensions (`appSyntaxHighlighting`, `appSyntaxHighlightingDark`)
 - **Fixed scroll position preservation:**
@@ -79,8 +78,8 @@ if (currentContent !== file.content) {
 - ✅ Old theme packages removed successfully
 
 ## Files Modified
-1. `features/markdown-editor/components/live-markdown-editor.tsx`
-2. `features/markdown-editor/components/editor-theme.ts` (new)
+1. `features/editor/components/live-markdown-editor.tsx`
+2. `features/editor/components/editor-theme.ts` (new)
 3. `package.json` (removed old theme dependencies)
 
 ## Next Steps

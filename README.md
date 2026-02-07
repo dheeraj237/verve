@@ -159,8 +159,8 @@ mdnotes-viewer/
 │   │   ├── components/              # FileExplorer component
 │   │   └── store/                   # File tree state
 │   │
-│   ├── markdown-editor/             # Live markdown editor
-│   │   ├── components/              # LiveMarkdownEditor
+│   ├── editor/                      # Live markdown editor with preview
+│   │   ├── components/              # LiveMarkdownEditor, MarkdownPreview, TOC
 │   │   ├── plugins/                 # CodeMirror plugins
 │   │   │   ├── plugin-utils.ts     # Shared plugin utilities
 │   │   │   ├── custom-link-plugin.tsx
@@ -168,11 +168,8 @@ mdnotes-viewer/
 │   │   │   ├── mermaid-plugin.tsx
 │   │   │   ├── html-plugin.tsx
 │   │   │   └── ...                 # More plugins
-│   │   └── store/                   # Editor state
-│   │
-│   └── markdown-preview/            # Markdown rendering
-│       ├── components/              # MarkdownPreview, TOC
-│       └── store/                   # TOC state
+│   │   ├── hooks/                   # useTableOfContents, useActiveHeading
+│   │   └── store/                   # Editor & TOC state
 │
 ├── shared/                           # Shared resources
 │   ├── components/                  # Reusable UI components

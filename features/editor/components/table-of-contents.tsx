@@ -13,7 +13,7 @@ interface TableOfContentsProps {
 
 export function TableOfContents({ items, activeId }: TableOfContentsProps) {
   const activeItemRef = useRef<HTMLAnchorElement>(null);
-    const { setManualActiveId, clearManualSelection } = useTocStore();
+  const { setManualActiveId, clearManualSelection } = useTocStore();
   
   const handleClick = (e: React.MouseEvent, id: string) => {
     e.preventDefault();

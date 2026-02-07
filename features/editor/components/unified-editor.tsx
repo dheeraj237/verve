@@ -2,11 +2,11 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { FileText } from "lucide-react";
-import { useEditorStore, useCurrentFile } from "@/features/markdown-editor/store/editor-store";
+import { useEditorStore, useCurrentFile } from "@/features/editor/store/editor-store";
 import { FileTabs } from "./file-tabs";
 import { CodeEditor } from "./code-editor";
-import { useTocStore } from "@/features/markdown-preview/store/toc-store";
-import { useTableOfContents } from "@/features/markdown-preview/hooks/use-table-of-contents";
+import { useTocStore } from "@/features/editor/store/toc-store";
+import { useTableOfContents } from "@/features/editor/hooks/use-table-of-contents";
 import { sanitizeMarkdown } from "@/shared/utils/sanitize";
 import { toast } from "@/shared/utils/toast";
 import { LiveMarkdownEditor } from "./live-markdown-editor";

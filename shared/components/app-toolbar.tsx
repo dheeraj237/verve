@@ -4,7 +4,7 @@ import { PanelLeft, PanelRight, PanelLeftClose, PanelRightClose, Code2, Sparkles
 import { Button } from "@/shared/components/ui/button";
 import { ThemeToggle } from "@/shared/components/theme-toggle";
 import { usePanelStore } from "@/core/store/panel-store";
-import { useEditorStore, useCurrentFile } from "@/features/markdown-editor/store/editor-store";
+import { useEditorStore, useCurrentFile } from "@/features/editor/store/editor-store";
 import { Separator } from "@/shared/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
 import { isMarkdownFile } from "@/shared/utils/file-type-detector";

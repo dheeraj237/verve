@@ -22,7 +22,7 @@ import {
 import { useTheme } from "next-themes";
 import { MarkdownFile } from "@/shared/types";
 import { getAppTheme, appSyntaxHighlighting, appSyntaxHighlightingDark } from "./editor-theme";
-import { useEditorStore } from "@/features/markdown-editor/store/editor-store";
+import { useEditorStore } from "@/features/editor/store/editor-store";
 import { listPlugin } from "../plugins/list-plugin";
 import { horizontalRulePlugin } from "../plugins/horizontal-rule-plugin";
 import { mermaidPlugin } from "../plugins/mermaid-plugin";
@@ -30,8 +30,8 @@ import { codeBlockPlugin } from "../plugins/code-block-plugin";
 import { customLinkPlugin } from "../plugins/custom-link-plugin";
 import { htmlPlugin } from "../plugins/html-plugin";
 import { detailsPlugin } from "../plugins/details-plugin";
-import { useTocStore } from "@/features/markdown-preview/store/toc-store";
-import { useTableOfContents } from "@/features/markdown-preview/hooks/use-table-of-contents";
+import { useTocStore } from "@/features/editor/store/toc-store";
+import { useTableOfContents } from "@/features/editor/hooks/use-table-of-contents";
 
 // Import KaTeX CSS
 import "katex/dist/katex.min.css";

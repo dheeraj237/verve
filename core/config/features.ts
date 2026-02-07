@@ -21,19 +21,12 @@ export const features: Record<string, Feature> = {
     enabled: true,
     description: "Tree-based file navigation with search and filtering",
   },
-  markdownPreview: {
-    id: "markdown-preview",
-    name: "Markdown Preview",
-    version: "1.0.0",
-    enabled: true,
-    description: "Read-only markdown rendering with GFM support",
-  },
   markdownEditor: {
     id: "markdown-editor",
-    name: "Markdown Editor (Milkdown)",
+    name: "Markdown Editor & Preview",
     version: "1.0.0",
     enabled: true,
-    description: "WYSIWYG markdown editor powered by Milkdown",
+    description: "Unified markdown editor with live preview, TOC, and support for Mermaid diagrams",
   },
   mermaidDiagrams: {
     id: "mermaid-diagrams",

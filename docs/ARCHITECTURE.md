@@ -92,7 +92,7 @@ graph TD
 - Context menu for file operations
 - Inline editing for renames
 
-#### Markdown Editor (`features/markdown-editor/`)
+#### Markdown Editor (`features/editor/`)
 
 ```mermaid
 graph TD
@@ -102,12 +102,16 @@ graph TD
     
     Editor --> Store[Editor Store]
     Store --> FM[File Manager]
+    Editor --> Preview[MarkdownPreview]
+    Preview --> TOC[TableOfContents]
 ```
 
 **Components:**
 - `LiveMarkdownEditor.tsx` - Main editor component
+- `MarkdownPreview.tsx` - Live markdown preview
+- `TableOfContents.tsx` - TOC sidebar
 
-**Plugins:** (`features/markdown-editor/plugins/`)
+**Plugins:** (`features/editor/plugins/`)
 - `custom-link-plugin.tsx` - Interactive links
 - `code-block-plugin.tsx` - Syntax-highlighted code
 - `mermaid-plugin.tsx` - Diagram rendering

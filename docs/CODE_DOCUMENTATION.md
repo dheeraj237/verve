@@ -36,7 +36,7 @@ Added concise, meaningful code comments across key application files following t
 
 ### 2. Plugin System
 
-#### `features/markdown-editor/plugins/plugin-utils.ts`
+#### `features/editor/plugins/plugin-utils.ts`
 
 Added comments explaining:
 - **Selection overlap logic**: How range overlap detection works
@@ -52,7 +52,7 @@ if (range.from < to && range.to > from) {
 }
 ```
 
-#### `features/markdown-editor/plugins/mermaid-plugin.tsx`
+#### `features/editor/plugins/mermaid-plugin.tsx`
 
 Added comments explaining:
 - **Unique ID counter**: Prevents mermaid rendering conflicts
@@ -71,7 +71,7 @@ eq(other: MermaidWidget) {
 
 ### 3. State Management
 
-#### `features/markdown-editor/store/editor-store.ts`
+#### `features/editor/store/editor-store.ts`
 
 Added comments explaining:
 - **Singleton pattern**: Why file manager is stored at module level

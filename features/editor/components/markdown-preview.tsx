@@ -5,7 +5,7 @@ import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import rehypeSanitize from "rehype-sanitize";
 import { FileText } from "lucide-react";
-import { useEditorStore } from "@/features/markdown-editor/store/editor-store";
+import { useEditorStore } from "@/features/editor/store/editor-store";
 import { useEffect, useRef, useMemo, memo } from "react";
 import { useTocStore } from "../store/toc-store";
 import { useTableOfContents } from "../hooks/use-table-of-contents";

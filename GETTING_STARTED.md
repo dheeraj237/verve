@@ -177,25 +177,26 @@ mdnotes-viewer/
 │   │   └── store/
 │   │       └── file-explorer-store.ts
 │   │
-│   ├── markdown-editor/       # Main editor (CORE FEATURE)
+│   ├── editor/            # Main editor & preview (CORE FEATURE)
 │   │   ├── components/
-│   │   │   └── LiveMarkdownEditor.tsx  # Editor component
+│   │   │   ├── LiveMarkdownEditor.tsx  # Editor component
+│   │   │   ├── MarkdownPreview.tsx     # Preview component
+│   │   │   └── TableOfContents.tsx     # TOC sidebar
 │   │   │
-│   │   ├── plugins/           # CodeMirror plugins
+│   │   ├── plugins/       # CodeMirror plugins
 │   │   │   ├── plugin-utils.ts        # Shared code
 │   │   │   ├── list-plugin.tsx        # Bullet points
 │   │   │   ├── code-block-plugin.tsx  # Code highlighting
 │   │   │   ├── mermaid-plugin.tsx     # Diagrams
 │   │   │   └── ...
 │   │   │
+│   │   ├── hooks/         # Composition hooks
+│   │   │   ├── use-table-of-contents.ts
+│   │   │   └── use-active-heading.ts
+│   │   │
 │   │   └── store/
-│   │       └── editor-store.ts
-│   │
-│   └── markdown-preview/      # Right preview panel
-│       ├── components/
-│       │   ├── MarkdownPreview.tsx    # Rendered markdown
-│       │   └── TableOfContents.tsx    # TOC sidebar
-│       └── store/
+│   │       ├── editor-store.ts
+│   │       └── toc-store.ts
 │
 ├── shared/                     # Shared code
 │   ├── components/
@@ -221,7 +222,7 @@ We'll modify how bullet points look in the editor.
 
 **Step 1: Find the plugin**
 
-Open `features/markdown-editor/plugins/list-plugin.tsx`
+Open `features/editor/plugins/list-plugin.tsx`
 
 **Step 2: Find the bullet rendering code**
 
@@ -257,7 +258,7 @@ Let's create a plugin that makes `==highlighted text==` stand out.
 
 **Step 1: Create the plugin file**
 
-Create `features/markdown-editor/plugins/highlight-plugin.tsx`
+Create `features/editor/plugins/highlight-plugin.tsx`
 
 **Step 2: Write the plugin**
 
@@ -321,7 +322,7 @@ In `app/globals.css`, add:
 
 **Step 4: Register the plugin**
 
-In `features/markdown-editor/components/LiveMarkdownEditor.tsx`:
+In `features/editor/components/LiveMarkdownEditor.tsx`:
 
 ```typescript
 import { highlightPlugin } from '../plugins/highlight-plugin';

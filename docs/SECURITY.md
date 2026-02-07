@@ -38,15 +38,15 @@ export function sanitizeHtml(html: string): string {
 
 #### Where Sanitization is Applied
 
-1. **Markdown Preview** (`features/markdown-preview/components/markdown-preview.tsx`)
+1. **Markdown Editor & Preview** (`features/editor/components/markdown-preview.tsx`)
    - Uses `rehype-sanitize` plugin for react-markdown
    - Content is sanitized before markdown parsing with `sanitizeMarkdown()`
 
-2. **HTML Code Blocks** (`features/markdown-editor/plugins/html-plugin.tsx`)
+2. **HTML Code Blocks** (`features/editor/plugins/html-plugin.tsx`)
    - All HTML in ```html code blocks is sanitized with DOMPurify
    - Prevents script injection in live HTML preview
 
-3. **Details/Summary Blocks** (`features/markdown-editor/plugins/details-plugin.tsx`)
+3. **Details/Summary Blocks** (`features/editor/plugins/details-plugin.tsx`)
    - Collapsible content is sanitized before rendering
    - Protects against XSS in nested HTML
 

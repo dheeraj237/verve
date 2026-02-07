@@ -28,7 +28,7 @@ rehypePlugins={[
 ]}
 ```
 
-**File**: `features/markdown-preview/components/markdown-preview.tsx`
+**File**: `features/editor/components/markdown-preview.tsx`
 
 ---
 
@@ -50,8 +50,8 @@ securityLevel: "strict"
 ```
 
 **Files**: 
-- `features/markdown-preview/components/mermaid-diagram.tsx`
-- `features/markdown-editor/plugins/mermaid-plugin.tsx`
+- `features/editor/components/mermaid-diagram.tsx`
+- `features/editor/plugins/mermaid-plugin.tsx`
 
 ---
 
@@ -69,9 +69,9 @@ securityLevel: "strict"
 
 **Files**:
 - `shared/utils/sanitize.ts` - Enhanced with comprehensive DOMPurify config
-- `features/markdown-editor/plugins/html-plugin.tsx` - Now uses DOMPurify
-- `features/markdown-editor/plugins/details-plugin.tsx` - Now uses DOMPurify
-- `features/markdown-editor/plugins/plugin-utils.ts` - Updated with DOMPurify fallback
+- `features/editor/plugins/html-plugin.tsx` - Now uses DOMPurify
+- `features/editor/plugins/details-plugin.tsx` - Now uses DOMPurify
+- `features/editor/plugins/plugin-utils.ts` - Updated with DOMPurify fallback
 
 ---
 
@@ -170,15 +170,15 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 - ✅ `app/api/files/route.ts` - Directory traversal protection (existing)
 
 ### Markdown Rendering
-- ✅ `features/markdown-preview/components/markdown-preview.tsx` - Added rehype-sanitize
-- ✅ `features/markdown-preview/components/mermaid-diagram.tsx` - Strict security mode
+- ✅ `features/editor/components/markdown-preview.tsx` - Added rehype-sanitize
+- ✅ `features/editor/components/mermaid-diagram.tsx` - Strict security mode
 
 ### Editor Plugins
-- ✅ `features/markdown-editor/plugins/mermaid-plugin.tsx` - Strict security mode
-- ✅ `features/markdown-editor/plugins/html-plugin.tsx` - DOMPurify integration
-- ✅ `features/markdown-editor/plugins/details-plugin.tsx` - DOMPurify integration
-- ✅ `features/markdown-editor/plugins/plugin-utils.ts` - Enhanced sanitization
-- ✅ `features/markdown-editor/plugins/code-block-plugin.tsx` - Already secure (verified)
+- ✅ `features/editor/plugins/mermaid-plugin.tsx` - Strict security mode
+- ✅ `features/editor/plugins/html-plugin.tsx` - DOMPurify integration
+- ✅ `features/editor/plugins/details-plugin.tsx` - DOMPurify integration
+- ✅ `features/editor/plugins/plugin-utils.ts` - Enhanced sanitization
+- ✅ `features/editor/plugins/code-block-plugin.tsx` - Already secure (verified)
 
 ### Documentation
 - ✅ `docs/SECURITY.md` - Comprehensive security documentation (NEW)

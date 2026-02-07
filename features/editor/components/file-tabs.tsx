@@ -1,7 +1,7 @@
 "use client";
 
 import { X, Loader2, Eye, Code2 } from "lucide-react";
-import { useEditorStore } from "@/features/markdown-editor/store/editor-store";
+import { useEditorStore } from "@/features/editor/store/editor-store";
 import { Button } from "@/shared/components/ui/button";
 import { cn } from "@/shared/utils/cn";
 import { isMarkdownFile } from "@/shared/utils/file-type-detector";

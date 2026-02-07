@@ -3,7 +3,7 @@
 ## Changes Made
 
 ### 1. Created Shared Utility File
-**File**: `/features/markdown-editor/plugins/plugin-utils.ts`
+**File**: `/features/editor/plugins/plugin-utils.ts`
 
 Created a centralized utility file with reusable functions for all plugins:
 
@@ -15,7 +15,7 @@ Created a centralized utility file with reusable functions for all plugins:
 - `containsMarkdown()` - Detect if HTML contains markdown syntax (code blocks, lists, headings)
 
 ### 2. Updated HTML Plugin
-**File**: `/features/markdown-editor/plugins/html-plugin.tsx`
+**File**: `/features/editor/plugins/html-plugin.tsx`
 
 - ✅ Uses `shouldShowWidgetSourceState()` to properly show source on selection
 - ✅ Uses `sanitizeHTML()` and `containsMarkdown()` utilities
@@ -24,7 +24,7 @@ Created a centralized utility file with reusable functions for all plugins:
 - ✅ Details/summary accordion functionality working
 
 ### 3. Updated Mermaid Plugin
-**File**: `/features/markdown-editor/plugins/mermaid-plugin.tsx`
+**File**: `/features/editor/plugins/mermaid-plugin.tsx`
 
 - ✅ Uses `shouldShowWidgetSourceState()` for consistent selection handling
 - ✅ Shows source when clicking on diagram
@@ -32,7 +32,7 @@ Created a centralized utility file with reusable functions for all plugins:
 - ✅ Only rebuilds decorations on document change, config change, or selection change
 
 ### 4. Updated Code Block Plugin
-**File**: `/features/markdown-editor/plugins/code-block-plugin.tsx`
+**File**: `/features/editor/plugins/code-block-plugin.tsx`
 
 - ✅ Uses `shouldShowWidgetSourceState()` for consistent selection handling
 - ✅ Shows source when clicking on code block
@@ -40,7 +40,7 @@ Created a centralized utility file with reusable functions for all plugins:
 - ✅ Proper selection overlap checking
 
 ### 5. Enabled HTML Plugin
-**File**: `/features/markdown-editor/components/live-markdown-editor.tsx`
+**File**: `/features/editor/components/live-markdown-editor.tsx`
 
 - ✅ Enabled `htmlPlugin` in the editor configuration (was commented out)
 

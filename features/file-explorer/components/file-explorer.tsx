@@ -6,7 +6,7 @@ import { useFileExplorerStore } from "../store/file-explorer-store";
 import { FileTreeItem } from "./file-tree-item";
 import { Loader2, FolderOpen, FileText, FilePlus, FolderPlus, RefreshCw, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
-import { useEditorStore } from "@/features/markdown-editor/store/editor-store";
+import { useEditorStore } from "@/features/editor/store/editor-store";
 import { InlineInput } from "./inline-input";
 import { toast } from "@/shared/utils/toast";
 import { cn } from "@/shared/utils/cn";
