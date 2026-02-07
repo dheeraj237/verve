@@ -30,6 +30,7 @@ import { mermaidPlugin } from "../plugins/mermaid-plugin";
 import { codeBlockPlugin } from "../plugins/code-block-plugin";
 import { customLinkPlugin } from "../plugins/custom-link-plugin";
 import { htmlPlugin } from "../plugins/html-plugin";
+import { detailsPlugin } from "../plugins/details-plugin";
 
 // Import KaTeX CSS
 import "katex/dist/katex.min.css";
@@ -67,6 +68,7 @@ export function LiveMarkdownEditor({ file, onContentChange }: LiveMarkdownEditor
       codeBlockPlugin,
       mermaidPlugin,
       htmlPlugin,
+      detailsPlugin,
     ]
   }
 

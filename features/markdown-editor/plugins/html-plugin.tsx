@@ -1,48 +1,23 @@
 /**
- * Custom HTML plugin for CodeMirror to render HTML blocks and collapsable details/summary
- * Supports inline HTML, styled divs, and details/summary elements
+ * HTML Plugin - Renders ```html code blocks as live HTML preview
+ * Similar to mermaid plugin, only processes fenced code blocks with html language
  */
 
 import { syntaxTree } from '@codemirror/language';
 import { EditorState, Range, StateField } from '@codemirror/state';
 import { Decoration, DecorationSet, EditorView, WidgetType } from '@codemirror/view';
-import { shouldShowWidgetSourceState, sanitizeHTML, containsMarkdown } from './plugin-utils';
+import { shouldShowWidgetSourceState, sanitizeHTML } from './plugin-utils';
 
 /**
- * Check if HTML content contains a details/summary block
+ * Widget to render HTML content from ```html code blocks
  */
-function isDetailsBlock(html: string): boolean {
-  return /<details[\s>]/i.test(html) && /<summary[\s>]/i.test(html);
-}
-
-/**
- * Extract content between details tags
- */
-function extractDetailsContent(html: string): { summary: string; content: string } | null {
-  const detailsMatch = html.match(/<details[^>]*>([\s\S]*?)<\/details>/i);
-  if (!detailsMatch) return null;
-
-  const innerContent = detailsMatch[1];
-  const summaryMatch = innerContent.match(/<summary[^>]*>([\s\S]*?)<\/summary>/i);
-
-  if (!summaryMatch) return null;
-
-  const summary = summaryMatch[1].trim();
-  const content = innerContent.substring(summaryMatch[0].length).trim();
-
-  return { summary, content };
-}
-
-/**
- * Widget to render HTML content
- */
-class HTMLBlockWidget extends WidgetType {
+class HTMLCodeBlockWidget extends WidgetType {
   constructor(private html: string) {
     super();
   }
 
-  eq(other: HTMLBlockWidget) {
-    return other instanceof HTMLBlockWidget && this.html === other.html;
+  eq(other: HTMLCodeBlockWidget) {
+    return other instanceof HTMLCodeBlockWidget && this.html === other.html;
   }
 
   toDOM() {
@@ -56,7 +31,7 @@ class HTMLBlockWidget extends WidgetType {
       contentWrapper.innerHTML = sanitized;
       container.appendChild(contentWrapper);
     } catch (err) {
-      console.error('[HTMLBlockWidget] Error rendering:', err);
+      console.error('[HTMLCodeBlockWidget] Error rendering:', err);
       container.innerHTML = '<div style="color: red;">Error rendering HTML block</div>';
     }
 
@@ -69,140 +44,37 @@ class HTMLBlockWidget extends WidgetType {
 }
 
 /**
- * Widget to render collapsable details/summary blocks
- */
-class DetailsBlockWidget extends WidgetType {
-  private summaryElement: HTMLElement | null = null;
-
-  constructor(private summary: string, private content: string) {
-    super();
-  }
-
-  eq(other: DetailsBlockWidget) {
-    return other instanceof DetailsBlockWidget &&
-           this.summary === other.summary &&
-           this.content === other.content;
-  }
-
-  toDOM() {
-    const container = document.createElement('div');
-    container.className = 'cm-details-block-widget';
-
-    try {
-      const details = document.createElement('details');
-      details.className = 'cm-details';
-
-      const summary = document.createElement('summary');
-      summary.className = 'cm-summary';
-      this.summaryElement = summary;
-
-      const arrow = document.createElement('span');
-      arrow.className = 'cm-summary-arrow';
-      arrow.textContent = '▶';
-      summary.appendChild(arrow);
-
-      const summaryText = document.createElement('span');
-      summaryText.className = 'cm-summary-text';
-      summaryText.innerHTML = sanitizeHTML(this.summary);
-      summary.appendChild(summaryText);
-
-      details.addEventListener('toggle', () => {
-        if (details.open) {
-          arrow.style.transform = 'rotate(90deg)';
-        } else {
-          arrow.style.transform = 'rotate(0deg)';
-        }
-      });
-
-      const contentWrapper = document.createElement('div');
-      contentWrapper.className = 'cm-details-content';
-      contentWrapper.innerHTML = sanitizeHTML(this.content);
-
-      details.appendChild(summary);
-      details.appendChild(contentWrapper);
-      container.appendChild(details);
-    } catch (err) {
-      console.error('[DetailsBlockWidget] Error rendering:', err);
-      container.innerHTML = '<div style="color: red;">Error rendering details block</div>';
-    }
-
-    return container;
-  }
-
-  ignoreEvent(event: Event) {
-    if (!event.target) return false;
-    const target = event.target as HTMLElement;
-
-    if (this.summaryElement && this.summaryElement.contains(target)) {
-      if (event.type === 'mousedown' || event.type === 'click') {
-        return true;
-      }
-    }
-
-    return false;
-  }
-}
-
-/**
- * Check if content is a complete HTML block
- */
-function isCompleteHTMLBlock(content: string): boolean {
-  const trimmed = content.trim();
-
-  if (!/^<([a-zA-Z][a-zA-Z0-9]*)[^>]*>/.test(trimmed)) {
-    return false;
-  }
-
-  const openTagMatch = trimmed.match(/^<([a-zA-Z][a-zA-Z0-9]*)/);
-  if (!openTagMatch) return false;
-
-  const tagName = openTagMatch[1].toLowerCase();
-
-  const selfClosingTags = ['br', 'hr', 'img', 'input', 'meta', 'link'];
-  if (selfClosingTags.includes(tagName)) {
-    return true;
-  }
-
-  const closeTagRegex = new RegExp(`</${tagName}[^>]*>\\s*$`, 'i');
-  return closeTagRegex.test(trimmed);
-}
-
-/**
- * Build decorations for HTML blocks
+ * Build decorations: Find all ```html blocks and replace with widgets
+ * Skips blocks where cursor/selection is present (shows source instead)
  */
 function buildHTMLDecorations(state: EditorState): DecorationSet {
   const decorations: Range<Decoration>[] = [];
 
   syntaxTree(state).iterate({
     enter: (node) => {
-      if (node.name === 'HTMLBlock') {
-        const content = state.doc.sliceString(node.from, node.to).trim();
+      if (node.name === 'FencedCode') {
+        // Extract language from code info line (```html)
+        const codeInfo = node.node.getChild('CodeInfo');
+        if (!codeInfo) return;
 
-        if (!content) return;
-        if (!isCompleteHTMLBlock(content)) return;
-        if (containsMarkdown(content)) return;
+        const language = state.doc.sliceString(codeInfo.from, codeInfo.to).trim().toLowerCase();
 
-        // Use shared utility to check if source should be shown
+        if (language !== 'html') return;
+
+        // Get actual code content (between opening and closing ```)
+        const codeText = node.node.getChild('CodeText');
+        const code = codeText
+          ? state.doc.sliceString(codeText.from, codeText.to).trim()
+          : '';
+
+        if (!code) return;
+
+        // Show source if cursor is inside or text is selected
         const shouldShowSource = shouldShowWidgetSourceState(state, node.from, node.to);
 
         if (!shouldShowSource) {
-          if (isDetailsBlock(content)) {
-            const detailsContent = extractDetailsContent(content);
-            if (detailsContent) {
-              if (containsMarkdown(detailsContent.content)) return;
+          const widget = new HTMLCodeBlockWidget(code);
 
-              const widget = new DetailsBlockWidget(
-                detailsContent.summary,
-                detailsContent.content
-              );
-              decorations.push(
-                Decoration.replace({ widget, block: true }).range(node.from, node.to)
-              );
-              return;
-            }
-          }
-
-          const widget = new HTMLBlockWidget(content);
           decorations.push(
             Decoration.replace({ widget, block: true }).range(node.from, node.to)
           );
@@ -216,6 +88,7 @@ function buildHTMLDecorations(state: EditorState): DecorationSet {
 
 /**
  * Create HTML StateField
+ * Manages decoration lifecycle for ```html code blocks
  */
 const htmlField = StateField.define<DecorationSet>({
   create(state) {
@@ -240,6 +113,6 @@ const htmlField = StateField.define<DecorationSet>({
 
 /**
  * HTML plugin
- * Renders HTML blocks and collapsable details/summary elements
+ * Renders HTML code from ```html fenced code blocks
  */
 export const htmlPlugin = htmlField;

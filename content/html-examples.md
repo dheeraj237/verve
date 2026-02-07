@@ -2,20 +2,14 @@
 
 This document demonstrates HTML blocks and collapsable sections in the markdown editor.
 
-## HTML Content
+## HTML Code Content
 
 You can embed styled HTML directly in your markdown:
-<div style="background-color: #f0f0f0; padding: 10px; border-radius: 5px;">
-This is HTML content within Markdown.
-</div>
-
-<div style="background-color: #e3f2fd; padding: 15px; border-left: 4px solid #2196F3; margin: 20px 0;">
-  <strong>Info Box:</strong> This is a styled information box using HTML.
-</div>
-
+```html
 <div style="background-color: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; margin: 20px 0;">
   <strong>⚠️ Warning:</strong> This is a warning message with custom styling.
 </div>
+```
 
 ## Collapsable Sections
 
@@ -61,28 +55,13 @@ def hello_world():
 
 You can also nest HTML:
 
+```html
 <div style="background-color: #f5f5f5; padding: 10px; border-radius: 4px;">
 Nested HTML inside a collapsable section
 </div>
+```
 
 </details>
-
-## Combined Usage
-
-<div style="background-color: #e8f5e9; padding: 20px; border-radius: 8px; margin: 20px 0;">
-  <h3 style="margin-top: 0; color: #2e7d32;">🎉 Success Message</h3>
-
-  <p>This div contains a collapsable section inside it:</p>
-
-  <details>
-  <summary>Show technical details</summary>
-
-  - Status: Success
-  - Time: 2024-01-01 12:00:00
-  - Duration: 2.5s
-
-  </details>
-</div>
 
 ## Notes
 

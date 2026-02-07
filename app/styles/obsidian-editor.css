@@ -134,15 +134,23 @@
   border: 0 !important;
 }
 
-/* Force list widget spans to not expand line height */
-.obsidian-editor .cm-line:has(.cm-list-bullet) .cm-list-bullet,
-.obsidian-editor .cm-line:has(.cm-list-number) .cm-list-number,
-.obsidian-editor .cm-line:has(.cm-task-checkbox) .cm-task-checkbox {
-  height: 1em !important;
-  max-height: 1em !important;
-  line-height: 1 !important;
-  vertical-align: baseline !important;
+.obsidian-editor .cm-image-widget,
+.obsidian-editor .cm-image-alt,
+.obsidian-editor .cm-code-block-widget {
+  margin: 0 !important;
 }
+
+/* Disable all margins in HTML content blocks (from ```html code blocks only) */
+.obsidian-editor .cm-html-block-widget .cm-html-content,
+.obsidian-editor .cm-html-block-widget .cm-html-content * {
+  margin: 0 !important;
+}
+
+/* Allow normal margins and spacing in details/summary content */
+.obsidian-editor .cm-details-content {
+  margin: 0;
+}
+
 
 /* Task list checkboxes - styled with border and green check */
 .obsidian-editor .cm-task-checkbox {
@@ -151,7 +159,6 @@
   transition: all 0.15s ease;
   font-size: 1.2em;
   display: inline;
-  line-height: 1;
   vertical-align: baseline;
   /* Unchecked: gray border with empty square */
   color: hsl(var(--muted-foreground));
@@ -176,7 +183,6 @@
 /* Code blocks with line numbers and copy button */
 .obsidian-editor .cm-code-block-widget {
   display: block;
-  margin: 1em 0;
   background: hsl(var(--muted) / 0.5);
   border: 1px solid hsl(var(--border));
   border-radius: 0.5rem;
@@ -310,7 +316,6 @@
 .obsidian-editor .cm-hr-widget {
   display: block;
   width: 100%;
-  margin: 1.5em 0;
   padding: 0.5em 0;
 }
 
@@ -319,7 +324,6 @@
   height: 2px;
   background: hsl(var(--border));
   border: none;
-  margin: 0 auto;
   width: 100%;
 }
 
@@ -434,19 +438,10 @@
 }
 
 /* Reduce line height for list items to match text size exactly */
-.obsidian-editor .cm-line:has(.cm-list-bullet),
-.obsidian-editor .cm-line:has(.cm-list-number),
-.obsidian-editor .cm-line:has(.cm-task-checkbox) {
-  line-height: 1.4 !important;
-  min-height: 0 !important;
-}
+/* Removed :has() selectors for compatibility */
 
 /* Override any CodeMirror content wrapper heights in list lines */
-.obsidian-editor .cm-line:has(.cm-list-bullet) .cm-content,
-.obsidian-editor .cm-line:has(.cm-list-number) .cm-content,
-.obsidian-editor .cm-line:has(.cm-task-checkbox) .cm-content {
-  line-height: 1.4 !important;
-}
+/* Removed :has() selectors for compatibility */
 
 /* Empty line spacing */
 .obsidian-editor .cm-line:empty {
@@ -559,31 +554,11 @@
 
 /* HTML Block Widget */
 .obsidian-editor .cm-html-block-widget {
-  margin: 1.5em 0;
   display: block;
 }
 
-.obsidian-editor .cm-html-content {
-  line-height: 1.6;
-}
-
-.obsidian-editor .cm-html-content > div,
-.obsidian-editor .cm-html-content > p,
-.obsidian-editor .cm-html-content > section,
-.obsidian-editor .cm-html-content > article {
-  margin: 0.5em 0;
-}
-
-/* Details/Summary Collapsable Widget */
-.obsidian-editor .cm-details-block-widget {
-  margin: 1.5em 0;
-  display: block;
-}
 
 .obsidian-editor .cm-details {
-  border: 1px solid hsl(var(--border));
-  border-radius: 0.5rem;
-  padding: 0;
   background: hsl(var(--muted) / 0.3);
   overflow: hidden;
 }

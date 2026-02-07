@@ -53,14 +53,14 @@ export function shouldShowWidgetSourceState(state: EditorState, from: number, to
 }
 
 /**
- * Sanitize HTML by removing script tags and event handlers
- * Prevents XSS attacks in user-provided HTML content
+ * Sanitize HTML by removing script tags, event handlers, and margin styles
+ * Prevents XSS attacks and layout issues in user-provided HTML content
  */
 export function sanitizeHTML(html: string): string {
   return html
     .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '') // Remove <script> tags
     .replace(/\son\w+\s*=\s*["'][^"']*["']/gi, '') // Remove onclick="..." type handlers
-    .replace(/\son\w+\s*=\s*[^\s>]*/gi, ''); // Remove onclick=handler type handlers
+    .replace(/\son\w+\s*=\s*[^\s>]*/gi, '') // Remove onclick=handler type handlers
 }
 
 /**

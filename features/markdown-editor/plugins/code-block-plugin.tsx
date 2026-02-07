@@ -20,7 +20,7 @@ import { markdown } from '@codemirror/lang-markdown';
 /**
  * Languages to skip (handled by other plugins)
  */
-const SKIP_LANGUAGES = new Set(['mermaid', 'math', 'latex']);
+const SKIP_LANGUAGES = new Set(['mermaid', 'math', 'latex', 'html']);
 
 /**
  * Get language parser for syntax highlighting

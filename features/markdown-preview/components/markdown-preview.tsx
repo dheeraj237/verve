@@ -137,6 +137,17 @@ const MarkdownContent = memo(({ content, headings }: { content: string; headings
       </div>
     ),
     hr: () => <hr className="my-8 border-border" />,
+    // Details/Summary for collapsable sections
+    details: ({ children, ...props }: any) => (
+      <details className="my-4" {...props}>
+        {children}
+      </details>
+    ),
+    summary: ({ children, ...props }: any) => (
+      <summary className="cursor-pointer font-semibold" {...props}>
+        {children}
+      </summary>
+    ),
   }), [headings]);
 
   return (
