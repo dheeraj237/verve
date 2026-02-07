@@ -129,7 +129,7 @@ export function FileExplorer() {
             size="icon"
             onClick={handleNewFile}
             disabled={fileTree.length === 0}
-            className="h-6 w-6 hover:bg-sidebar-hover"
+            className="h-6 w-6 hover:bg-sidebar-hover cursor-pointer"
             title="New File"
           >
             <FilePlus className="h-4 w-4" />
@@ -139,7 +139,7 @@ export function FileExplorer() {
             size="icon"
             onClick={handleNewFolder}
             disabled={fileTree.length === 0}
-            className="h-6 w-6 hover:bg-sidebar-hover"
+            className="h-6 w-6 hover:bg-sidebar-hover cursor-pointer"
             title="New Folder"
           >
             <FolderPlus className="h-4 w-4" />
@@ -149,7 +149,7 @@ export function FileExplorer() {
             size="icon"
             onClick={handleRefresh}
             disabled={isRefreshing || fileTree.length === 0}
-            className="h-6 w-6 hover:bg-sidebar-hover"
+            className="h-6 w-6 hover:bg-sidebar-hover cursor-pointer"
             title="Refresh Explorer"
           >
             <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
@@ -159,7 +159,7 @@ export function FileExplorer() {
             size="icon"
             onClick={handleToggleCollapseExpand}
             disabled={fileTree.length === 0}
-            className="h-6 w-6 hover:bg-sidebar-hover"
+            className="h-6 w-6 hover:bg-sidebar-hover cursor-pointer"
             title={expandedFolders.size > 0 ? "Collapse All" : "Expand All"}
           >
             {expandedFolders.size > 0 ? (
@@ -205,7 +205,7 @@ export function FileExplorer() {
           size="sm"
           onClick={openLocalDirectory}
           disabled={isLoadingLocalFiles}
-          className="flex-1 gap-2 text-xs"
+          className="flex-1 gap-2 text-xs cursor-pointer"
           title="Open folder"
         >
           {isLoadingLocalFiles ? (
@@ -219,7 +219,7 @@ export function FileExplorer() {
           variant="outline"
           size="sm"
           onClick={openLocalFile}
-          className="flex-1 gap-2 text-xs"
+          className="flex-1 gap-2 text-xs cursor-pointer"
           title="Open file"
         >
           <FileText className="h-4 w-4" />

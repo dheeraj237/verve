@@ -154,7 +154,7 @@ function CodeBlockComponent({ children, language }: CodeBlockProps) {
         <button
           onClick={handleCopy}
           className={cn(
-            "flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-colors",
+            "flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-colors cursor-pointer",
             "hover:bg-muted-foreground/10",
             copied ? "text-green-600 dark:text-green-400" : "text-muted-foreground"
           )}

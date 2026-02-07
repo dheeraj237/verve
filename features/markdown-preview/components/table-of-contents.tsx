@@ -82,7 +82,7 @@ export function TableOfContents({ items, activeId }: TableOfContentsProps) {
                     "hover:text-primary",
                     "border-l-2 border-transparent",
                     isActive
-                      ? "text-primary font-bold border-l-primary bg-primary/5"
+                      ? "text-primary font-bold border-l-primary bg-primary/5 underline"
                       : "text-sidebar-foreground hover:border-l-sidebar-border"
                   )}
                   title={item.text}

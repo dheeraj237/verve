@@ -23,7 +23,7 @@ export function EditorModeToggle({ mode, onModeChange }: EditorModeToggleProps) 
               onClick={() => onModeChange("code")}
               title="Code Editor"
           >
-              <Code2 className="h-4 w-4" />
+              <Code2 className={cn("h-4 w-4", mode !== "code" && "text-muted-foreground")} />
           </Button>
           <Button
               variant="ghost"
@@ -35,7 +35,7 @@ export function EditorModeToggle({ mode, onModeChange }: EditorModeToggleProps) 
               onClick={() => onModeChange("live")}
               title="Live Preview Editor (Obsidian-like)"
           >
-              <Sparkles className="h-4 w-4" />
+              <Sparkles className={cn("h-4 w-4", mode !== "live" && "text-muted-foreground")} />
           </Button>
           <Button
               variant="ghost"
@@ -47,7 +47,7 @@ export function EditorModeToggle({ mode, onModeChange }: EditorModeToggleProps) 
               onClick={() => onModeChange("preview")}
               title="Preview Mode"
           >
-              <Eye className="h-4 w-4" />
+              <Eye className={cn("h-4 w-4", mode !== "preview" && "text-muted-foreground")} />
           </Button>
     </div>
   );

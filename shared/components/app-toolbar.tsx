@@ -1,6 +1,6 @@
 "use client";
 
-import { PanelLeft, PanelRight, Eye, Code2, Sparkles } from "lucide-react";
+import { PanelLeft, PanelRight, PanelLeftClose, PanelRightClose, Eye, Code2, Sparkles } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { ThemeToggle } from "@/shared/components/theme-toggle";
 import { usePanelStore } from "@/core/store/panel-store";
@@ -10,7 +10,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
 import { cn } from "@/shared/utils/cn";
 
 export function AppToolbar() {
-  const { toggleLeftPanel, toggleRightPanel } = usePanelStore();
+  const { toggleLeftPanel, toggleRightPanel, leftPanelCollapsed, rightPanelCollapsed } = usePanelStore();
   const { activeTabId, viewMode, setViewMode } = useEditorStore();
   const currentFile = useCurrentFile();
 
@@ -32,11 +32,11 @@ export function AppToolbar() {
             <Tabs value={viewMode} onValueChange={(value: string) => setViewMode(value as "preview" | "code" | "live")}>
               <TabsList className="h-8">
                 <TabsTrigger value="code" className="gap-1.5 cursor-pointer" title="Code Editor">
-                  <Code2 className="h-3.5 w-3.5" />
+                  <Code2 className={cn("h-3.5 w-3.5", viewMode !== "code" && "text-muted-foreground")} />
                   <span className="text-xs">Code</span>
                 </TabsTrigger>
                 <TabsTrigger value="live" className="gap-1.5 cursor-pointer" title="Live Preview Editor">
-                  <Sparkles className="h-3.5 w-3.5" />
+                  <Sparkles className={cn("h-3.5 w-3.5", viewMode !== "live" && "text-muted-foreground")} />
                   <span className="text-xs">Live</span>
                 </TabsTrigger>
               </TabsList>
@@ -47,10 +47,18 @@ export function AppToolbar() {
 
         {/* Panel toggles */}
         <Button variant="ghost" size="icon" className="cursor-pointer h-8 w-8" onClick={toggleLeftPanel}>
-          <PanelLeft className="h-4 w-4" />
+          {leftPanelCollapsed ? (
+            <PanelLeftClose className="h-4 w-4" />
+          ) : (
+              <PanelLeft className="h-4 w-4" />
+          )}
         </Button>
         <Button variant="ghost" size="icon" className="cursor-pointer h-8 w-8" onClick={toggleRightPanel}>
-          <PanelRight className="h-4 w-4" />
+          {rightPanelCollapsed ? (
+            <PanelRightClose className="h-4 w-4" />
+          ) : (
+              <PanelRight className="h-4 w-4" />
+          )}
         </Button>
 
         <Separator orientation="vertical" className="h-6" />

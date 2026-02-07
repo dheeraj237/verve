@@ -59,14 +59,14 @@ export function ContextMenu({
         <>
           <button
             onClick={onNewFile}
-            className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent transition-colors text-left"
+            className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent transition-colors text-left cursor-pointer"
           >
             <FileText className="h-4 w-4" />
             New File
           </button>
           <button
             onClick={onNewFolder}
-            className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent transition-colors text-left"
+            className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent transition-colors text-left cursor-pointer"
           >
             <FolderPlus className="h-4 w-4" />
             New Folder
@@ -76,14 +76,14 @@ export function ContextMenu({
       )}
       <button
         onClick={onRename}
-        className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent transition-colors text-left"
+        className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent transition-colors text-left cursor-pointer"
       >
         <Edit2 className="h-4 w-4" />
         Rename
       </button>
       <button
         onClick={onDelete}
-        className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent text-destructive transition-colors text-left"
+        className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent text-destructive transition-colors text-left cursor-pointer"
       >
         <Trash2 className="h-4 w-4" />
         Delete

@@ -26,7 +26,7 @@ export function FileTabs() {
   };
 
   return (
-    <TooltipProvider delayDuration={300}>
+    <TooltipProvider delayDuration={500}>
       <style jsx>{`
         .tab-scrollbar::-webkit-scrollbar {
           height: 6px;
@@ -46,9 +46,9 @@ export function FileTabs() {
         {openTabs.map((tab) => (
           <Tooltip key={tab.id}>
             <TooltipTrigger asChild>
-              <div
+              <button
                 className={cn(
-                  "flex items-center gap-2 px-3 py-2.5 border-r border-border cursor-pointer transition-all min-w-30 max-w-50 group relative flex-shrink-0",
+                  "flex items-center gap-2 px-3 py-2.5 border-r border-border cursor-pointer transition-all min-w-30 max-w-50 group relative shrink-0",
                   activeTabId === tab.id
                     ? "bg-editor-background text-foreground border-t-2 border-t-orange-500 shadow-sm"
                     : "bg-muted/30 text-muted-foreground hover:bg-muted/50 hover:text-foreground border-t-2 border-t-transparent"
@@ -60,11 +60,11 @@ export function FileTabs() {
                 )}
                 <span className="text-sm truncate flex-1 font-medium">{tab.name}</span>
                 {tab.isSaving ? (
-                  <Loader2 className="h-3 w-3 animate-spin text-primary flex-shrink-0" />
+                  <Loader2 className="h-3 w-3 animate-spin text-primary shrink-0" />
                 ) : (
                     <button
                       className={cn(
-                        "bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 rounded p-0.5 transition-all flex-shrink-0",
+                        "bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 rounded p-0.5 transition-all shrink-0",
                         activeTabId === tab.id
                           ? "opacity-70 hover:opacity-100"
                           : "opacity-0 group-hover:opacity-70 group-hover:hover:opacity-100"
@@ -78,9 +78,9 @@ export function FileTabs() {
                       <X className="h-3.5 w-3.5" />
                     </button>
                 )}
-              </div>
+              </button>
             </TooltipTrigger>
-            <TooltipContent side="bottom" className="text-xs">
+            <TooltipContent side="bottom" sideOffset={8} className="text-xs max-w-xs">
               <div className="space-y-1">
                 <div className="font-medium">{tab.path}</div>
                 <div className="text-muted-foreground">{formatLastSaved(tab.lastSaved)}</div>
@@ -97,12 +97,12 @@ export function FileTabs() {
                 size="sm"
                 variant={isLivePreviewMode ? "default" : "outline"}
                 onClick={togglePreviewMode}
-                className="h-7 w-7 p-0"
+                className="h-7 w-7 p-0 cursor-pointer"
               >
                 {isLivePreviewMode ? (
                   <Eye className="h-3.5 w-3.5" />
                 ) : (
-                  <Code2 className="h-3.5 w-3.5" />
+                    <Code2 className="h-3.5 w-3.5 text-muted-foreground" />
                 )}
               </Button>
             </TooltipTrigger>
