@@ -11,7 +11,7 @@ export function AppToolbar() {
   const { toggleLeftPanel, toggleRightPanel } = usePanelStore();
   const { activeTabId, viewMode } = useEditorStore();
 
-  const showTocToggle = activeTabId !== null && viewMode === "preview";
+  const showTocToggle = activeTabId !== null && (viewMode === "preview" || viewMode === "live");
 
   return (
     <div className="h-12 border-b bg-background px-4 flex items-center justify-between shrink-0">

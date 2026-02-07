@@ -25,8 +25,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { activeTabId, viewMode } = useEditorStore();
   const { items: tocItems, activeId } = useTocStore();
 
-  // Show TOC only when a file is open and in preview mode
-  const showToc = activeTabId !== null && viewMode === "preview";
+  // Show TOC when a file is open in preview or live mode
+  const showToc = activeTabId !== null && (viewMode === "preview" || viewMode === "live");
 
   useEffect(() => {
     if (leftPanelRef.current) {

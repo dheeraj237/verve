@@ -3,12 +3,7 @@
 import { useEffect, useRef } from "react";
 import { cn } from "@/shared/utils/cn";
 import { useTocStore } from "../store/toc-store";
-
-export interface TocItem {
-  id: string;
-  text: string;
-  level: number;
-}
+import { TocItem } from "../hooks/use-table-of-contents";
 
 interface TableOfContentsProps {
   items: TocItem[];
@@ -22,12 +17,16 @@ export function TableOfContents({ items, activeId }: TableOfContentsProps) {
   const handleClick = (e: React.MouseEvent, id: string) => {
     e.preventDefault();
 
-      // Set manual selection to prevent auto-detection from overriding
-      setManualActiveId(id);
+    // Set manual selection to prevent auto-detection from overriding
+    setManualActiveId(id);
 
     const element = document.getElementById(id);
     const container = document.getElementById("markdown-content");
+
+
+    // Check if we're in preview mode (elements exist) or live editor mode (elements don't exist)
     if (element && container) {
+      // Preview mode - scroll using DOM elements
       const elementTop = element.offsetTop;
       const containerHeight = container.clientHeight;
       const contentHeight = container.scrollHeight;
@@ -48,10 +47,22 @@ export function TableOfContents({ items, activeId }: TableOfContentsProps) {
         });
       }
 
-        // Clear manual selection after scroll animation completes (500ms)
-        setTimeout(() => {
-            clearManualSelection();
-        }, 500);
+      // Clear manual selection after scroll animation completes (500ms)
+      setTimeout(() => {
+        clearManualSelection();
+      }, 500);
+    } else {
+      // Live editor mode - dispatch custom event
+      const event = new CustomEvent('toc-click', {
+        detail: { headingId: id },
+        bubbles: true
+      });
+      window.dispatchEvent(event);
+
+      // Clear manual selection after scroll animation completes (500ms)
+      setTimeout(() => {
+        clearManualSelection();
+      }, 500);
     }
   };
 

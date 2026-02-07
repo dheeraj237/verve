@@ -28,7 +28,9 @@ export function UnifiedEditor() {
   // TOC integration
   const { setItems, setActiveId } = useTocStore();
   const headings = useTableOfContents(editableContent);
-  const activeId = useActiveHeading(headings.map(h => h.id));
+  // Only use useActiveHeading for preview mode (it tracks scroll in #markdown-content)
+  // Live mode handles its own scroll tracking in LiveMarkdownEditor
+  const activeId = useActiveHeading(viewMode === "preview" ? headings.map(h => h.id) : []);
 
   useEffect(() => {
     if (currentFile) {
@@ -43,10 +45,13 @@ export function UnifiedEditor() {
     setItems(headings);
   }, [headings, setItems]);
 
-  // Update active heading in TOC
+  // Update active heading in TOC (only for preview mode)
+  // Live mode manages activeId through its own scroll tracking
   useEffect(() => {
-    setActiveId(activeId);
-  }, [activeId, setActiveId]);
+    if (viewMode === "preview" && activeId) {
+      setActiveId(activeId);
+    }
+  }, [activeId, setActiveId, viewMode]);
 
   const handleSave = useCallback(async (isAutoSave = false) => {
     if (!currentFile || !hasChanges) return;

@@ -31,6 +31,8 @@ import { codeBlockPlugin } from "../plugins/code-block-plugin";
 import { customLinkPlugin } from "../plugins/custom-link-plugin";
 import { htmlPlugin } from "../plugins/html-plugin";
 import { detailsPlugin } from "../plugins/details-plugin";
+import { useTocStore } from "@/features/markdown-preview/store/toc-store";
+import { useTableOfContents } from "@/features/markdown-preview/hooks/use-table-of-contents";
 
 // Import KaTeX CSS
 import "katex/dist/katex.min.css";
@@ -51,6 +53,111 @@ export function LiveMarkdownEditor({ file, onContentChange }: LiveMarkdownEditor
   const scrollPosRef = useRef<number>(0);
   const currentFileIdRef = useRef<string>("");
   const isExternalUpdateRef = useRef<boolean>(false);
+  const [editorContent, setEditorContent] = useState(file.content);
+
+  // TOC integration
+  const { setItems, setActiveId, isManualSelection } = useTocStore();
+  const headings = useTableOfContents(editorContent);
+  const [editorView, setEditorView] = useState<EditorView | null>(null);
+
+  // Ensure editorContent is synced with file.content on file change
+  useEffect(() => {
+    setEditorContent(file.content);
+  }, [file.id, file.content]);
+
+  // Update TOC when headings change
+  useEffect(() => {
+    setItems(headings);
+  }, [headings, setItems]);
+
+  // Track active heading based on scroll position (matches preview mode behavior)
+  useEffect(() => {
+    if (!editorView || !mounted) return;
+
+    const view = editorView;
+    let ticking = false;
+
+    const updateActiveHeading = () => {
+      if (headings.length === 0) {
+        ticking = false;
+        return;
+      }
+
+      const doc = view.state.doc;
+      const scrollTop = view.scrollDOM.scrollTop;
+      const thresholdOffset = 150;
+      const lineAtThreshold = view.lineBlockAtHeight(scrollTop + thresholdOffset);
+      const currentLine = doc.lineAt(lineAtThreshold.from).number;
+
+      // Find the active heading: last heading before or at the threshold line
+      let activeHeading = headings[0]?.id || '';
+      for (let i = headings.length - 1; i >= 0; i--) {
+        if (headings[i].line <= currentLine) {
+          activeHeading = headings[i].id;
+          break;
+        }
+      }
+
+      if (!isManualSelection) {
+        setActiveId(activeHeading);
+      }
+      ticking = false;
+    };
+
+    const handleScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          updateActiveHeading();
+        });
+        ticking = true;
+      }
+    };
+
+    // Initial update to set first heading active
+    updateActiveHeading();
+
+    view.scrollDOM.addEventListener('scroll', handleScroll, { passive: true });
+
+    return () => {
+      view.scrollDOM.removeEventListener('scroll', handleScroll);
+    };
+  }, [editorView, headings, mounted, setActiveId, isManualSelection]);
+
+  // Handle TOC item clicks
+  useEffect(() => {
+    if (!editorView || !mounted) return;
+
+    const handleTocClick = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const headingId = customEvent.detail?.headingId;
+
+      const heading = headings.find(h => h.id === headingId);
+      if (!heading || !editorView) return;
+
+      const view = editorView;
+      const doc = view.state.doc;
+
+      if (heading.line > 0 && heading.line <= doc.lines) {
+        const lineInfo = doc.line(heading.line);
+        const pos = lineInfo.from;
+
+        view.dispatch({
+          effects: EditorView.scrollIntoView(pos, {
+            y: "start",
+            yMargin: 80
+          })
+        });
+
+        view.focus();
+      }
+    };
+
+    window.addEventListener('toc-click', handleTocClick);
+
+    return () => {
+      window.removeEventListener('toc-click', handleTocClick);
+    };
+  }, [editorView, headings, mounted]);
 
   function editorPlugins(isPreviewMode: boolean): Extension[] {
     return [
@@ -69,7 +176,7 @@ export function LiveMarkdownEditor({ file, onContentChange }: LiveMarkdownEditor
       mermaidPlugin,
       htmlPlugin,
       detailsPlugin,
-    ]
+    ];
   }
 
   useEffect(() => {
@@ -136,6 +243,8 @@ export function LiveMarkdownEditor({ file, onContentChange }: LiveMarkdownEditor
 
           if (update.docChanged) {
             const content = update.state.doc.toString();
+            // Update local content for TOC extraction
+            setEditorContent(content);
               // Notify parent of content change - parent will handle save
             onContentChange(content);
           }
@@ -158,6 +267,12 @@ export function LiveMarkdownEditor({ file, onContentChange }: LiveMarkdownEditor
     });
 
     viewRef.current = view;
+    setEditorContent(file.content);
+
+    setTimeout(() => {
+      setEditorView(view);
+    }, 0);
+
     setupMouseSelecting(view);
     
     // Keep focus in editor when interacting with it
@@ -172,6 +287,7 @@ export function LiveMarkdownEditor({ file, onContentChange }: LiveMarkdownEditor
     return () => {
       view.destroy();
       viewRef.current = null;
+      setEditorView(null);
     };
   }, [file.id, mounted, onContentChange]);
 
@@ -217,6 +333,7 @@ export function LiveMarkdownEditor({ file, onContentChange }: LiveMarkdownEditor
       // Scenario 1: Switching to a different file
       if (isFileSwitched) {
           currentFileIdRef.current = file.id;
+        setEditorContent(file.content);
 
           if (currentContent !== file.content) {
               viewRef.current.dispatch({
@@ -242,6 +359,7 @@ export function LiveMarkdownEditor({ file, onContentChange }: LiveMarkdownEditor
           // Save current scroll position
           const savedScrollPos = viewRef.current.scrollDOM.scrollTop;
 
+        setEditorContent(file.content);
           // Update content seamlessly
       viewRef.current.dispatch({
           changes: {

@@ -4,6 +4,7 @@ interface TocItem {
   id: string;
   text: string;
   level: number;
+  line: number;
 }
 
 interface TocState {
