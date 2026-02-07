@@ -596,6 +596,7 @@
   list-style: none;
   display: flex;
   align-items: center;
+  gap: 0.5rem;
   transition: background-color 0.2s;
   color: hsl(var(--foreground));
 }
@@ -604,17 +605,21 @@
   display: none;
 }
 
-.obsidian-editor .cm-summary::before {
-  content: '▶';
-  display: inline-block;
-  margin-right: 0.5rem;
-  transition: transform 0.2s;
+/* Explicit arrow element */
+.obsidian-editor .cm-summary-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1em;
+  height: 1em;
   font-size: 0.75em;
   color: hsl(var(--muted-foreground));
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
 }
 
-.obsidian-editor .cm-details[open] .cm-summary::before {
-  transform: rotate(90deg);
+.obsidian-editor .cm-summary-text {
+  flex: 1;
 }
 
 .obsidian-editor .cm-summary:hover {

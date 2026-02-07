@@ -5,7 +5,6 @@ This document demonstrates HTML blocks and collapsable sections in the markdown 
 ## HTML Content
 
 You can embed styled HTML directly in your markdown:
-
 <div style="background-color: #f0f0f0; padding: 10px; border-radius: 5px;">
 This is HTML content within Markdown.
 </div>

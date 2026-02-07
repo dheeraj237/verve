@@ -4,7 +4,7 @@
  */
 
 import { syntaxTree } from '@codemirror/language';
-import { EditorState as CMEditorState, Range, StateField } from '@codemirror/state';
+import { EditorState, Range, StateField } from '@codemirror/state';
 import { Decoration, DecorationSet, EditorView, WidgetType } from '@codemirror/view';
 import { shouldShowSource } from 'codemirror-live-markdown';
 
@@ -60,20 +60,26 @@ class HTMLBlockWidget extends WidgetType {
     const container = document.createElement('div');
     container.className = 'cm-html-block-widget';
 
-    // Sanitize HTML before rendering
-    const sanitized = sanitizeHTML(this.html);
+    try {
+      // Sanitize HTML before rendering
+      const sanitized = sanitizeHTML(this.html);
 
-    // Create wrapper for rendered content
-    const contentWrapper = document.createElement('div');
-    contentWrapper.className = 'cm-html-content';
-    contentWrapper.innerHTML = sanitized;
+      // Create wrapper for rendered content
+      const contentWrapper = document.createElement('div');
+      contentWrapper.className = 'cm-html-content';
+      contentWrapper.innerHTML = sanitized;
 
-    container.appendChild(contentWrapper);
+      container.appendChild(contentWrapper);
+    } catch (err) {
+      console.error('[HTMLBlockWidget] Error rendering:', err);
+      container.innerHTML = '<div style="color: red;">Error rendering HTML block</div>';
+    }
 
     return container;
   }
 
   ignoreEvent() {
+    // Let CodeMirror handle all events (for cursor positioning)
     return false;
   }
 }
@@ -82,6 +88,8 @@ class HTMLBlockWidget extends WidgetType {
  * Widget to render collapsable details/summary blocks
  */
 class DetailsBlockWidget extends WidgetType {
+  private summaryElement: HTMLElement | null = null;
+
   constructor(private summary: string, private content: string) {
     super();
   }
@@ -96,30 +104,70 @@ class DetailsBlockWidget extends WidgetType {
     const container = document.createElement('div');
     container.className = 'cm-details-block-widget';
 
-    // Create details element
-    const details = document.createElement('details');
-    details.className = 'cm-details';
+    try {
+      // Create details element
+      const details = document.createElement('details');
+      details.className = 'cm-details';
 
-    // Create summary element
-    const summary = document.createElement('summary');
-    summary.className = 'cm-summary';
-    summary.innerHTML = sanitizeHTML(this.summary);
+      // Create summary element with arrow icon
+      const summary = document.createElement('summary');
+      summary.className = 'cm-summary';
+      this.summaryElement = summary;
 
-    // Create content wrapper
-    const contentWrapper = document.createElement('div');
-    contentWrapper.className = 'cm-details-content';
-    contentWrapper.innerHTML = sanitizeHTML(this.content);
+      // Add arrow icon
+      const arrow = document.createElement('span');
+      arrow.className = 'cm-summary-arrow';
+      arrow.textContent = '▶';
+      summary.appendChild(arrow);
 
-    details.appendChild(summary);
-    details.appendChild(contentWrapper);
-    container.appendChild(details);
+      // Add summary text
+      const summaryText = document.createElement('span');
+      summaryText.className = 'cm-summary-text';
+      summaryText.innerHTML = sanitizeHTML(this.summary);
+      summary.appendChild(summaryText);
+
+      // Handle arrow rotation on toggle
+      details.addEventListener('toggle', () => {
+        if (details.open) {
+          arrow.style.transform = 'rotate(90deg)';
+        } else {
+          arrow.style.transform = 'rotate(0deg)';
+        }
+      });
+
+      // Create content wrapper
+      const contentWrapper = document.createElement('div');
+      contentWrapper.className = 'cm-details-content';
+      contentWrapper.innerHTML = sanitizeHTML(this.content);
+
+      details.appendChild(summary);
+      details.appendChild(contentWrapper);
+      container.appendChild(details);
+    } catch (err) {
+      console.error('[DetailsBlockWidget] Error rendering:', err);
+      container.innerHTML = '<div style="color: red;">Error rendering details block</div>';
+    }
 
     return container;
   }
 
   ignoreEvent(event: Event) {
-    // Allow click events for toggling details
-    return event.type === 'click';
+    // Ignore events on the summary element (let native toggle work)
+    // But allow CodeMirror to handle events on content (for showing source)
+    if (!event.target) return false;
+
+    const target = event.target as HTMLElement;
+
+    // Check if the event target is within the summary element
+    if (this.summaryElement && this.summaryElement.contains(target)) {
+      // Ignore mousedown/click on summary - let native details toggle work
+      if (event.type === 'mousedown' || event.type === 'click') {
+        return true;
+      }
+    }
+
+    // For content area, let CodeMirror handle events (show source on click)
+    return false;
   }
 }
 
@@ -152,9 +200,22 @@ function isCompleteHTMLBlock(content: string): boolean {
 }
 
 /**
+ * Check if content contains markdown syntax
+ */
+function containsMarkdown(content: string): boolean {
+  // Check for code blocks
+  if (/```/.test(content)) return true;
+  // Check for lists
+  if (/^\s*[-*+]\s/m.test(content)) return true;
+  // Check for headings
+  if (/^#{1,6}\s/m.test(content)) return true;
+  return false;
+}
+
+/**
  * Build decorations for HTML blocks
  */
-function buildHTMLDecorations(state: CMEditorState): DecorationSet {
+function buildHTMLDecorations(state: EditorState): DecorationSet {
   const decorations: Range<Decoration>[] = [];
 
   syntaxTree(state).iterate({
@@ -168,6 +229,9 @@ function buildHTMLDecorations(state: CMEditorState): DecorationSet {
         // Only handle complete HTML blocks
         if (!isCompleteHTMLBlock(content)) return;
 
+        // Skip blocks that contain markdown syntax
+        if (containsMarkdown(content)) return;
+
         // Check if cursor/selection is inside
         const isTouched = shouldShowSource(state, node.from, node.to);
 
@@ -176,6 +240,9 @@ function buildHTMLDecorations(state: CMEditorState): DecorationSet {
           if (isDetailsBlock(content)) {
             const detailsContent = extractDetailsContent(content);
             if (detailsContent) {
+              // Skip if content has markdown
+              if (containsMarkdown(detailsContent.content)) return;
+
               const widget = new DetailsBlockWidget(
                 detailsContent.summary,
                 detailsContent.content
