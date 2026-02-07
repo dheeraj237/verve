@@ -15,6 +15,10 @@ import { CodeBlock } from "./code-block";
 import { sanitizeMarkdown } from "@/shared/utils/sanitize";
 
 const MarkdownContent = memo(({ content, headings }: { content: string; headings: any[] }) => {
+  // Helper functions for link navigation
+  const isMac = () => typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(navigator.platform);
+  const getModifierKeyName = () => isMac() ? 'Cmd' : 'Ctrl';
+
   // Memoize markdown components to prevent re-renders
   const components = useMemo(() => ({
     h1: ({ node, children, ...props }: any) => {
@@ -53,16 +57,29 @@ const MarkdownContent = memo(({ content, headings }: { content: string; headings
       const id = index >= 0 ? headings[index].id : undefined;
       return <h6 id={id} className="text-sm font-semibold mt-4 mb-2 tracking-tight" {...props}>{children}</h6>;
     },
-    a: ({ href, children }: any) => (
-      <a
-        href={href}
-        className="text-primary hover:underline font-medium cursor-pointer"
-        target={href?.startsWith('http') ? '_blank' : undefined}
-        rel={href?.startsWith('http') ? 'noopener noreferrer' : undefined}
-      >
-        {children}
-      </a>
-    ),
+    a: ({ href, children }: any) => {
+      const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+        const isModifierPressed = isMac() ? e.metaKey : e.ctrlKey;
+
+        if (isModifierPressed && href) {
+          e.preventDefault();
+          window.open(href, '_blank', 'noopener,noreferrer');
+        }
+      };
+
+      return (
+        <a
+          href={href}
+          className="text-primary hover:underline font-medium cursor-pointer relative group inline"
+          onClick={handleClick}
+        >
+          {children}
+          <span className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-2 py-1 text-xs font-medium text-popover-foreground bg-popover border border-border rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-[9999] shadow-lg">
+            {getModifierKeyName()}+Click to open
+          </span>
+        </a>
+      );
+    },
     code: ({ node, inline, className, children, ...props }: any) => {
       const match = /language-(\w+)/.exec(className || '');
       const language = match ? match[1] : '';

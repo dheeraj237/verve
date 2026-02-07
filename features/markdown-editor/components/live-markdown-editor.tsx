@@ -9,7 +9,6 @@ import { Table, TaskList, GFM, Strikethrough } from "@lezer/markdown";
 import {
   livePreviewPlugin,
   markdownStylePlugin,
-  linkPlugin,
   imageField,
   collapseOnSelectionFacet,
   mouseSelectingField,
@@ -29,6 +28,8 @@ import { listPlugin } from "../plugins/list-plugin";
 import { horizontalRulePlugin } from "../plugins/horizontal-rule-plugin";
 import { mermaidPlugin } from "../plugins/mermaid-plugin";
 import { codeBlockPlugin } from "../plugins/code-block-plugin";
+import { customLinkPlugin } from "../plugins/custom-link-plugin";
+import { htmlPlugin } from "../plugins/html-plugin";
 
 // Import KaTeX CSS
 import "katex/dist/katex.min.css";
@@ -60,11 +61,10 @@ export function LiveMarkdownEditor({ file, onContentChange }: LiveMarkdownEditor
       blockMathField,
       tableField,
       imageField(),
-      linkPlugin({
-        openInNewTab: true,
-      }),
+      customLinkPlugin,
       listPlugin,
       horizontalRulePlugin,
+      htmlPlugin,
       // codeBlockField()
       mermaidPlugin,
       codeBlockPlugin,
