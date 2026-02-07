@@ -64,16 +64,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             onResize={setLeftPanelSize}
             className="bg-sidebar-background border-r border-sidebar-border"
           >
-            <div className="h-full flex flex-col overflow-hidden">
-              <div className="px-4 py-3 border-b border-sidebar-border shrink-0">
-                <h3 className="text-xs font-semibold text-sidebar-foreground uppercase tracking-wide">
-                  Explorer
-                </h3>
-              </div>
-              <div className="flex-1 overflow-y-auto overflow-x-hidden">
-                <FileExplorer />
-              </div>
-            </div>
+            <FileExplorer />
           </Panel>
 
           <PanelResizeHandle className="w-1 bg-sidebar-border hover:bg-primary hover:w-1.5 transition-all cursor-col-resize data-[panel-group-direction=horizontal]:w-1" />

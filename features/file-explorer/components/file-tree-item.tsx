@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { ChevronRight, File, Folder, FolderOpen } from "lucide-react";
+import { ChevronRight, File, Folder, FolderOpen, FilePlus, FolderPlus } from "lucide-react";
 import { FileNode } from "@/shared/types";
 import { useFileExplorerStore } from "../store/file-explorer-store";
 import { cn } from "@/shared/utils/cn";
@@ -9,6 +9,7 @@ import { useEditorStore } from "@/features/markdown-editor/store/editor-store";
 import { ContextMenu } from "./context-menu";
 import { InlineInput } from "./inline-input";
 import { toast } from "@/shared/utils/toast";
+import { Button } from "@/shared/components/ui/button";
 
 interface FileTreeItemProps {
   node: FileNode;
@@ -24,8 +25,7 @@ export function FileTreeItem({ node, level, parentNode }: FileTreeItemProps) {
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [isRenaming, setIsRenaming] = useState(false);
   const [newItemType, setNewItemType] = useState<'file' | 'folder' | null>(null);
-  const clickTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const clickCountRef = useRef(0);
+  const [isHovered, setIsHovered] = useState(false);
 
   const isExpanded = expandedFolders.has(node.id);
   const isSelected = selectedFileId === node.id;
@@ -51,27 +51,12 @@ export function FileTreeItem({ node, level, parentNode }: FileTreeItemProps) {
   const handleClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
 
-    // Handle double-click for renaming
-    clickCountRef.current++;
-
-    if (clickCountRef.current === 1) {
-      clickTimeoutRef.current = setTimeout(() => {
-        clickCountRef.current = 0;
-        // Single click behavior
-        if (node.type === "folder") {
-          toggleFolder(node.id);
-        } else {
-          setSelectedFile(node.id);
-          loadFile();
-        }
-      }, 300);
-    } else if (clickCountRef.current === 2) {
-      // Double click - start renaming
-      if (clickTimeoutRef.current) {
-        clearTimeout(clickTimeoutRef.current);
-      }
-      clickCountRef.current = 0;
-      setIsRenaming(true);
+    // Single click behavior - VSCode style
+    if (node.type === "folder") {
+      toggleFolder(node.id);
+    } else {
+      setSelectedFile(node.id);
+      loadFile();
     }
   };
 
@@ -131,13 +116,21 @@ export function FileTreeItem({ node, level, parentNode }: FileTreeItemProps) {
     }
   };
 
-  useEffect(() => {
-    return () => {
-      if (clickTimeoutRef.current) {
-        clearTimeout(clickTimeoutRef.current);
-      }
-    };
-  }, []);
+  const handleNewFileClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!isExpanded) {
+      toggleFolder(node.id);
+    }
+    setNewItemType('file');
+  };
+
+  const handleNewFolderClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!isExpanded) {
+      toggleFolder(node.id);
+    }
+    setNewItemType('folder');
+  };
 
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -181,7 +174,6 @@ export function FileTreeItem({ node, level, parentNode }: FileTreeItemProps) {
       try {
         await deleteNode(node.path, node.type === 'folder');
         toast.dismiss(toastId);
-        toast.success(`${node.type === 'folder' ? 'Folder' : 'File'} deleted`, node.name);
       } catch (error) {
         toast.dismiss(toastId);
         toast.error('Delete failed', (error as Error).message);
@@ -197,7 +189,6 @@ export function FileTreeItem({ node, level, parentNode }: FileTreeItemProps) {
     try {
       await renameNode(node.path, newName);
       toast.dismiss(toastId);
-      toast.success('Renamed successfully', `${node.name} → ${newName}`);
     } catch (error) {
       toast.dismiss(toastId);
       toast.error('Rename failed', (error as Error).message);
@@ -216,7 +207,6 @@ export function FileTreeItem({ node, level, parentNode }: FileTreeItemProps) {
         await createFolder(node.id, name);
       }
       toast.dismiss(toastId);
-      toast.success(`${itemType} created`, name);
     } catch (error) {
       toast.dismiss(toastId);
       toast.error(`Failed to create ${itemType.toLowerCase()}`, (error as Error).message);
@@ -246,35 +236,61 @@ export function FileTreeItem({ node, level, parentNode }: FileTreeItemProps) {
     <div>
       <div
         className={cn(
-          "flex items-center gap-1 px-2 py-1 cursor-pointer hover:bg-sidebar-hover transition-colors",
+          "group flex items-center gap-1 px-2 py-1 cursor-pointer hover:bg-sidebar-hover transition-colors relative",
           isSelected && "bg-accent"
         )}
         style={{ paddingLeft: `${level * 12 + 8}px` }}
         onClick={handleClick}
         onContextMenu={handleContextMenu}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
       >
         {node.type === "folder" ? (
           <>
             <ChevronRight
               className={cn(
-                "h-4 w-4 transition-transform flex-shrink-0 cursor-pointer",
+                "h-4 w-4 transition-transform shrink-0 cursor-pointer",
                 isExpanded && "rotate-90"
               )}
               onClick={handleChevronClick}
             />
             {isExpanded ? (
-              <FolderOpen className="h-4 w-4 text-primary flex-shrink-0" />
+              <FolderOpen className="h-4 w-4 text-primary shrink-0" />
             ) : (
-              <Folder className="h-4 w-4 text-primary flex-shrink-0" />
+                <Folder className="h-4 w-4 text-primary shrink-0" />
             )}
           </>
         ) : (
           <>
             <div className="w-4" />
-            <File className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              <File className="h-4 w-4 text-muted-foreground shrink-0" />
           </>
         )}
-        <span className="text-sm truncate">{node.name}</span>
+        <span className="text-sm truncate flex-1">{node.name}</span>
+
+        {/* Folder hover actions - VSCode style */}
+        {node.type === "folder" && isHovered && (
+          <div className="flex items-center gap-0.5 ml-auto">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleNewFileClick}
+              className="h-5 w-5 hover:bg-sidebar-hover opacity-0 group-hover:opacity-100 transition-opacity"
+              title="New File"
+            >
+              <FilePlus className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleNewFolderClick}
+              className="h-5 w-5 hover:bg-sidebar-hover opacity-0 group-hover:opacity-100 transition-opacity"
+              title="New Folder"
+            >
+              <FolderPlus className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        )}
       </div>
 
       {contextMenu && (

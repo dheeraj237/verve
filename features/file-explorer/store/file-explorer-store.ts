@@ -7,6 +7,8 @@ interface FileExplorerStore {
   selectedFileId: string | null;
   fileTree: FileNode[];
   isLoadingLocalFiles: boolean;
+  currentDirectoryName: string | null;
+  currentDirectoryPath: string | null;
   toggleFolder: (folderId: string) => void;
   setSelectedFile: (fileId: string | null) => void;
   setFileTree: (tree: FileNode[]) => void;
@@ -17,6 +19,10 @@ interface FileExplorerStore {
   renameNode: (nodePath: string, newName: string) => Promise<void>;
   deleteNode: (nodePath: string, isFolder: boolean) => Promise<void>;
   refreshFileTree: () => Promise<void>;
+  collapseAll: () => void;
+  expandAll: () => void;
+  toggleCollapseExpand: () => void;
+  setCurrentDirectory: (name: string, path: string) => void;
 }
 
 export const useFileExplorerStore = create<FileExplorerStore>()(
@@ -26,6 +32,8 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
       selectedFileId: null,
       fileTree: [],
       isLoadingLocalFiles: false,
+      currentDirectoryName: null,
+      currentDirectoryPath: null,
       toggleFolder: (folderId) =>
         set((state) => {
           const newSet = new Set(state.expandedFolders);
@@ -39,6 +47,7 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
       setSelectedFile: (fileId) => set({ selectedFileId: fileId }),
       setFileTree: (tree) => set({ fileTree: tree }),
       setIsLoadingLocalFiles: (loading) => set({ isLoadingLocalFiles: loading }),
+      setCurrentDirectory: (name, path) => set({ currentDirectoryName: name, currentDirectoryPath: path }),
 
       openLocalDirectory: async () => {
         try {
@@ -51,6 +60,10 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
           set({ isLoadingLocalFiles: true });
 
           const dirHandle = await (window as any).showDirectoryPicker();
+
+          // Store directory name and path
+          const { setCurrentDirectory } = useFileExplorerStore.getState();
+          setCurrentDirectory(dirHandle.name, dirHandle.name);
 
           // Recursively read directory structure
           const buildFileTree = async (handle: any, path: string = ''): Promise<FileNode[]> => {
@@ -259,6 +272,40 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
         }
       },
 
+      collapseAll: () => {
+        set({ expandedFolders: new Set() });
+      },
+
+      expandAll: () => {
+        const getAllFolderIds = (nodes: FileNode[]): string[] => {
+          const ids: string[] = [];
+          for (const node of nodes) {
+            if (node.type === 'folder') {
+              ids.push(node.id);
+              if (node.children) {
+                ids.push(...getAllFolderIds(node.children));
+              }
+            }
+          }
+          return ids;
+        };
+
+        const state = useFileExplorerStore.getState();
+        const allFolderIds = getAllFolderIds(state.fileTree);
+        set({ expandedFolders: new Set(allFolderIds) });
+      },
+
+      toggleCollapseExpand: () => {
+        const state = useFileExplorerStore.getState();
+        if (state.expandedFolders.size > 0) {
+          // If any folders are expanded, collapse all
+          state.collapseAll();
+        } else {
+          // If all folders are collapsed, expand all
+          state.expandAll();
+        }
+      },
+
       refreshFileTree: async () => {
         const state = useFileExplorerStore.getState();
         const dirHandle = (window as any).__localDirHandle;
@@ -323,6 +370,8 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
       partialize: (state) => ({
         expandedFolders: Array.from(state.expandedFolders),
         selectedFileId: state.selectedFileId,
+        currentDirectoryName: state.currentDirectoryName,
+        currentDirectoryPath: state.currentDirectoryPath,
       }),
       onRehydrateStorage: () => (state) => {
         if (state) {

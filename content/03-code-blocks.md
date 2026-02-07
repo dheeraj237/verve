@@ -1,392 +1,112 @@
-# Code Blocks and Syntax Highlighting
+# Basic Markdown Formatting
 
-This document showcases code blocks with syntax highlighting for various programming languages.
+Welcome to the MDNotes Live Editor! This document showcases basic markdown formatting features with real-time preview.
 
-## Inline Code
+## Headers
 
-Use backticks for inline code: `const x = 42;` or `print("Hello")` or `SELECT * FROM users`.
+You can create headers using `#` symbols. More `#` symbols = smaller headers.
 
-You can also use inline code with special characters: `<div>`, `npm install`, `git commit -m "message"`.
-
----
-
-## JavaScript / TypeScript
-
-```javascript
-// Function to calculate factorial
-function factorial(n) {
-    if (n <= 1) return 1;
-    return n * factorial(n - 1);
-}
-
-// Arrow function with map
-const numbers = [1, 2, 3, 4, 5];
-const squared = numbers.map(n => n ** 2);
-
-// Async/await example
-async function fetchData(url) {
-    try {
-        const response = await fetch(url);
-        const data = await response.json();
-        return data;
-    } catch (error) {
-        console.error('Error fetching data:', error);
-    }
-}
-
-console.log(squared); // [1, 4, 9, 16, 25]
-```
-
-```typescript
-// TypeScript with types
-interface User {
-    id: number;
-    name: string;
-    email: string;
-    isActive: boolean;
-}
-
-class UserManager {
-    private users: User[] = [];
-
-    addUser(user: User): void {
-        this.users.push(user);
-    }
-
-    findUserById(id: number): User | undefined {
-        return this.users.find(user => user.id === id);
-    }
-
-    getActiveUsers(): User[] {
-        return this.users.filter(user => user.isActive);
-    }
-}
-
-const manager = new UserManager();
-```
+# H1 - Main Title (Largest)
+## H2 - Section Title
+### H3 - Subsection Title
+#### H4 - Sub-subsection Title
+##### H5 - Minor Heading
+###### H6 - Smallest Heading
 
 ---
 
-## Python
+## Text Formatting
 
-```python
-# Python class example
-class Animal:
-    def __init__(self, name, species):
-        self.name = name
-        self.species = species
-    
-    def make_sound(self):
-        return f"{self.name} makes a sound"
+**Bold text** using `**bold**` or `__bold__`
 
-class Dog(Animal):
-    def __init__(self, name, breed):
-        super().__init__(name, "Dog")
-        self.breed = breed
-    
-    def make_sound(self):
-        return f"{self.name} barks!"
+*Italic text* using `*italic*` or `_italic_`
 
-# List comprehension
-squares = [x**2 for x in range(10) if x % 2 == 0]
+***Bold and italic*** using `***text***` or `___text___`
 
-# Dictionary manipulation
-user_data = {
-    'name': 'John Doe',
-    'age': 30,
-    'email': 'john@example.com'
-}
+~~Strikethrough text~~ using `~~text~~`
 
-# Lambda functions
-multiply = lambda x, y: x * y
-result = multiply(5, 3)
-
-print(f"Squares: {squares}")
-print(f"Result: {result}")
-```
+`Inline code` using backticks: `` `code` ``
 
 ---
 
-## SQL
+## Paragraphs and Line Breaks
 
-```sql
--- Complex SQL query with joins
-SELECT 
-    u.id,
-    u.username,
-    u.email,
-    COUNT(o.id) as total_orders,
-    SUM(o.amount) as total_spent,
-    MAX(o.created_at) as last_order_date
-FROM users u
-LEFT JOIN orders o ON u.id = o.user_id
-WHERE u.created_at >= '2024-01-01'
-    AND u.is_active = true
-GROUP BY u.id, u.username, u.email
-HAVING COUNT(o.id) > 5
-ORDER BY total_spent DESC
-LIMIT 10;
+This is a paragraph. Paragraphs are separated by blank lines.
 
--- Create table
-CREATE TABLE products (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    description TEXT,
-    price DECIMAL(10, 2) NOT NULL,
-    stock_quantity INTEGER DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Insert with conflict handling
-INSERT INTO products (name, price, stock_quantity)
-VALUES ('Widget', 29.99, 100)
-ON CONFLICT (name) 
-DO UPDATE SET 
-    stock_quantity = products.stock_quantity + EXCLUDED.stock_quantity;
-```
+This is another paragraph. You can write multiple sentences here.
+Add two spaces at the end of a line for a line break.  
+Like this!
 
 ---
 
-## HTML / CSS
+## Horizontal Rules
 
-```text
-<div style="background-color: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; margin: 20px 0;">
-  <strong>⚠️ Warning:</strong> This is a warning message with custom styling.
-</div>
-```
-
-Would rendered as:
-
-```html
-<div style="padding: 15px; border-left: 4px solid #ffc107; margin: 20px 0;">
-  <strong>⚠️ Warning:</strong> This is a warning message with custom styling.
-</div>
-```
-
-```css
-/* Modern CSS with variables */
-:root {
-    --primary-color: #3498db;
-    --secondary-color: #2ecc71;
-    --text-color: #333;
-    --bg-color: #f4f4f4;
-    --spacing: 1rem;
-}
-
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
-
-body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    color: var(--text-color);
-    background-color: var(--bg-color);
-    line-height: 1.6;
-}
-
-.container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: var(--spacing);
-}
-
-/* Flexbox layout */
-.flex-container {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: var(--spacing);
-}
-
-/* Grid layout */
-.grid-container {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: var(--spacing);
-}
-
-/* Animations */
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.fade-in {
-    animation: fadeIn 0.5s ease-in-out;
-}
-```
+You can create horizontal rules using three or more dashes, asterisks, or underscores:
 
 ---
 
-## JSON
+***
 
-```json
-{
-  "name": "mdnotes-viewer",
-  "version": "1.0.0",
-  "description": "A modern markdown viewer with live editing",
-  "author": {
-    "name": "John Doe",
-    "email": "john@example.com"
-  },
-  "dependencies": {
-    "react": "^18.2.0",
-    "next": "^14.0.0",
-    "typescript": "^5.0.0"
-  },
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint ."
-  },
-  "keywords": [
-    "markdown",
-    "editor",
-    "viewer",
-    "live-preview"
-  ]
-}
-```
+___
+
+## Superscript and Subscript
+
+This is X^2^ for superscript (if supported).
+
+H~2~O for subscript (if supported).
 
 ---
 
-## Bash / Shell
+## Special Characters
 
-```bash
-#!/bin/bash
+You can escape special characters with backslash:
 
-# Variables
-PROJECT_NAME="my-app"
-BUILD_DIR="dist"
-NODE_ENV="production"
-
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
-
-# Function to print colored output
-print_message() {
-    echo -e "${GREEN}[INFO]${NC} $1"
-}
-
-print_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
-
-# Check if Node.js is installed
-if ! command -v node &> /dev/null; then
-    print_error "Node.js is not installed!"
-    exit 1
-fi
-
-print_message "Starting build process..."
-
-# Clean build directory
-if [ -d "$BUILD_DIR" ]; then
-    rm -rf "$BUILD_DIR"
-    print_message "Cleaned $BUILD_DIR directory"
-fi
-
-# Install dependencies
-npm install || {
-    print_error "Failed to install dependencies"
-    exit 1
-}
-
-# Run build
-NODE_ENV=$NODE_ENV npm run build || {
-    print_error "Build failed"
-    exit 1
-}
-
-print_message "Build completed successfully!"
-```
+\*Not italic\* 
+\`Not code\` 
+\# Not a header
 
 ---
 
-## Go
+## Emoji Support
 
-```go
-package main
+😀 😎 🚀 💻 ☕ 🎉 ✨ 🔥 💡 📝
 
-import (
-    "fmt"
-    "net/http"
-    "time"
-)
-
-// User struct
-type User struct {
-    ID        int       `json:"id"`
-    Username  string    `json:"username"`
-    Email     string    `json:"email"`
-    CreatedAt time.Time `json:"created_at"`
-}
-
-// Handler function
-func helloHandler(w http.ResponseWriter, r *http.Request) {
-    fmt.Fprintf(w, "Hello, World!")
-}
-
-// Method on User struct
-func (u *User) GetFullInfo() string {
-    return fmt.Sprintf("%s (%s) - ID: %d", u.Username, u.Email, u.ID)
-}
-
-func main() {
-    // Create user
-    user := User{
-        ID:        1,
-        Username:  "johndoe",
-        Email:     "john@example.com",
-        CreatedAt: time.Now(),
-    }
-
-    fmt.Println(user.GetFullInfo())
-
-    // Set up HTTP server
-    http.HandleFunc("/", helloHandler)
-    
-    fmt.Println("Server starting on :8080...")
-    http.ListenAndServe(":8080", nil)
-}
-```
+You can use emoji directly or with codes (if supported):
+:smile: :heart: :rocket: :coffee:
 
 ---
 
-## Plain Text
+## Highlights and Marks
 
-```
-This is plain text without syntax highlighting.
-It's useful for showing output or configuration files.
+==Highlighted text== (if supported with `==text==`)
 
-Line 1
-Line 2
-Line 3
-
-No special formatting or colors applied.
-```
+++Inserted text++ (if supported with `++text++`)
 
 ---
 
-## Tips for Code Blocks
+## Quotes and Citations
 
-- Use triple backticks (```) to create code blocks
-- Specify the language after opening backticks for syntax highlighting
-- Supported languages: javascript, python, sql, html, css, json, bash, go, rust, java, php, and many more
-- Use single backticks for inline code
-- Code blocks preserve indentation and formatting
+As Einstein said:
 
-**Try it yourself**: Click inside any code block to see the raw markdown!
+> "Imagination is more important than knowledge."
+
+You can attribute quotes:
+
+> "The best way to predict the future is to invent it."  
+> — Alan Kay
+
+---
+
+## Quick Reference
+
+| Syntax | Result |
+|--------|--------|
+| `**bold**` | **bold** |
+| `*italic*` | *italic* |
+| `~~strike~~` | ~~strike~~ |
+| `` `code` `` | `code` |
+| `==highlight==` | ==highlight== |
+
+---
+
+**Tip**: Try clicking anywhere in the editor to switch between preview and edit mode!
