@@ -278,7 +278,7 @@ export function FileTreeItem({ node, level, parentNode }: FileTreeItemProps) {
               className="h-5 w-5 hover:bg-sidebar-hover opacity-0 group-hover:opacity-100 transition-opacity"
               title="New File"
             >
-              <FilePlus className="h-3.5 w-3.5" />
+              <FilePlus className="cursor-pointer h-3.5 w-3.5" />
             </Button>
             <Button
               variant="ghost"
@@ -287,7 +287,7 @@ export function FileTreeItem({ node, level, parentNode }: FileTreeItemProps) {
               className="h-5 w-5 hover:bg-sidebar-hover opacity-0 group-hover:opacity-100 transition-opacity"
               title="New Folder"
             >
-              <FolderPlus className="h-3.5 w-3.5" />
+              <FolderPlus className="cursor-pointer h-3.5 w-3.5" />
             </Button>
           </div>
         )}
@@ -313,7 +313,7 @@ export function FileTreeItem({ node, level, parentNode }: FileTreeItemProps) {
             <InlineInput
               type={newItemType}
               level={level + 1}
-              defaultValue={newItemType === 'file' ? 'newfile.md' : 'newfolder'}
+              defaultValue={newItemType === 'file' ? 'untitled.md' : 'untitled'}
               onConfirm={handleNewItemConfirm}
               onCancel={() => setNewItemType(null)}
               existingNames={getChildrenNames()}

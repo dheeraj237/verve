@@ -44,7 +44,7 @@ interface EditorStore {
   setIsLoading: (loading: boolean) => void;
   openLocalFile: () => Promise<void>;
   loadFileFromManager: (path: string, isLocal?: boolean) => Promise<void>;
-  openFileByPath: (relativePath: string, currentFilePath?: string) => Promise<void>;
+  openFileByPath: (relativePath: string, currentFilePath?: string, anchor?: string) => Promise<void>;
 }
 
 export const useEditorStore = create<EditorStore>((set, get) => ({
@@ -202,7 +202,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     }
   },
 
-  openFileByPath: async (relativePath: string, currentFilePath?: string) => {
+  openFileByPath: async (relativePath: string, currentFilePath?: string, anchor?: string) => {
     const { resolveRelativePath, findFileInTree } = await import("@/shared/utils/file-path-resolver");
     const { useFileExplorerStore } = await import("@/features/file-explorer/store/file-explorer-store");
 
@@ -274,6 +274,17 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
         } else {
           throw new Error(result.error || 'Failed to load file');
         }
+      }
+
+      // Scroll to anchor after file is loaded (with delay for rendering)
+      if (anchor) {
+        setTimeout(async () => {
+          const { scrollToHeading } = await import('@/shared/utils/scroll-to-heading');
+          const success = scrollToHeading(anchor);
+          if (!success) {
+            console.warn(`Anchor not found: ${anchor}`);
+          }
+        }, 500);
       }
     } catch (error) {
       console.error('Failed to open file by path:', error);

@@ -55,7 +55,7 @@ It contains relative file links, intra-file anchor links, external links, and ex
 
 ### Task Lists
 - [x] Completed task
-- [ ] Incomplete task
+- [x] Incomplete task
 - [x] Another completed task
 
 ## Links and Images
@@ -124,7 +124,7 @@ for i in range(10):
 ## Mermaid Diagrams
 
 ### Flowchart
-<a id="flowchart"></a>
+
 ```mermaid
 flowchart TD
     A[Start] --> B{Is it working?}
@@ -136,7 +136,7 @@ flowchart TD
 ```
 
 ### Sequence Diagram
-<a id="sequence-diagram"></a>
+
 ```mermaid
 sequenceDiagram
     participant User
@@ -153,7 +153,7 @@ sequenceDiagram
 ```
 
 ### Class Diagram
-<a id="class-diagram"></a>
+
 ```mermaid
 classDiagram
     class Animal {

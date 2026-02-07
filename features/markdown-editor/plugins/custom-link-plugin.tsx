@@ -2,6 +2,7 @@
  * Custom link plugin for CodeMirror to handle link navigation
  * Supports Cmd/Ctrl+Click to open links in new tab with tooltips
  * Handles markdown file links for internal navigation
+ * Supports anchor links (#heading) for same-file and cross-file navigation
  * Based on official link plugin from codemirror-live-markdown
  */
 
@@ -10,6 +11,7 @@ import { Range } from '@codemirror/state';
 import { Decoration, DecorationSet, EditorView, ViewPlugin, ViewUpdate, WidgetType } from '@codemirror/view';
 import { shouldShowSource, mouseSelectingField } from 'codemirror-live-markdown';
 import { isMarkdownFileLink } from '@/shared/utils/file-path-resolver';
+import { scrollToHeading } from '@/shared/utils/scroll-to-heading';
 
 /**
  * Detect operating system
@@ -83,7 +85,10 @@ class LinkWidget extends WidgetType {
     const link = document.createElement('a');
     link.className = 'cm-link';
     link.textContent = this.linkData.text;
-    link.href = '#';
+
+    // Set href appropriately - for anchors use the actual anchor, for others use '#' to prevent navigation
+    const isAnchorLink = this.linkData.url.startsWith('#');
+    link.href = isAnchorLink ? 'javascript:void(0)' : '#';
     link.setAttribute('data-url', this.linkData.url);
 
     const isMarkdownFile = isMarkdownFileLink(this.linkData.url);
@@ -92,7 +97,9 @@ class LinkWidget extends WidgetType {
     const tooltip = document.createElement('span');
     tooltip.className = 'absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-3 py-1.5 text-xs font-medium text-white bg-gray-900 border border-gray-700 rounded-md shadow-xl opacity-0 pointer-events-none whitespace-nowrap transition-opacity duration-200';
     tooltip.style.zIndex = '100000';
-    tooltip.textContent = isMarkdownFile
+    tooltip.textContent = isAnchorLink
+      ? `${getModifierKeyName()}+Click to jump to section`
+      : isMarkdownFile
       ? `${getModifierKeyName()}+Click to open in new tab`
       : `${getModifierKeyName()}+Click to open`;
     link.appendChild(tooltip);
@@ -108,26 +115,49 @@ class LinkWidget extends WidgetType {
     });
 
     // Handle click with modifier key
-    link.addEventListener('mousedown', async (e) => {
+    link.addEventListener('click', async (e) => {
+      // Always prevent default to avoid navigation
+      e.preventDefault();
+
       if (isModifierKeyPressed(e)) {
-        e.preventDefault();
         e.stopPropagation();
 
+        // Check for anchor-only links (#heading) - handle first!
+        if (this.linkData.url.startsWith('#')) {
+          // Same-file anchor navigation
+          scrollToHeading(this.linkData.url);
+          return; // Stop execution here
+        }
+
+        // Check if this is a markdown file link (may have anchor)
         if (isMarkdownFile) {
-          // Handle internal markdown file link
           try {
+            const [filePath, anchor] = this.linkData.url.split('#');
+
+            // Defensive check: don't open if filePath is empty
+            if (!filePath || filePath.trim() === '') {
+              console.warn('Empty file path in markdown link, treating as anchor');
+              if (anchor) {
+                scrollToHeading(anchor);
+              }
+              return;
+            }
+
             const { useEditorStore } = await import('@/features/markdown-editor/store/editor-store');
             const store = useEditorStore.getState();
-            await store.openFileByPath(this.linkData.url, this.currentFilePath);
+            await store.openFileByPath(filePath, this.currentFilePath, anchor);
           } catch (error) {
             console.error('Failed to open markdown file:', error);
           }
-        } else {
-        // Handle external URL
+          return; // Stop execution after handling markdown file
+        }
+
+        // Only open external URLs if not anchor or markdown file
+        if (!this.linkData.url.startsWith('#') && !isMarkdownFile) {
           window.open(this.linkData.url, '_blank', 'noopener,noreferrer');
         }
       }
-      // Let normal clicks through for editing
+      // For clicks without modifier key, do nothing (let user edit)
     });
 
     // Show cursor pointer when hovering with modifier key
@@ -143,7 +173,11 @@ class LinkWidget extends WidgetType {
   }
 
   ignoreEvent(event: Event) {
-    // Only ignore mousedown with modifier key (for opening links)
+    // Ignore all click events - we handle them ourselves
+    if (event.type === 'click') {
+      return true;
+    }
+    // Ignore mousedown with modifier key (for opening links)
     if (event.type === 'mousedown' && event instanceof MouseEvent) {
       return isModifierKeyPressed(event);
     }
@@ -168,7 +202,10 @@ class AutolinkWidget extends WidgetType {
     const link = document.createElement('a');
     link.className = 'cm-link';
     link.textContent = this.url;
-    link.href = '#';
+
+    // Set href appropriately - for anchors use javascript:void(0), for others use '#'
+    const isAnchorLink = this.url.startsWith('#');
+    link.href = isAnchorLink ? 'javascript:void(0)' : '#';
     link.setAttribute('data-url', this.url);
 
     const isMarkdownFile = isMarkdownFileLink(this.url);
@@ -177,7 +214,9 @@ class AutolinkWidget extends WidgetType {
     const tooltip = document.createElement('span');
     tooltip.className = 'absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-3 py-1.5 text-xs font-medium text-white bg-gray-900 border border-gray-700 rounded-md shadow-xl opacity-0 pointer-events-none whitespace-nowrap transition-opacity duration-200';
     tooltip.style.zIndex = '100000';
-    tooltip.textContent = isMarkdownFile
+    tooltip.textContent = isAnchorLink
+      ? `${getModifierKeyName()}+Click to jump to section`
+      : isMarkdownFile
       ? `${getModifierKeyName()}+Click to open in new tab`
       : `${getModifierKeyName()}+Click to open`;
     link.appendChild(tooltip);
@@ -193,26 +232,49 @@ class AutolinkWidget extends WidgetType {
     });
 
     // Handle click with modifier key
-    link.addEventListener('mousedown', async (e) => {
+    link.addEventListener('click', async (e) => {
+      // Always prevent default to avoid navigation
+      e.preventDefault();
+
       if (isModifierKeyPressed(e)) {
-        e.preventDefault();
         e.stopPropagation();
 
+        // Check for anchor-only links (#heading) - handle first!
+        if (this.url.startsWith('#')) {
+          // Same-file anchor navigation
+          scrollToHeading(this.url);
+          return; // Stop execution here
+        }
+
+        // Check if this is a markdown file link (may have anchor)
         if (isMarkdownFile) {
-          // Handle internal markdown file link
           try {
+            const [filePath, anchor] = this.url.split('#');
+
+            // Defensive check: don't open if filePath is empty
+            if (!filePath || filePath.trim() === '') {
+              console.warn('Empty file path in autolink, treating as anchor');
+              if (anchor) {
+                scrollToHeading(anchor);
+              }
+              return;
+            }
+
             const { useEditorStore } = await import('@/features/markdown-editor/store/editor-store');
             const store = useEditorStore.getState();
-            await store.openFileByPath(this.url, this.currentFilePath);
+            await store.openFileByPath(filePath, this.currentFilePath, anchor);
           } catch (error) {
             console.error('Failed to open markdown file:', error);
           }
-        } else {
-        // Handle external URL
+          return; // Stop execution after handling markdown file
+        }
+
+        // Only open external URLs if not anchor or markdown file
+        if (!this.url.startsWith('#') && !isMarkdownFile) {
           window.open(this.url, '_blank', 'noopener,noreferrer');
         }
       }
-      // Let normal clicks through for editing
+      // For clicks without modifier key, do nothing (let user edit)
     });
 
     // Show cursor pointer when hovering with modifier key
@@ -228,7 +290,11 @@ class AutolinkWidget extends WidgetType {
   }
 
   ignoreEvent(event: Event) {
-    // Only ignore mousedown with modifier key (for opening links)
+    // Ignore all click events - we handle them ourselves
+    if (event.type === 'click') {
+      return true;
+    }
+    // Ignore mousedown with modifier key (for opening links)
     if (event.type === 'mousedown' && event instanceof MouseEvent) {
       return isModifierKeyPressed(event);
     }

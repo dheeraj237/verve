@@ -14,6 +14,7 @@ import { MermaidDiagram } from "./mermaid-diagram";
 import { CodeBlock } from "./code-block";
 import { sanitizeMarkdown } from "@/shared/utils/sanitize";
 import { isMarkdownFileLink } from "@/shared/utils/file-path-resolver";
+import { scrollToHeading } from "@/shared/utils/scroll-to-heading";
 
 const MarkdownContent = memo(({ content, headings, currentFilePath }: { content: string; headings: any[]; currentFilePath?: string }) => {
   // Helper functions for link navigation
@@ -62,27 +63,54 @@ const MarkdownContent = memo(({ content, headings, currentFilePath }: { content:
       const { openFileByPath } = useEditorStore();
 
       const handleClick = async (e: React.MouseEvent<HTMLAnchorElement>) => {
+        // Always prevent default for anchor links and markdown file links
+        if (href && (href.startsWith('#') || isMarkdownFileLink(href))) {
+          e.preventDefault();
+        }
+
         const isModifierPressed = isMac() ? e.metaKey : e.ctrlKey;
 
         if (isModifierPressed && href) {
-          e.preventDefault();
+          // Handle anchor-only links (same-file navigation) - check first!
+          if (href.startsWith('#')) {
+            scrollToHeading(href);
+            return; // Stop here, don't process further
+          }
 
-          // Check if this is a markdown file link
+          // Check if this is a markdown file link (may have anchor)
           if (isMarkdownFileLink(href)) {
             try {
-              await openFileByPath(href, currentFilePath);
+              // Split file path and anchor
+              const [filePath, anchor] = href.split('#');
+
+              // Don't open if filePath is empty (shouldn't happen but defensive check)
+              if (!filePath || filePath.trim() === '') {
+                console.warn('Empty file path, treating as anchor-only');
+                if (anchor) {
+                  scrollToHeading(anchor);
+                }
+                return;
+              }
+
+              await openFileByPath(filePath, currentFilePath, anchor);
             } catch (error) {
               console.error('Failed to open markdown file:', error);
             }
-          } else {
-          // External link
+            return; // Stop here, don't open external window
+          }
+
+          // Only open external links if not a markdown file
+          if (!href.startsWith('#') && !isMarkdownFileLink(href)) {
             window.open(href, '_blank', 'noopener,noreferrer');
           }
         }
       };
 
+      const isAnchorLink = href && href.startsWith('#');
       const isMarkdownFile = href && isMarkdownFileLink(href);
-      const tooltipText = isMarkdownFile
+      const tooltipText = isAnchorLink
+        ? `${getModifierKeyName()}+Click to jump to section`
+        : isMarkdownFile
         ? `${getModifierKeyName()}+Click to open in new tab`
         : `${getModifierKeyName()}+Click to open`;
 

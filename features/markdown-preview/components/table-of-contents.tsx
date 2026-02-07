@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { cn } from "@/shared/utils/cn";
 import { useTocStore } from "../store/toc-store";
 import { TocItem } from "../hooks/use-table-of-contents";
+import { scrollToHeading } from "@/shared/utils/scroll-to-heading";
 
 interface TableOfContentsProps {
   items: TocItem[];
@@ -20,50 +21,13 @@ export function TableOfContents({ items, activeId }: TableOfContentsProps) {
     // Set manual selection to prevent auto-detection from overriding
     setManualActiveId(id);
 
-    const element = document.getElementById(id);
-    const container = document.getElementById("markdown-content");
+    // Use shared scroll utility
+    scrollToHeading(id);
 
-
-    // Check if we're in preview mode (elements exist) or live editor mode (elements don't exist)
-    if (element && container) {
-      // Preview mode - scroll using DOM elements
-      const elementTop = element.offsetTop;
-      const containerHeight = container.clientHeight;
-      const contentHeight = container.scrollHeight;
-      
-      // Calculate if we can scroll to top
-      const maxScroll = contentHeight - containerHeight;
-      const targetScroll = elementTop - 100;
-      
-      if (targetScroll <= maxScroll) {
-        container.scrollTo({
-          top: targetScroll,
-          behavior: "smooth"
-        });
-      } else {
-        container.scrollTo({
-          top: maxScroll,
-          behavior: "smooth"
-        });
-      }
-
-      // Clear manual selection after scroll animation completes (500ms)
-      setTimeout(() => {
-        clearManualSelection();
-      }, 500);
-    } else {
-      // Live editor mode - dispatch custom event
-      const event = new CustomEvent('toc-click', {
-        detail: { headingId: id },
-        bubbles: true
-      });
-      window.dispatchEvent(event);
-
-      // Clear manual selection after scroll animation completes (500ms)
-      setTimeout(() => {
-        clearManualSelection();
-      }, 500);
-    }
+    // Clear manual selection after scroll animation completes (500ms)
+    setTimeout(() => {
+      clearManualSelection();
+    }, 500);
   };
 
   // Auto-scroll active item into view

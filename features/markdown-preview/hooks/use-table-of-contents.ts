@@ -13,7 +13,31 @@ export function useTableOfContents(content: string) {
   useEffect(() => {
     const lines = content.split('\n');
     const tocItems: TocItem[] = [];
+    const usedIds = new Map<string, number>();
     let inCodeBlock = false;
+
+    // Helper function to generate standard markdown anchor IDs
+    const generateId = (text: string): string => {
+      // Convert to lowercase and replace spaces/special chars with hyphens
+      // This matches GitHub's heading anchor format
+      let slug = text
+        .toLowerCase()
+        .trim()
+        .replace(/[^\w\s-]/g, '') // Remove special characters
+        .replace(/\s+/g, '-')     // Replace spaces with hyphens
+        .replace(/-+/g, '-')      // Replace multiple hyphens with single
+        .replace(/^-|-$/g, '');   // Remove leading/trailing hyphens
+
+      // Handle duplicate headings by appending a counter
+      if (usedIds.has(slug)) {
+        const count = usedIds.get(slug)! + 1;
+        usedIds.set(slug, count);
+        return `${slug}-${count}`;
+      } else {
+        usedIds.set(slug, 0);
+        return slug;
+      }
+    };
 
     // Parse headings from markdown content, tracking line numbers
     for (let i = 0; i < lines.length; i++) {
@@ -32,7 +56,7 @@ export function useTableOfContents(content: string) {
       if (match) {
         const level = match[1].length;
         const text = match[2].trim();
-        const id = `heading-${text.toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-')}-${tocItems.length}`;
+        const id = generateId(text);
 
         tocItems.push({
           id,
