@@ -20,12 +20,12 @@ export async function GET(
       );
     }
 
-    const fullPath = path.join(process.cwd(), "content", ...filePath);
+    const fullPath = path.join(process.cwd(), "public/content", ...filePath);
 
     // Security: prevent directory traversal
-    const contentDir = path.join(process.cwd(), "content");
+    const contentDir = path.join(process.cwd(), "public/content");
     const resolvedPath = path.resolve(fullPath);
-    if (!resolvedPath.startsWith(contentDir)) {
+    if (!resolvedPath.startsWith(path.resolve(contentDir))) {
       return NextResponse.json(
         { error: "Invalid file path" },
         { status: 403 }

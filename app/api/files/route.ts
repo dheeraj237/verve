@@ -41,7 +41,7 @@ async function buildFileTree(dirPath: string, relativePath: string = ""): Promis
 
 export async function GET(request: NextRequest) {
   try {
-    const contentDir = path.join(process.cwd(), "content");
+    const contentDir = path.join(process.cwd(), "public/content");
     
     // Check if content directory exists
     try {
