@@ -1,4 +1,4 @@
-name: LogIt - CI/CD Pipeline
+name: Verve - CI/CD Pipeline
 
 on:
   push:

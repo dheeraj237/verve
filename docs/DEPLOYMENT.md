@@ -1,8 +1,8 @@
-# LogIt Deployment Guide
+# Verve Deployment Guide
 
 ## Vercel Deployment
 
-LogIt is configured for seamless deployment on [Vercel](https://vercel.com):
+Verve is configured for seamless deployment on [Vercel](https://vercel.com):
 
 ### Setup Steps
 

@@ -1,8 +1,8 @@
-# Getting Started with LogIt
+# Getting Started with Verve
 
 **A Beginner-Friendly Guide to Understanding and Contributing**
 
-Welcome to LogIt! This guide is designed for developers who are new to React and CodeMirror. We'll walk through the application step by step.
+Welcome to Verve! This guide is designed for developers who are new to React and CodeMirror. We'll walk through the application step by step.
 
 ## Prerequisites
 
@@ -17,7 +17,7 @@ Before you start, make sure you have:
 ```bash
 # 1. Clone and install
 git clone <repository-url>
-cd logit
+cd verve
 yarn install
 
 # 2. Start the development server
@@ -31,7 +31,7 @@ open http://localhost:3000
 
 ### What Does It Do?
 
-LogIt is a powerful markdown documentation viewer similar to Obsidian or Typora:
+Verve is a powerful markdown documentation editor similar to Obsidian or Typora:
 1. You can browse markdown files in a file explorer
 2. Edit them with live preview (see formatting as you type)
 3. View rendered markdown with table of contents
@@ -162,7 +162,7 @@ sequenceDiagram
 ## Project Structure Explained
 
 ```
-logit/
+verve/
 │
 ├── app/                        # Next.js application
 │   ├── page.tsx               # Main page (START HERE)

@@ -13,8 +13,8 @@ import { Feature } from "@/shared/types";
  * 3. Override feature flags using the provider's context
  */
 
-export const APP_TITLE = "LogIt";
-export const APP_DESCRIPTION = "A modern markdown documentation viewer with VSCode-like interface, live preview, and powerful features";
+export const APP_TITLE = "Verve";
+export const APP_DESCRIPTION = "A powerful markdown documentation editor, live preview, and collaborative features";
 
 export const features: Record<string, Feature> = {
   appTitle: {

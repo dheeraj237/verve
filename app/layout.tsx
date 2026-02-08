@@ -9,7 +9,7 @@ import { Toaster } from "@/shared/components/toaster";
 import { APP_TITLE, APP_DESCRIPTION } from "@/core/config/features";
 
 export const metadata: Metadata = {
-  title: `${APP_TITLE} | Markdown Documentation Platform`,
+  title: `${APP_TITLE} | Markdown Documentation Editor`,
   description: APP_DESCRIPTION,
 };
 

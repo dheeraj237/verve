@@ -67,13 +67,13 @@
 
 ### 1. **Rename on GitHub**
 - Go to GitHub repo Settings → General
-- Change repository name to "LogIt"
+- Change repository name to "Verve"
 - Click Rename
 
 ### 2. **Update Local Repository** (if working locally)
 ```bash
 # Update remote URL
-git remote set-url origin https://github.com/yourusername/LogIt.git
+git remote set-url origin https://github.com/yourusername/Verve.git
 
 # Or just pull the changes
 git fetch origin
