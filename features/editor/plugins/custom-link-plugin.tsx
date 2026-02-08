@@ -12,20 +12,13 @@ import { Decoration, DecorationSet, EditorView, ViewPlugin, ViewUpdate, WidgetTy
 import { shouldShowSource, mouseSelectingField } from 'codemirror-live-markdown';
 import { isMarkdownFileLink } from '@/shared/utils/file-path-resolver';
 import { scrollToHeading } from '@/shared/utils/scroll-to-heading';
+import { isMobileDevice } from '@/shared/utils/mobile';
 
 /**
  * Detect operating system
  */
 function isMac(): boolean {
   return typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(navigator.platform);
-}
-
-/**
- * Detect if device is mobile
- */
-function isMobileDevice(): boolean {
-  if (typeof navigator === 'undefined') return false;
-  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 }
 
 /**

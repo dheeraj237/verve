@@ -10,6 +10,10 @@ interface PanelState {
   setRightPanelSize: (size: number) => void;
   toggleLeftPanel: () => void;
   toggleRightPanel: () => void;
+  closeLeftPanel: () => void;
+  closeRightPanel: () => void;
+  openLeftPanel: () => void;
+  openRightPanel: () => void;
 }
 
 export const usePanelStore = create<PanelState>()(
@@ -25,6 +29,10 @@ export const usePanelStore = create<PanelState>()(
         set((state) => ({ leftPanelCollapsed: !state.leftPanelCollapsed })),
       toggleRightPanel: () =>
         set((state) => ({ rightPanelCollapsed: !state.rightPanelCollapsed })),
+      closeLeftPanel: () => set({ leftPanelCollapsed: true }),
+      closeRightPanel: () => set({ rightPanelCollapsed: true }),
+      openLeftPanel: () => set({ leftPanelCollapsed: false }),
+      openRightPanel: () => set({ rightPanelCollapsed: false }),
     }),
     {
       name: "panel-storage",

@@ -31,18 +31,18 @@ export function AppToolbar() {
       </div>
 
       <div className="flex items-center gap-2">
-        {/* Code/Live Switcher - only for markdown files */}
+        {/* Code/Live Switcher - only for markdown files, all screen sizes */}
         {hasActiveFile && isMarkdown && (
           <>
             <Tabs value={isCodeViewMode ? "code" : "live"} onValueChange={(value) => setCodeViewMode(value === "code")}>
               <TabsList className="h-8">
                 <TabsTrigger value="code" className="gap-1.5 cursor-pointer" title="Code Editor">
                   <Code2 className={cn("h-3.5 w-3.5", !isCodeViewMode && "text-muted-foreground")} />
-                  <span className="text-xs">Code</span>
+                  <span className="hidden sm:inline text-xs">Code</span>
                 </TabsTrigger>
                 <TabsTrigger value="live" className="gap-1.5 cursor-pointer" title="Live Preview Editor">
                   <Sparkles className={cn("h-3.5 w-3.5", isCodeViewMode && "text-muted-foreground")} />
-                  <span className="text-xs">Live</span>
+                  <span className="hidden sm:inline text-xs">Live</span>
                 </TabsTrigger>
               </TabsList>
             </Tabs>
@@ -50,15 +50,25 @@ export function AppToolbar() {
           </>
         )}
 
-        {/* Panel toggles */}
-        <Button variant="ghost" size="icon" className="cursor-pointer h-8 w-8" onClick={toggleLeftPanel}>
+        {/* Panel toggles - only on desktop */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="cursor-pointer h-8 w-8 hidden lg:inline-flex"
+          onClick={toggleLeftPanel}
+        >
           {leftPanelCollapsed ? (
             <PanelLeft className="h-4 w-4" />
           ) : (
               <PanelLeftClose className="h-4 w-4" />
           )}
         </Button>
-        <Button variant="ghost" size="icon" className="cursor-pointer h-8 w-8" onClick={toggleRightPanel}>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="cursor-pointer h-8 w-8 hidden lg:inline-flex"
+          onClick={toggleRightPanel}
+        >
           {rightPanelCollapsed ? (
             <PanelRight className="h-4 w-4" />
           ) : (
@@ -66,7 +76,7 @@ export function AppToolbar() {
           )}
         </Button>
 
-        <Separator orientation="vertical" className="h-6" />
+        <Separator orientation="vertical" className="h-6 hidden lg:block" />
         <ThemeToggle />
       </div>
     </div>
