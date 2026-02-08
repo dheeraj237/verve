@@ -43,14 +43,30 @@ export async function GET(request: NextRequest) {
   try {
     const contentDir = path.join(process.cwd(), "public/content");
     
+    console.log("API: Loading files from:", contentDir);
+
     // Check if content directory exists
     try {
       await fs.access(contentDir);
     } catch {
-      return NextResponse.json(
-        { error: "Content directory not found" },
-        { status: 404 }
-      );
+      console.error("API: Content directory not found at:", contentDir);
+      // Try alternate path
+      const altDir = path.join(process.cwd(), "content");
+      try {
+        await fs.access(altDir);
+        console.log("API: Found content at alternate path:", altDir);
+        const fileTree = await buildFileTree(altDir);
+        return NextResponse.json({
+          success: true,
+          data: fileTree,
+        });
+      } catch {
+        console.error("API: Content directory not found at alternate paths");
+        return NextResponse.json(
+          { error: "Content directory not found", cwd: process.cwd() },
+          { status: 404 }
+        );
+      }
     }
 
     const fileTree = await buildFileTree(contentDir);

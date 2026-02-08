@@ -52,9 +52,16 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
 
       openLocalDirectory: async () => {
         try {
+          // Check if running on iOS
+          const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
           // Check if File System Access API is supported
           if (!('showDirectoryPicker' in window)) {
-            alert('Directory Picker is not supported in this browser. Please use Chrome, Edge, or another Chromium-based browser.');
+            if (isIOS) {
+              alert('File System Access is not supported on iOS. Please use a Chromium-based browser on desktop (Chrome, Edge, Brave) to access your local files. The app currently supports reading the default content folder on all devices.');
+            } else {
+              alert('Directory Picker is not supported in this browser. Please use Chrome, Edge, or another Chromium-based browser.');
+            }
             return;
           }
 

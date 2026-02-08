@@ -34,17 +34,25 @@ export function FileExplorer() {
     async function loadFiles() {
       try {
         const response = await fetch("/api/files");
+        if (!response.ok) {
+          console.error("Failed to fetch files:", response.status, response.statusText);
+          return;
+        }
         const result = await response.json();
         
-        if (result.success) {
+        if (result.success && result.data && result.data.length > 0) {
           setFileTree(result.data);
           // Set default directory name for server files
           if (!currentDirectoryName) {
             setCurrentDirectory('content', '/content');
           }
+        } else if (!result.success) {
+          console.error("API error loading files:", result.error);
         }
       } catch (error) {
-        console.error("Error loading files:", error);
+        console.error("Error loading default content:", error);
+        // Retry once after delay
+        setTimeout(loadFiles, 2000);
       }
     }
 
