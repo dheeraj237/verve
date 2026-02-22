@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /* Import Obsidian-like editor styles */
-@import "./styles/obsidian-editor.css";
+@import "./obsidian-editor.css";
 
 @layer base {
   :root {

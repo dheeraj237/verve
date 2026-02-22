@@ -26,7 +26,7 @@ export function FileTabs() {
 
   return (
     <TooltipProvider delayDuration={500}>
-      <style jsx>{`
+      <style>{`
         .tab-scrollbar::-webkit-scrollbar {
           height: 6px;
         }

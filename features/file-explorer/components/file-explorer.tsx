@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useState } from "react";
 import { FileNode } from "@/shared/types";
 import { useFileExplorerStore } from "../store/file-explorer-store";
@@ -10,6 +8,7 @@ import { useEditorStore } from "@/features/editor/store/editor-store";
 import { InlineInput } from "./inline-input";
 import { toast } from "@/shared/utils/toast";
 import { cn } from "@/shared/utils/cn";
+import { initializeDemoFileTree } from "@/src/utils/demo-file-tree";
 
 export function FileExplorer() {
   const {
@@ -33,26 +32,18 @@ export function FileExplorer() {
   useEffect(() => {
     async function loadFiles() {
       try {
-        const response = await fetch("/api/files");
-        if (!response.ok) {
-          console.error("Failed to fetch files:", response.status, response.statusText);
-          return;
-        }
-        const result = await response.json();
+        // Load demo files from localStorage
+        const demoFileTree = await initializeDemoFileTree();
         
-        if (result.success && result.data && result.data.length > 0) {
-          setFileTree(result.data);
-          // Set default directory name for server files
+        if (demoFileTree && demoFileTree.length > 0) {
+          setFileTree(demoFileTree);
+        // Set default directory name for demo files
           if (!currentDirectoryName) {
-            setCurrentDirectory('content', '/content');
+            setCurrentDirectory('Demo Files', '/demo');
           }
-        } else if (!result.success) {
-          console.error("API error loading files:", result.error);
         }
       } catch (error) {
-        console.error("Error loading default content:", error);
-        // Retry once after delay
-        setTimeout(loadFiles, 2000);
+        console.error("Error loading demo files:", error);
       }
     }
 

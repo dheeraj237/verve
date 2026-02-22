@@ -5,21 +5,24 @@
 import { create } from "zustand";
 import { MarkdownFile } from "@/shared/types";
 import { FileManager } from "@/core/file-manager";
-import { ServerFileSystemAdapter } from "@/core/file-manager/adapters/server-adapter";
+import { DemoFileSystemAdapter } from "@/core/file-manager/adapters/demo-adapter";
 import { LocalFileSystemAdapter } from "@/core/file-manager/adapters/local-adapter";
 
 // Singleton file manager instance - shared across all store instances
-const serverAdapter = new ServerFileSystemAdapter();
+const demoAdapter = new DemoFileSystemAdapter();
 const localAdapter = new LocalFileSystemAdapter();
 let fileManager: FileManager | null = null;
 
 /**
  * Get or create file manager instance (lazy initialization)
  * Sets up external update listener on first creation
+ * 
+ * For demo mode, always use the demo adapter
  */
 function getFileManager(isLocal: boolean = false): FileManager {
   if (!fileManager) {
-    fileManager = new FileManager(isLocal ? localAdapter : serverAdapter);
+    // Use demo adapter for demo mode
+    fileManager = new FileManager(isLocal ? localAdapter : demoAdapter);
 
     // Listen for external file changes (e.g., from disk, git pull, etc.)
     fileManager.onUpdate((fileId, content) => {

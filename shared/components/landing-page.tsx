@@ -1,25 +1,12 @@
-"use client";
-
-import { useFeatureValue } from "@growthbook/growthbook-react";
-import { signIn } from "next-auth/react";
-import Link from "next/link";
+import { Link } from "react-router-dom";
 import { Button } from "@/shared/components/ui/button";
 import { ThemeToggle } from "@/shared/components/theme-toggle";
-import { ArrowRight, FileText, Zap, Shield, Chrome } from "lucide-react";
+import { ArrowRight, FileText, Zap, Shield } from "lucide-react";
 
 export function LandingPage() {
-  // Get configurable content from GrowthBook
-  const title = useFeatureValue("landing-title", "Verve: Your Markdown Editor");
-  const description = useFeatureValue(
-    "landing-description",
-    "A powerful markdown documentation editor with live preview, collaborative features, and intuitive navigation."
-  );
-  const showDemoButton = useFeatureValue("show-demo-button", true);
-  const showLoginButton = useFeatureValue("show-login-button", true);
-
-  const handleGoogleSignIn = async () => {
-    await signIn("google", { callbackUrl: "/editor" });
-  };
+  const title = "Verve: Your Markdown Editor";
+  const description = "A powerful markdown documentation editor with live preview and intuitive navigation. Try the demo mode with sample files!";
+  const showDemoButton = true;
 
   return (
     <div className="min-h-screen flex flex-col bg-linear-to-b from-background to-muted/20">
@@ -32,12 +19,6 @@ export function LandingPage() {
           </div>
           <div className="flex items-center gap-2">
             <ThemeToggle />
-            {showLoginButton && (
-              <Button variant="ghost" onClick={handleGoogleSignIn}>
-                <Chrome className="h-4 w-4 mr-2" />
-                Login
-              </Button>
-            )}
           </div>
         </div>
       </header>
@@ -59,20 +40,9 @@ export function LandingPage() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-4">
             {showDemoButton && (
               <Button size="lg" className="text-lg px-8" asChild>
-                <Link href="/editor">
+                <Link to="/editor">
                   Try Demo <ArrowRight className="ml-2 h-5 w-5" />
                 </Link>
-              </Button>
-            )}
-            {showLoginButton && (
-              <Button
-                size="lg"
-                variant="outline"
-                className="text-lg px-8"
-                onClick={handleGoogleSignIn}
-              >
-                <Chrome className="mr-2 h-5 w-5" />
-                Sign in with Google
               </Button>
             )}
           </div>
@@ -105,10 +75,9 @@ export function LandingPage() {
               <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
                 <Shield className="h-6 w-6 text-primary" />
               </div>
-              <h3 className="font-semibold text-lg">Secure & Private</h3>
+              <h3 className="font-semibold text-lg">Demo Mode</h3>
               <p className="text-sm text-muted-foreground">
-                Your data is secure with Google authentication and stored preferences synced across
-                devices.
+                Try the editor with sample markdown files stored in your browser. All changes are saved locally and reset on page reload.
               </p>
             </div>
           </div>
@@ -118,7 +87,7 @@ export function LandingPage() {
       {/* Footer */}
       <footer className="border-t py-6">
         <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
-          <p>Built with Next.js, TypeScript, and Tailwind CSS</p>
+          <p>Built with React, Vite, TypeScript, and Tailwind CSS</p>
         </div>
       </footer>
     </div>

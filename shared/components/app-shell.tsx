@@ -1,5 +1,3 @@
-"use client";
-
 import { useRef, useEffect, useState } from "react";
 import { Panel, PanelGroup, PanelResizeHandle, ImperativePanelHandle } from "react-resizable-panels";
 import { usePanelStore } from "@/core/store/panel-store";

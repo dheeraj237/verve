@@ -427,4 +427,14 @@ This project is MIT licensed. See [LICENSE](./LICENSE) for details.
 
 > "Document everything. Analyze everything. Understand everything." - Verve
 
-Made with ❤️ using React and CodeMirror, deployed with Vercel
+Made with ❤️ using React and CodeMirror
+
+## 🚀 Deployment
+
+Deploy to AWS S3 with a single command:
+
+```bash
+./deploy-s3.sh your-bucket-name
+```
+
+See [S3 Deployment Guide](./docs/S3_DEPLOYMENT.md) for full setup instructions.

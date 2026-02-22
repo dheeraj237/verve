@@ -1,6 +1,7 @@
-"use client";
-
-import { SessionProvider } from "next-auth/react";
+/**
+ * Auth Provider - Stub for demo mode
+ * Originally used NextAuth for authentication
+ */
 import { ReactNode } from "react";
 
 interface AuthProviderProps {
@@ -8,5 +9,6 @@ interface AuthProviderProps {
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  return <SessionProvider>{children}</SessionProvider>;
+  // Demo mode - no authentication required
+  return <>{children}</>;
 }

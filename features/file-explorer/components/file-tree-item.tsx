@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, useRef, useEffect } from "react";
 import { ChevronRight, File, Folder, FolderOpen, FilePlus, FolderPlus } from "lucide-react";
 import { FileNode } from "@/shared/types";
@@ -10,6 +8,7 @@ import { ContextMenu } from "./context-menu";
 import { InlineInput } from "./inline-input";
 import { toast } from "@/shared/utils/toast";
 import { Button } from "@/shared/components/ui/button";
+import { getDemoAdapter } from "@/src/hooks/use-demo-mode";
 
 interface FileTreeItemProps {
   node: FileNode;
@@ -105,20 +104,33 @@ export function FileTreeItem({ node, level, parentNode }: FileTreeItemProps) {
           fileHandle,
           isLocal: true,
         });
-      } else {
-      // Load from server
-        const response = await fetch(`/api/files/${node.path}`);
-        const result = await response.json();
+      } else if (node.id.startsWith('demo-')) {
+        // Load from demo adapter (localStorage)
+        const demoAdapter = getDemoAdapter();
+        const fileData = await demoAdapter.readFile(node.path);
 
-        if (result.success) {
-          openFile({
-            id: node.id,
-            path: node.path,
-            name: node.name,
-            content: result.data.content,
-            category: node.path.split("/")[0],
-          });
+        openFile({
+          id: node.id,
+          path: node.path,
+          name: node.name,
+          content: fileData.content,
+          category: fileData.category,
+        });
+      } else {
+        // Fallback: attempt to load from public directory (relative path for Vite)
+        const response = await fetch(`content${node.path}`);
+        if (!response.ok) {
+          throw new Error(`Failed to load file: ${response.statusText}`);
         }
+        const content = await response.text();
+
+        openFile({
+          id: node.id,
+          path: node.path,
+          name: node.name,
+          content,
+          category: node.path.split("/")[1] || 'demo',
+        });
       }
     } catch (error) {
       console.error("Error loading file:", error);
