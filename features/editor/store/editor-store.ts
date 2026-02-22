@@ -279,21 +279,17 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
           isLocal: true,
         });
       } else {
-        // Load from server
-        const response = await fetch(`/api/files/${fileNode.path}`);
-        const result = await response.json();
+        // Load from demo adapter (localStorage)
+        const manager = getFileManager(false);
+        const fileData = await manager.loadFile(fileNode.path);
 
-        if (result.success) {
-          get().openFile({
-            id: fileNode.id,
-            path: fileNode.path,
-            name: fileNode.name,
-            content: result.data.content,
-            category: fileNode.path.split("/")[0],
-          });
-        } else {
-          throw new Error(result.error || 'Failed to load file');
-        }
+        get().openFile({
+          id: fileData.id,
+          path: fileData.path,
+          name: fileData.name,
+          content: fileData.content,
+          category: fileData.category,
+        });
       }
 
       // Scroll to anchor after file is loaded (with delay for rendering)

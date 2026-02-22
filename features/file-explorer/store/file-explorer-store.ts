@@ -2,6 +2,8 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { FileNode } from "@/shared/types";
 import { MARKDOWN_EXTENSIONS, CODE_EXTENSIONS, TEXT_EXTENSIONS } from "@/shared/utils/file-type-detector";
+import { getDemoAdapter } from "@/src/hooks/use-demo-mode";
+import { buildDemoFileTree } from "@/src/utils/demo-file-tree";
 
 interface FileExplorerStore {
   expandedFolders: Set<string>;
@@ -154,15 +156,10 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
             await writable.write('');
             await writable.close();
           } else {
-            // Create server file
-            const fullPath = parentPath ? `${parentPath}/${fileName}` : fileName;
-            const response = await fetch(`/api/files/${fullPath}`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ content: '' }),
-            });
-
-            if (!response.ok) throw new Error('Failed to create file');
+            // Create demo file using demo adapter (localStorage)
+            const adapter = getDemoAdapter();
+            const fullPath = parentPath ? `${parentPath}/${fileName}` : `/${fileName}`;
+            await adapter.createFile(fullPath, '', parentPath || 'demo');
           }
 
           // Refresh tree
@@ -193,15 +190,10 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
 
             await currentHandle.getDirectoryHandle(folderName, { create: true });
           } else {
-            // Create server folder
-            const fullPath = parentPath ? `${parentPath}/${folderName}` : folderName;
-            const response = await fetch(`/api/files/${fullPath}`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ type: 'folder' }),
-            });
-
-            if (!response.ok) throw new Error('Failed to create folder');
+            // Create demo folder - create a placeholder file to represent the folder
+            const adapter = getDemoAdapter();
+            const fullPath = parentPath ? `${parentPath}/${folderName}/.keep` : `/${folderName}/.keep`;
+            await adapter.createFile(fullPath, '', parentPath || 'demo');
           }
 
           // Refresh tree
@@ -222,14 +214,16 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
             return;
           }
 
-          // Server rename
-          const response = await fetch(`/api/files/${nodePath}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ newName }),
-          });
+          // Demo rename - read, delete, create with new name
+          const adapter = getDemoAdapter();
+          const fileData = await adapter.readFile(nodePath);
+          await adapter.deleteFile(nodePath);
 
-          if (!response.ok) throw new Error('Failed to rename');
+          const pathParts = nodePath.split('/');
+          pathParts[pathParts.length - 1] = newName;
+          const newPath = pathParts.join('/');
+
+          await adapter.createFile(newPath, fileData.content, fileData.category);
 
           // Refresh tree
           const { refreshFileTree } = useFileExplorerStore.getState();
@@ -263,12 +257,31 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
               await currentHandle.removeEntry(fileName!);
             }
           } else {
-            // Server delete
-            const response = await fetch(`/api/files/${nodePath}`, {
-              method: 'DELETE',
-            });
-
-            if (!response.ok) throw new Error('Failed to delete');
+            // Demo delete using demo adapter
+            const adapter = getDemoAdapter();
+            if (isFolder) {
+              // For folders, delete all files that start with this path
+              const tree = await adapter.getFileTree();
+              const getAllFiles = (obj: any, basePath: string = ''): string[] => {
+                const files: string[] = [];
+                for (const [key, value] of Object.entries(obj)) {
+                  const path = basePath ? `${basePath}/${key}` : key;
+                  if (value && typeof value === 'object' && 'content' in value) {
+                    files.push(`/${path}`);
+                  } else if (value && typeof value === 'object') {
+                    files.push(...getAllFiles(value, path));
+                  }
+                }
+                return files;
+              };
+              const allFiles = getAllFiles(tree);
+              const filesToDelete = allFiles.filter(f => f.startsWith(nodePath));
+              for (const file of filesToDelete) {
+                await adapter.deleteFile(file);
+              }
+            } else {
+              await adapter.deleteFile(nodePath);
+            }
           }
 
           // Refresh tree
@@ -364,12 +377,9 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
           const fileTree = await buildFileTree(dirHandle);
           set({ fileTree });
         } else {
-          // Refresh server files
-          const response = await fetch('/api/files');
-          const result = await response.json();
-          if (result.success) {
-            set({ fileTree: result.data });
-          }
+          // Refresh demo files from localStorage
+          const fileTree = await buildDemoFileTree();
+          set({ fileTree });
         }
       },
     }),

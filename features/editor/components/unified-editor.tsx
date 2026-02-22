@@ -57,7 +57,7 @@ export function Editor() {
       try {
         await applyEditorPatch(currentFile.id, sanitizedContent);
       } catch (fileManagerError) {
-        // If file not in cache, use legacy save method
+        // If file not in cache, use direct save method
         console.warn("FileManager not available, using direct save:", fileManagerError);
 
       // For local files with fileHandle
@@ -66,19 +66,10 @@ export function Editor() {
           await writable.write(sanitizedContent);
           await writable.close();
         } else {
-          // For server files
-          const response = await fetch(`/api/files/${currentFile.path}`, {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ content: sanitizedContent }),
-          });
-
-          if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error || "Failed to save file");
-          }
+          // For demo files, use demo adapter directly
+          const { getDemoAdapter } = await import('@/src/hooks/use-demo-mode');
+          const adapter = getDemoAdapter();
+          await adapter.writeFile(currentFile.path, sanitizedContent);
         }
       }
 
