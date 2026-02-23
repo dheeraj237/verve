@@ -13,7 +13,11 @@ import { isMarkdownFile } from "@/shared/utils/file-type-detector";
 import { cn } from "@/shared/utils/cn";
 import { APP_TITLE, isFeatureEnabled } from "@/core/config/features";
 import { toast } from "@/shared/utils/toast";
+import { useUserStore } from "@/core/store/user-store";
+import { ensureGisLoaded, requestAccessTokenForScopes, getGoogleUserProfile } from "@/core/auth/google";
+import { useState } from "react";
 import React from "react";
+
 const LazyGoogleDrivePicker = React.lazy(async () => {
   const m = await import("@/shared/components/google-drive-picker");
   const Picker = (m as any).GoogleDrivePicker || (m as any).default;
@@ -42,11 +46,59 @@ export function AppToolbar() {
   const { toggleLeftPanel, toggleRightPanel, leftPanelCollapsed, rightPanelCollapsed } = usePanelStore();
   const { activeTabId, isCodeViewMode, setCodeViewMode } = useEditorStore();
   const currentFile = useCurrentFile();
+  const { isLoggedIn, setProfile } = useUserStore();
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   const hasActiveFile = activeTabId !== null;
   const isMarkdown = currentFile ? isMarkdownFile(currentFile.name) : false;
   const appTitleEnabled = isFeatureEnabled("appTitle");
   const driveEnabled = isFeatureEnabled("googleDriveSync");
+
+  const handleLogin = async () => {
+    try {
+      setIsLoggingIn(true);
+
+      // Check if Client ID is configured
+      const clientId = import.meta.env.VITE_AUTH_APP_CLIENT_ID;
+      if (!clientId) {
+        toast.error("Google Client ID not configured. Please set VITE_AUTH_APP_CLIENT_ID environment variable.");
+        setIsLoggingIn(false);
+        return;
+      }
+
+      await ensureGisLoaded();
+      const token = await requestAccessTokenForScopes("openid profile email", true);
+      if (token) {
+        const userProfile = await getGoogleUserProfile();
+        if (userProfile) {
+          setProfile(userProfile);
+          window.localStorage.setItem("verve_gdrive_logged_in", "1");
+          toast.success(`Welcome, ${userProfile.name || userProfile.email}!`);
+        } else {
+          toast.error("Failed to fetch user profile. Please try again.");
+        }
+      } else {
+        toast.info("Google login cancelled");
+      }
+    } catch (err: any) {
+      console.error("Login error:", err);
+      const errorMessage = err?.message || "Google login failed";
+
+      if (errorMessage.includes("redirect_uri_mismatch")) {
+        toast.error("OAuth Configuration Error: Please verify your Google OAuth redirect URI settings.");
+      } else if (errorMessage.includes("invalid_client")) {
+        toast.error("Invalid Client ID: Please verify VITE_AUTH_APP_CLIENT_ID is correct.");
+      } else if (errorMessage.includes("access_denied") || errorMessage.includes("popup_closed")) {
+        toast.error("Login cancelled. Please ensure popups are enabled in your browser.");
+      } else if (errorMessage.includes("timeout")) {
+        toast.error("Login request timed out. Please check your internet connection and try again.");
+      } else {
+        toast.error(errorMessage);
+      }
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
 
   return (
     <div className="h-12 border-b bg-background px-4 flex items-center justify-between shrink-0">
@@ -122,7 +174,18 @@ export function AppToolbar() {
           </div>
         )}
         <ThemeToggle />
-        <UserMenu />
+        {!isLoggedIn && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleLogin}
+            disabled={isLoggingIn}
+            className="h-8 hidden sm:inline-flex"
+          >
+            {isLoggingIn ? "Logging in..." : "Login"}
+          </Button>
+        )}
+        {isLoggedIn && <UserMenu />}
       </div>
     </div>
   );

@@ -3,9 +3,8 @@ import { Button } from "@/shared/components/ui/button";
 import { Card } from "@/shared/components/ui/card";
 import { ThemeToggle } from "@/shared/components/theme-toggle";
 import { ArrowRight, FileText, Zap, Shield } from "lucide-react";
-import { toast } from "@/shared/utils/toast";
-import { ensureGisLoaded, requestAccessTokenForScopes } from "@/core/auth/google";
 import { useEffect } from "react";
+import { toast } from "@/shared/utils/toast";
 
 function useGoogleClientWarning() {
   useEffect(() => {
@@ -58,28 +57,6 @@ export function LandingPage() {
                 </Link>
               </Button>
             )}
-            <Button
-              size="lg"
-              variant="secondary"
-              className="text-lg px-8"
-              onClick={async () => {
-                try {
-                  await ensureGisLoaded();
-                  const token = await requestAccessTokenForScopes("openid profile email", true);
-                  if (token) {
-                    window.localStorage.setItem("verve_gdrive_logged_in", "1");
-                    toast.success("Signed in with Google");
-                  } else {
-                    toast.info("Google sign-in cancelled");
-                  }
-                } catch (err) {
-                  console.error(err);
-                  toast.error("Google sign-in failed");
-                }
-              }}
-            >
-              Sign in with Google
-            </Button>
           </div>
 
           {/* Features Grid */}

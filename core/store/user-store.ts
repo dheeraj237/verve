@@ -17,23 +17,26 @@ interface UserProfile {
 interface UserState {
   profile: UserProfile | null;
   preferences: UserPreferences;
+  isLoggedIn: boolean;
   setProfile: (profile: UserProfile | null) => void;
   setTheme: (theme: "light" | "dark" | "system") => void;
   setEditorFontSize: (size: number) => void;
   setEditorLineHeight: (height: number) => void;
   updatePreferences: (prefs: Partial<UserPreferences>) => void;
+  logout: () => void;
 }
 
 export const useUserStore = create<UserState>()(
   persist(
     (set) => ({
       profile: null,
+      isLoggedIn: false,
       preferences: {
         theme: "system",
         editorFontSize: 14,
         editorLineHeight: 1.5,
       },
-      setProfile: (profile) => set({ profile }),
+      setProfile: (profile) => set({ profile, isLoggedIn: profile !== null }),
       setTheme: (theme) =>
         set((state) => ({
           preferences: { ...state.preferences, theme },
@@ -50,6 +53,7 @@ export const useUserStore = create<UserState>()(
         set((state) => ({
           preferences: { ...state.preferences, ...prefs },
         })),
+      logout: () => set({ profile: null, isLoggedIn: false }),
     }),
     {
       name: "user-storage",
