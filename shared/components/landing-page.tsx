@@ -1,7 +1,6 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/shared/components/ui/button";
 import { Card } from "@/shared/components/ui/card";
-import { ThemeToggle } from "@/shared/components/theme-toggle";
 import { ArrowRight, FileText, Zap, Shield } from "lucide-react";
 import { useEffect } from "react";
 import { toast } from "@/shared/utils/toast";
@@ -29,9 +28,7 @@ export function LandingPage() {
             <FileText className="h-6 w-6 text-primary" />
             <span className="font-semibold text-xl">Verve</span>
           </div>
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-          </div>
+          <div className="flex items-center gap-2" />
         </div>
       </header>
 

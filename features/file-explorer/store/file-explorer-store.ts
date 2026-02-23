@@ -466,46 +466,19 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
           const gdriveFolder = window.localStorage.getItem('verve_gdrive_folder_id');
           if (gdriveFolder) {
             try {
-              const { requestDriveAccessToken } = await import('@/core/auth/google');
-              const token = await requestDriveAccessToken(false);
-              if (!token) throw new Error('Not authenticated with Google Drive');
-
-              const allowedExtensions = [...MARKDOWN_EXTENSIONS, ...CODE_EXTENSIONS, ...TEXT_EXTENSIONS];
-
-              const listChildren = async (parentId: string): Promise<FileNode[]> => {
-                const nodes: FileNode[] = [];
-                let pageToken: string | null = null;
-                do {
-                  const q = encodeURIComponent(`'${parentId}' in parents and trashed = false`);
-                  const url = `https://www.googleapis.com/drive/v3/files?q=${q}&fields=nextPageToken,files(id,name,mimeType)&pageSize=1000${pageToken ? `&pageToken=${pageToken}` : ''}`;
-                  const resp = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-                  if (!resp.ok) break;
-                  const json = await resp.json();
-                  for (const f of json.files || []) {
-                    if (f.mimeType === 'application/vnd.google-apps.folder') {
-                      const children = await listChildren(f.id);
-                      nodes.push({ id: `gdrive-${f.id}`, name: f.name, path: f.id, type: 'folder', children });
-                    } else {
-                      const hasAllowedExt = allowedExtensions.some(ext => f.name.toLowerCase().endsWith(ext));
-                      if (hasAllowedExt) {
-                        nodes.push({ id: `gdrive-${f.id}`, name: f.name, path: f.id, type: 'file' });
-                      }
-                    }
-                  }
-                  pageToken = json.nextPageToken || null;
-                } while (pageToken);
-                // sort: folders first
-                return nodes.sort((a, b) => {
-                  if (a.type !== b.type) return a.type === 'folder' ? -1 : 1;
-                  return a.name.localeCompare(b.name);
-                });
-              };
-
-              const fileTree = await listChildren(gdriveFolder);
-              set({ fileTree });
+              // Do not attempt to silently list Drive files (avoids requesting extra scopes).
+              // Instead, show the connected Verve folder and the pre-created verve.md if available.
+              const verveFileId = window.localStorage.getItem('verve_gdrive_verve_file_id');
+              const children: FileNode[] = [];
+              if (verveFileId) {
+                children.push({ id: `gdrive-${verveFileId}`, name: 'verve.md', path: verveFileId, type: 'file' });
+              }
+              const nodes: FileNode[] = [
+                { id: `gdrive-${gdriveFolder}`, name: 'Google Drive (Verve)', path: gdriveFolder, type: 'folder', children },
+              ];
+              set({ fileTree: nodes });
             } catch (e) {
               console.error('Failed to load Google Drive folder', e);
-              // fallback to demo
               const fileTree = await buildDemoFileTree();
               set({ fileTree });
             }

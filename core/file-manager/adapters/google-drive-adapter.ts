@@ -1,7 +1,7 @@
 import { toast } from "@/shared/utils/toast";
 import type { FileSystemAdapter, FileData, FileMetadata } from "@/core/file-manager/types";
 import { FileSystemType } from "@/core/file-manager/types";
-import { requestDriveAccessToken, ensureGisLoaded } from "@/core/auth/google";
+import { requestDriveAccessToken } from "@/core/auth/google";
 
 const DRIVE_API_BASE = "https://www.googleapis.com/drive/v3";
 
@@ -9,64 +9,9 @@ function storageKey(key: string) {
   return `verve_gdrive_${key}`;
 }
 
-export async function openGoogleDrivePicker(): Promise<void> {
-  try {
-    await ensureGisLoaded();
-    // request drive scopes (file-level) when user opens picker
-    const token = await requestDriveAccessToken();
-    if (!token) {
-      toast.error("Google sign-in cancelled or failed");
-      return;
-    }
-
-    // list top-level folders and let user pick via a simple prompt
-    const res = await fetch(`${DRIVE_API_BASE}/files?q=mimeType='application/vnd.google-apps.folder' and trashed=false&fields=files(id,name)&pageSize=100`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const data = await res.json();
-    const folders: Array<{ id: string; name: string }> = data.files || [];
-
-    if (folders.length === 0) {
-      const create = window.confirm("No folders found in your Drive. Create a new folder for Verve sync?");
-      if (create) {
-        // create folder
-        const body = { name: "Verve Sync", mimeType: "application/vnd.google-apps.folder" };
-        const createRes = await fetch(`${DRIVE_API_BASE}/files`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-        const folder = await createRes.json();
-        window.localStorage.setItem(storageKey("folder_id"), folder.id);
-        toast.success("Created and selected folder: Verve Sync");
-        return;
-      }
-      return;
-    }
-
-    // build simple selection list
-    const options = folders.map((f, i) => `${i + 1}. ${f.name}`).join("\n");
-    const choice = window.prompt(`Select a folder by number:\n${options}\nOr paste a folder ID:`);
-    if (!choice) return;
-
-    let chosenId = null;
-    const n = Number(choice);
-    if (!Number.isNaN(n) && n >= 1 && n <= folders.length) {
-      chosenId = folders[n - 1].id;
-    } else {
-      // assume user pasted folder id
-      chosenId = choice.trim();
-    }
-
-    if (chosenId) {
-      window.localStorage.setItem(storageKey("folder_id"), chosenId);
-      toast.success("Google Drive folder selected");
-    }
-  } catch (err) {
-    console.error(err);
-    toast.error("Failed to open Google Drive folder picker");
-  }
-}
+/* Old prompt-based picker removed in favor of native Google Picker.
+   The native Picker is implemented in shared/components/google-drive-picker.tsx
+   and uses Google Identity Services + gapi picker. */
 
 async function getToken(): Promise<string | null> {
   try {

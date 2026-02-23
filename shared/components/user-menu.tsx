@@ -11,12 +11,10 @@ import {
   DropdownMenuTrigger,
 } from "@/shared/components/ui/dropdown-menu";
 import { User, HelpCircle, Github, LogOut } from "lucide-react";
-import { useTheme } from "next-themes";
 import { useUserStore } from "@/core/store/user-store";
 import { useNavigate } from "react-router-dom";
 
 export function UserMenu() {
-  const { theme, setTheme } = useTheme();
   const { profile, isLoggedIn, logout } = useUserStore();
   const navigate = useNavigate();
 
@@ -25,7 +23,7 @@ export function UserMenu() {
     navigate("/");
   };
 
-  console.log("UserMenu - isLoggedIn:", isLoggedIn, "profile:", profile);
+  // console.log("UserMenu - isLoggedIn:", isLoggedIn, "profile:", profile);
 
   return (
     <DropdownMenu>
@@ -46,7 +44,10 @@ export function UserMenu() {
           )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
+      <DropdownMenuContent
+        align="end"
+        className="w-56 bg-[hsl(var(--card))] text-[hsl(var(--card-foreground))] border border-border backdrop-blur-none"
+      >
         {isLoggedIn && profile ? (
           <>
             <DropdownMenuLabel className="truncate">👤 {profile.name || profile.email}</DropdownMenuLabel>
@@ -60,16 +61,6 @@ export function UserMenu() {
           </>
         )}
 
-        <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Theme</DropdownMenuLabel>
-        <DropdownMenuItem onClick={() => setTheme("light")}>
-          {theme === "light" && "✓ "}Light
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("dark")}>
-          {theme === "dark" && "✓ "}Dark
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("system")}>
-          {theme === "system" && "✓ "}System
-        </DropdownMenuItem>
 
         <DropdownMenuSeparator />
         {isLoggedIn && (

@@ -210,40 +210,41 @@ export async function getGoogleUserProfile(token?: string, interactive = true): 
       }
     }
 
-    const payload = parseJwt(accessToken);
-    if (!payload) {
-      console.warn("Failed to parse JWT payload");
-      return null;
-    }
-
-    console.log("JWT payload:", payload);
-
-    let image = payload.picture || null;
-
-    // If picture is not in token, try to fetch from Google UserInfo API
-    if (!image && accessToken) {
-      try {
-        const response = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        });
-        if (response.ok) {
-          const userInfo = await response.json();
-          image = userInfo.picture || null;
-          console.log("Profile picture from UserInfo API:", image);
-        }
-      } catch (err) {
-        console.warn("Failed to fetch from UserInfo API:", err);
+    // Use the Google UserInfo endpoint to retrieve profile data from the access token.
+    // Access tokens are not guaranteed to be JWTs, so don't attempt to parse them directly.
+    try {
+      const response = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+      if (response.ok) {
+        const userInfo = await response.json();
+        return {
+          id: userInfo.id || userInfo.sub || "",
+          name: userInfo.name || null,
+          email: userInfo.email || null,
+          image: userInfo.picture || null,
+        };
+      } else {
+        console.warn("UserInfo response not ok:", response.status, response.statusText);
       }
+    } catch (err) {
+      console.warn("Failed to fetch from UserInfo API:", err);
     }
 
-    return {
-      id: payload.sub || payload.user_id || "",
-      name: payload.name || null,
-      email: payload.email || null,
-      image,
-    };
+    // Fallback: if the token looks like a JWT, try to parse it
+    const maybePayload = parseJwt(accessToken);
+    if (maybePayload) {
+      return {
+        id: maybePayload.sub || maybePayload.user_id || "",
+        name: maybePayload.name || null,
+        email: maybePayload.email || null,
+        image: maybePayload.picture || null,
+      };
+    }
+
+    return null;
   } catch (err) {
     console.error("Failed to get user profile", err);
     return null;

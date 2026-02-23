@@ -1,154 +1,99 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
+import React from "react";
 import { Button } from "@/shared/components/ui/button";
-import {
-  Dialog,
-  DialogTrigger,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/shared/components/ui/dialog";
-import { requestDriveAccessToken, ensureGapiPickerLoaded } from "@/core/auth/google";
+import { ensureGisLoaded, requestAccessTokenForScopes } from "@/core/auth/google";
 import { toast } from "@/shared/utils/toast";
 
-export function GoogleDrivePicker({ onFolderSelected }: { onFolderSelected: (id: string) => void }) {
-  const [folders, setFolders] = useState<Array<{ id: string; name: string }>>([]);
-  const [loading, setLoading] = useState(false);
-  const [selected, setSelected] = useState<string | null>(null);
-  const pickerRef = useRef<any>(null);
+const DRIVE_API_BASE = "https://www.googleapis.com/drive/v3";
 
-  const apiKey = import.meta.env.VITE_GOOGLE_API_KEY;
-
-  async function openPicker() {
+export function ConnectGoogleDrive({ onConnected }: { onConnected?: (folderId: string, fileId?: string) => void }) {
+  async function connect() {
     try {
-      setLoading(true);
-
-      if (!apiKey) {
-        toast.error("Google API key not configured (VITE_GOOGLE_API_KEY)");
+      const clientId = import.meta.env.VITE_AUTH_APP_CLIENT_ID;
+      if (!clientId) {
+        toast.error("Google Client ID not configured. Please set VITE_AUTH_APP_CLIENT_ID.");
         return;
       }
 
-      // Ensure GIS and Picker libraries are loaded
-      const token = await requestDriveAccessToken(true);
+      await ensureGisLoaded();
+
+      // Request only drive.file + basic profile scopes (no drive.readonly)
+      const scopes = "https://www.googleapis.com/auth/drive.file openid profile email";
+      const token = await requestAccessTokenForScopes(scopes, true);
       if (!token) {
-        toast.info("Google sign-in cancelled");
+        toast.info("Google Drive permission not granted");
         return;
       }
 
-      await ensureGapiPickerLoaded();
+      // Create an application folder named 'Verve' in the user's Drive
+      const folderMeta = { name: "Verve", mimeType: "application/vnd.google-apps.folder" };
+      const folderRes = await fetch(`${DRIVE_API_BASE}/files`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify(folderMeta),
+      });
 
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
-      const google = (window as any).google;
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
-      const gapi = (window as any).gapi;
-
-      if (!gapi || !google || !(gapi as any).picker) {
-        toast.error("Google Picker failed to load");
+      if (!folderRes.ok) {
+        const txt = await folderRes.text();
+        console.error("Failed to create Drive folder:", txt);
+        toast.error("Failed to create Drive folder");
         return;
       }
 
-      // Build a DocsView for folders
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
-      const view = new (window as any).google.picker.DocsView((window as any).google.picker.ViewId.FOLDERS)
-        .setIncludeFolders(true)
-        .setSelectFolderEnabled(true)
-        .setMode((window as any).google.picker.DocsViewMode.LIST);
+      const folderJson = await folderRes.json();
+      const folderId = folderJson.id;
+      window.localStorage.setItem("verve_gdrive_folder_id", folderId);
 
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
-      const picker = new (window as any).google.picker.PickerBuilder()
-        .enableFeature((window as any).google.picker.Feature.NAV_HIDDEN)
-        .addView(view)
-        .setOAuthToken(token)
-        .setDeveloperKey(apiKey)
-        .setCallback((data: any) => {
-          if (data.action === (window as any).google.picker.Action.PICKED) {
-            const doc = data.docs && data.docs[0];
-            if (doc) {
-              const id = doc.id;
-              setSelected(id);
-              window.localStorage.setItem("verve_gdrive_folder_id", id);
-              onFolderSelected(id);
-              toast.success("Google Drive folder selected");
-            }
-          } else if (data.action === (window as any).google.picker.Action.CANCEL) {
-            // user cancelled
-          }
-        })
-        .build();
+      // Create an empty 'verve.md' file inside that folder
+      const metadata = { name: "verve.md", parents: [folderId] };
+      const boundary = "-------314159265358979323846";
+      const multipartBody = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n--${boundary}\r\nContent-Type: text/markdown\r\n\r\n\r\n--${boundary}--`;
 
-      picker.setVisible(true);
-      pickerRef.current = picker;
+      const fileRes = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": `multipart/related; boundary=${boundary}` },
+        body: multipartBody,
+      });
+
+      let fileId: string | undefined = undefined;
+      if (fileRes.ok) {
+        const fileJson = await fileRes.json();
+        fileId = fileJson.id;
+        // persist verve file id for explorer to use without listing Drive
+        window.localStorage.setItem("verve_gdrive_verve_file_id", fileId);
+      } else {
+        console.warn("Failed to create verve.md file", await fileRes.text());
+      }
+
+      // Try to enable Drive integration in editor store if available
+      try {
+        const storeMod = await import("@/features/editor/store/editor-store");
+        if (storeMod && typeof (storeMod as any).enableGoogleDrive === "function") {
+          (storeMod as any).enableGoogleDrive(folderId);
+        }
+        if (fileId && (storeMod as any).useEditorStore) {
+          await (storeMod as any).useEditorStore.getState().loadFileFromManager(fileId);
+        }
+      } catch (err) {
+        console.error("Failed to notify editor store about Drive connection:", err);
+      }
+
+      toast.success("Connected to Google Drive");
+      if (onConnected) onConnected(folderId, fileId);
     } catch (err) {
       console.error(err);
-      toast.error("Failed to open Google Picker");
-    } finally {
-      setLoading(false);
+      toast.error("Failed to connect Google Drive");
     }
   }
 
-  useEffect(() => {
-    // no-op: load when dialog opens via user action
-  }, []);
-
   return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-8 w-8 hidden lg:inline-flex" title="Open Google Drive Folder">
-          Open
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Select Google Drive Folder</DialogTitle>
-          <DialogDescription>
-            Choose a folder to sync your files with Verve. You will be asked to grant Drive access.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-3 mt-4">
-          <div className="flex gap-2">
-            <Button onClick={openPicker} disabled={loading}>{loading ? "Opening…" : "Open Google Picker"}</Button>
-            <Button variant="secondary" onClick={() => {
-              const id = window.prompt("Paste folder ID to select:");
-              if (id) {
-                setSelected(id.trim());
-                window.localStorage.setItem("verve_gdrive_folder_id", id.trim());
-              }
-            }}>Paste ID</Button>
-          </div>
-
-          <div className="max-h-64 overflow-auto border rounded p-2">
-            {selected ? (
-              <div className="p-2">Selected folder id: {selected}</div>
-            ) : (
-              <div className="text-sm text-muted-foreground">No folder selected yet. Use the Picker to choose a folder.</div>
-            )}
-          </div>
-        </div>
-
-        <DialogFooter>
-          <div className="flex gap-2 w-full justify-end">
-            <Button onClick={() => {
-              if (!selected) {
-                toast.error("No folder selected");
-                return;
-              }
-              window.localStorage.setItem("verve_gdrive_folder_id", selected);
-              onFolderSelected(selected);
-              toast.success("Folder selected");
-            }}>Select Folder</Button>
-          </div>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <div>
+      <Button variant="outline" size="sm" onClick={connect} className="h-8 hidden sm:inline-flex">
+        Connect Google Drive
+      </Button>
+    </div>
   );
 }
 
-export default GoogleDrivePicker;
+export default ConnectGoogleDrive;

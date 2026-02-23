@@ -163,7 +163,7 @@ export function AppToolbar() {
         </Button>
 
         <Separator orientation="vertical" className="h-6 hidden lg:block" />
-        {driveEnabled && (
+        {driveEnabled && isLoggedIn && (
           <div className="hidden lg:inline-flex">
             {/* Lazy-load the picker component to avoid increasing bundle size */}
             <React.Suspense fallback={
