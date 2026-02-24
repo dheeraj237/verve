@@ -13,7 +13,7 @@ import {
 } from "@/shared/components/ui/tooltip";
 
 export function FileTabs() {
-  const { openTabs, activeTabId, setActiveTab, closeTab, isSourceMode, setSourceMode } = useEditorStore();
+  const { openTabs, activeTabId, setActiveTab, closeTab, isSourceMode, setSourceMode, isCodeViewMode } = useEditorStore();
   const currentTab = openTabs.find(tab => tab.id === activeTabId);
   const isMarkdown = currentTab ? isMarkdownFile(currentTab.name) : false;
 
@@ -76,27 +76,38 @@ export function FileTabs() {
           </Tooltip>
         ))}
       </div>
-      {isMarkdown && openTabs.length > 0 && (
-        <div className="flex items-center px-3 border-l border-border scale-90">
+      {isMarkdown && openTabs.length > 0 && !isCodeViewMode && (
+        <div className="flex items-center px-2 border-l border-border">
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                size="sm"
-                variant={isSourceMode ? "outline" : "default"}
+                size="icon"
+                variant="ghost"
                 onClick={() => setSourceMode(!isSourceMode)}
-                className="h-7 w-7 p-0 cursor-pointer"
-                title={isSourceMode ? "Switch to Live Preview" : "Switch to Code"}
+                className={cn(
+                  "h-8 w-8 cursor-pointer transition-all",
+                  !isSourceMode && "bg-muted"
+                )}
+                title={isSourceMode ? "Switch to Live Preview" : "Switch to Source Code"}
               >
                 {isSourceMode ? (
-                  <Eye className="h-3.5 w-3.5" />
+                  <Code2 className="h-4 w-4" />
                 ) : (
-                    <Code2 className="h-3.5 w-3.5 text-muted-foreground" />
+                    <Eye className="h-4 w-4" />
                 )}
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom" asChild={false}>
               <p className="text-xs">
-                {isSourceMode ? "Switch to Live Preview" : "Switch to Code"}
+                {isSourceMode ? (
+                  <>
+                    <span className="font-semibold">Source Mode</span> - Click to switch to Live Preview
+                  </>
+                ) : (
+                  <>
+                    <span className="font-semibold">Live Preview</span> - Click to switch to Source Code
+                  </>
+                )}
               </p>
             </TooltipContent>
           </Tooltip>
