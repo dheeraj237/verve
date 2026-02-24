@@ -4,6 +4,11 @@ import { FileNode } from "@/shared/types";
 import { MARKDOWN_EXTENSIONS, CODE_EXTENSIONS, TEXT_EXTENSIONS } from "@/shared/utils/file-type-detector";
 import { getDemoAdapter } from "@/hooks/use-demo-mode";
 import { buildDemoFileTree } from "@/utils/demo-file-tree";
+import {
+  storeDirectoryHandle,
+  getDirectoryHandle,
+  removeDirectoryHandle
+} from "@/shared/utils/idb-storage";
 
 interface FileExplorerStore {
   expandedFolders: Set<string>;
@@ -15,7 +20,8 @@ interface FileExplorerStore {
   toggleFolder: (folderId: string) => void;
   setSelectedFile: (fileId: string | null) => void;
   setFileTree: (tree: FileNode[]) => void;
-  openLocalDirectory: () => Promise<void>;
+  openLocalDirectory: (workspaceId?: string) => Promise<void>;
+  restoreLocalDirectory: (workspaceId: string) => Promise<boolean>;
   setIsLoadingLocalFiles: (loading: boolean) => void;
   createFile: (parentPath: string, fileName: string) => Promise<void>;
   createFolder: (parentPath: string, folderName: string) => Promise<void>;
@@ -62,7 +68,7 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
         }
       },
 
-      openLocalDirectory: async () => {
+      openLocalDirectory: async (workspaceId?: string) => {
         try {
           // Check if running on iOS
           const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
@@ -84,6 +90,15 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
           // Store directory name and path
           const { setCurrentDirectory } = useFileExplorerStore.getState();
           setCurrentDirectory(dirHandle.name, dirHandle.name);
+
+          // Store in IndexedDB if workspace ID is provided
+          if (workspaceId) {
+            try {
+              await storeDirectoryHandle(workspaceId, dirHandle);
+            } catch (error) {
+              console.error('Failed to store directory handle:', error);
+            }
+          }
 
           // Recursively read directory structure
           const buildFileTree = async (handle: any, path: string = ''): Promise<FileNode[]> => {
@@ -139,6 +154,76 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
             console.error('Error opening directory:', error);
             alert('Failed to open directory: ' + (error as Error).message);
           }
+        } finally {
+          set({ isLoadingLocalFiles: false });
+        }
+      },
+
+      restoreLocalDirectory: async (workspaceId: string): Promise<boolean> => {
+        try {
+          set({ isLoadingLocalFiles: true });
+
+          // Try to get the stored directory handle
+          const dirHandle = await getDirectoryHandle(workspaceId);
+
+          if (!dirHandle) {
+            return false;
+          }
+
+          // Store directory name and path
+          const { setCurrentDirectory } = useFileExplorerStore.getState();
+          setCurrentDirectory(dirHandle.name, dirHandle.name);
+
+          // Recursively read directory structure
+          const buildFileTree = async (handle: any, path: string = ''): Promise<FileNode[]> => {
+            const nodes: FileNode[] = [];
+            const allowedExtensions = [...MARKDOWN_EXTENSIONS, ...CODE_EXTENSIONS, ...TEXT_EXTENSIONS];
+
+            for await (const entry of handle.values()) {
+              const entryPath = path ? `${path}/${entry.name}` : entry.name;
+
+              if (entry.kind === 'file') {
+                const hasAllowedExt = allowedExtensions.some(ext => entry.name.toLowerCase().endsWith(ext));
+                if (hasAllowedExt) {
+                  nodes.push({
+                    id: `local-file-${entryPath}`,
+                    name: entry.name,
+                    path: entryPath,
+                    type: 'file',
+                  });
+                }
+              } else if (entry.kind === 'directory') {
+                const children = await buildFileTree(entry, entryPath);
+                if (children.length > 0) {
+                  nodes.push({
+                    id: `local-dir-${entryPath}`,
+                    name: entry.name,
+                    path: entryPath,
+                    type: 'folder',
+                    children,
+                  });
+                }
+              }
+            }
+
+            return nodes.sort((a, b) => {
+              if (a.type !== b.type) {
+                return a.type === 'folder' ? -1 : 1;
+              }
+              return a.name.localeCompare(b.name);
+            });
+          };
+
+          const fileTree = await buildFileTree(dirHandle);
+          set({ fileTree, expandedFolders: new Set() });
+
+          // Store directory handle for later file reading
+          (window as any).__localDirHandle = dirHandle;
+
+          return true;
+        } catch (error) {
+          console.error('Error restoring directory:', error);
+          return false;
         } finally {
           set({ isLoadingLocalFiles: false });
         }

@@ -13,7 +13,7 @@ import { cn } from "@/shared/utils/cn";
 interface WorkspaceTypePickerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSelectType: (type: 'browser' | 'local') => void;
+  onSelectType: (type: 'browser' | 'local' | 'drive') => void;
 }
 
 export function WorkspaceTypePicker({ 
@@ -21,7 +21,7 @@ export function WorkspaceTypePicker({
   onOpenChange, 
   onSelectType 
 }: WorkspaceTypePickerProps) {
-  const [selectedType, setSelectedType] = useState<'browser' | 'local'>('browser');
+  const [selectedType, setSelectedType] = useState<'browser' | 'local' | 'drive'>('browser');
 
   const handleNext = () => {
     onSelectType(selectedType);
@@ -101,9 +101,38 @@ export function WorkspaceTypePicker({
                     Save workspace data in native file system
                   </div>
                 </div>
-                {selectedType === 'local' && (
-                  <div className="text-primary">✓</div>
-                )}
+              </div>
+            </button>
+
+            {/* Google Drive option */}
+            <button
+              type="button"
+              onClick={() => setSelectedType('drive')}
+              className={cn(
+                "w-full text-left p-4 rounded-lg border-2 transition-colors",
+                "hover:border-primary/50 focus:outline-none focus:border-primary",
+                selectedType === 'drive'
+                  ? "border-primary bg-primary/5"
+                  : "border-border"
+              )}
+            >
+              <div className="flex items-center space-x-3">
+                <div className={cn(
+                  "w-4 h-4 rounded-full border-2 flex items-center justify-center",
+                  selectedType === 'drive'
+                    ? "border-primary"
+                    : "border-muted-foreground"
+                )}>
+                  {selectedType === 'drive' && (
+                    <div className="w-2 h-2 rounded-full bg-primary" />
+                  )}
+                </div>
+                <div className="flex-1">
+                  <div className="font-medium">Google Drive</div>
+                  <div className="text-sm text-muted-foreground">
+                    Sync workspace files with Google Drive
+                  </div>
+                </div>
               </div>
             </button>
           </div>

@@ -25,13 +25,15 @@ import {
   Globe, 
   Trash,
   MoreHorizontal,
-  ChevronDown 
+  ChevronDown,
+  AlertTriangle
 } from "lucide-react";
 import { useWorkspaceStore, Workspace } from "@/core/store/workspace-store";
 import { useFileExplorerStore } from "@/features/file-explorer/store/file-explorer-store";
 import { cn } from "@/shared/utils/cn";
 import { toast } from "@/shared/utils/toast";
 import { WorkspaceTypePicker } from "@/shared/components/workspace-type-picker";
+import { requestDriveAccessToken } from "@/core/auth/google";
 
 interface WorkspaceDropdownProps {
   className?: string;
@@ -40,6 +42,8 @@ interface WorkspaceDropdownProps {
 export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isTypePickerOpen, setIsTypePickerOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [workspaceToDelete, setWorkspaceToDelete] = useState<Workspace | null>(null);
   const [newWorkspaceName, setNewWorkspaceName] = useState("");
   const [selectedWorkspaceType, setSelectedWorkspaceType] = useState<Workspace['type']>('browser');
   
@@ -53,7 +57,7 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
     deleteWorkspace
   } = useWorkspaceStore();
 
-  const { openLocalDirectory, setGoogleFolder } = useFileExplorerStore();
+  const { openLocalDirectory, restoreLocalDirectory, setGoogleFolder } = useFileExplorerStore();
 
   const currentWorkspace = activeWorkspace();
 
@@ -63,6 +67,22 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
       createWorkspace("Demo", "browser");
     }
   }, [workspaces.length, createWorkspace]);
+
+  // Restore local directory on load if current workspace is local
+  React.useEffect(() => {
+    const restoreOnLoad = async () => {
+      if (currentWorkspace?.type === 'local') {
+        await restoreLocalDirectory(currentWorkspace.id);
+      } else if (currentWorkspace?.type === 'drive' && currentWorkspace.driveFolder) {
+        // Set the Google Drive folder for this workspace
+        if (setGoogleFolder) {
+          setGoogleFolder(currentWorkspace.driveFolder);
+        }
+      }
+    };
+
+    restoreOnLoad();
+  }, []); // Run only once on mount
 
   // Listen for new workspace modal trigger
   React.useEffect(() => {
@@ -74,7 +94,7 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
     return () => document.removeEventListener('openNewWorkspaceModal', handleOpenModal);
   }, []);
 
-  const handleTypeSelected = (type: 'browser' | 'local') => {
+  const handleTypeSelected = (type: 'browser' | 'local' | 'drive') => {
     setSelectedWorkspaceType(type);
     setIsCreateDialogOpen(true);
   };
@@ -85,13 +105,67 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
       return;
     }
 
+    // Check for duplicate workspace names
+    const duplicateWorkspace = workspaces.find(
+      w => w.name.toLowerCase() === newWorkspaceName.trim().toLowerCase()
+    );
+    if (duplicateWorkspace) {
+      toast.error(`A workspace named "${newWorkspaceName}" already exists. Please choose a different name.`);
+      return;
+    }
+
     try {
       if (selectedWorkspaceType === 'local') {
-        // For local workspace, open directory picker
-        await openLocalDirectory();
+        // For local workspace, open directory picker first
+        const newWorkspaceId = `local-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        await openLocalDirectory(newWorkspaceId);
         // Create workspace with the selected directory
         createWorkspace(newWorkspaceName, 'local');
         toast.success("Local workspace created successfully!");
+      } else if (selectedWorkspaceType === 'drive') {
+        // For Google Drive workspace, authenticate and create folder
+        try {
+          const token = await requestDriveAccessToken(true);
+          if (!token) {
+            toast.error("Failed to authenticate with Google Drive");
+            return;
+          }
+
+          // Create a folder in Google Drive for this workspace
+          const metadata = {
+            name: `Verve - ${newWorkspaceName}`,
+            mimeType: 'application/vnd.google-apps.folder'
+          };
+
+          const response = await fetch('https://www.googleapis.com/drive/v3/files', {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(metadata)
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to create Google Drive folder');
+          }
+
+          const folder = await response.json();
+
+          // Create workspace with the Google Drive folder ID
+          createWorkspace(newWorkspaceName, 'drive', { driveFolder: folder.id });
+
+          // Set the folder in file explorer
+          if (setGoogleFolder) {
+            setGoogleFolder(folder.id);
+          }
+
+          toast.success("Google Drive workspace created successfully!");
+        } catch (error) {
+          console.error('Error creating Google Drive workspace:', error);
+          toast.error("Failed to create Google Drive workspace", (error as Error).message);
+          return;
+        }
       } else {
         // Browser workspace
         createWorkspace(newWorkspaceName, 'browser');
@@ -106,14 +180,60 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
     }
   };
 
-  const handleDeleteWorkspace = (workspace: Workspace) => {
+  const handleSwitchWorkspace = async (workspace: Workspace) => {
+    // If switching to a local workspace, try to restore the directory handle
+    if (workspace.type === 'local') {
+      const restored = await restoreLocalDirectory(workspace.id);
+      if (!restored) {
+        toast.error("Failed to restore local directory. Please select the directory again.");
+        // Still switch to the workspace, user can re-select directory
+      }
+    } else if (workspace.type === 'drive' && workspace.driveFolder) {
+      // Set the Google Drive folder for this workspace
+      if (setGoogleFolder) {
+        setGoogleFolder(workspace.driveFolder);
+      }
+    }
+
+    switchWorkspace(workspace.id);
+  };
+
+  const handleDeleteClick = (workspace: Workspace) => {
+    setWorkspaceToDelete(workspace);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (!workspaceToDelete) return;
+
+    // Prevent deletion of demo workspace
+    if (workspaceToDelete.name === "Demo" && workspaceToDelete.type === "browser") {
+      toast.error("Cannot delete the demo workspace");
+      setIsDeleteDialogOpen(false);
+      setWorkspaceToDelete(null);
+      return;
+    }
+
     if (workspaces.length <= 1) {
       toast.error("Cannot delete the last workspace");
+      setIsDeleteDialogOpen(false);
+      setWorkspaceToDelete(null);
       return;
     }
     
-    deleteWorkspace(workspace.id);
-    toast.success(`Workspace "${workspace.name}" deleted`);
+    // Remove directory handle from IndexedDB if it's a local workspace
+    if (workspaceToDelete.type === 'local') {
+      import('@/shared/utils/idb-storage').then(({ removeDirectoryHandle }) => {
+        removeDirectoryHandle(workspaceToDelete.id).catch((error) => {
+          console.error('Failed to remove directory handle:', error);
+        });
+      });
+    }
+
+    deleteWorkspace(workspaceToDelete.id);
+    toast.success(`Workspace "${workspaceToDelete.name}" deleted`);
+    setIsDeleteDialogOpen(false);
+    setWorkspaceToDelete(null);
   };
 
   const getWorkspaceIcon = (type: Workspace['type']) => {
@@ -159,7 +279,7 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
           {workspaces.map((workspace) => (
             <div key={workspace.id} className="flex items-center group">
               <DropdownMenuItem
-                onClick={() => switchWorkspace(workspace.id)}
+                onClick={() => handleSwitchWorkspace(workspace)}
                 className={cn(
                   "cursor-pointer flex-1 flex items-center gap-2",
                   workspace.id === currentWorkspace?.id && "bg-accent"
@@ -173,7 +293,7 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
                   </span>
                 </div>
               </DropdownMenuItem>
-              {workspaces.length > 1 && (
+              {workspaces.length > 1 && !(workspace.name === "Demo" && workspace.type === "browser") && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button 
@@ -186,7 +306,7 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem 
-                      onClick={() => handleDeleteWorkspace(workspace)}
+                      onClick={() => handleDeleteClick(workspace)}
                       className="text-destructive cursor-pointer"
                     >
                       <Trash className="h-3 w-3 mr-2" />
@@ -213,10 +333,10 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>
-              Create {selectedWorkspaceType === 'browser' ? 'Browser' : 'Local'} Workspace
+              Create {selectedWorkspaceType === 'browser' ? 'Browser' : selectedWorkspaceType === 'local' ? 'Local' : 'Google Drive'} Workspace
             </DialogTitle>
             <DialogDescription>
-              Give your {selectedWorkspaceType === 'browser' ? 'browser' : 'local'} workspace a name.
+              Give your {selectedWorkspaceType === 'browser' ? 'browser' : selectedWorkspaceType === 'local' ? 'local' : 'Google Drive'} workspace a name.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -226,7 +346,7 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
                 id="workspace-name"
                 value={newWorkspaceName}
                 onChange={(e) => setNewWorkspaceName(e.target.value)}
-                placeholder={`My ${selectedWorkspaceType === 'browser' ? 'Browser' : 'Local'} Workspace`}
+                placeholder={`My ${selectedWorkspaceType === 'browser' ? 'Browser' : selectedWorkspaceType === 'local' ? 'Local' : 'Drive'} Workspace`}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     handleCreateWorkspace();
@@ -237,7 +357,9 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
             <div className="text-sm text-muted-foreground">
               {selectedWorkspaceType === 'browser'
                 ? 'Your workspace will be saved in browser storage and available on this device.'
-                : 'Your workspace will connect to a folder on your computer for file access.'
+                : selectedWorkspaceType === 'local'
+                  ? 'Your workspace will connect to a folder on your computer for file access.'
+                  : 'Your workspace will sync files with a Google Drive folder.'
               }
             </div>
           </div>
@@ -253,6 +375,53 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
             </Button>
             <Button onClick={handleCreateWorkspace}>
               Create Workspace
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Delete Workspace
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete "{workspaceToDelete?.name}"?
+              {workspaceToDelete?.type === 'browser' && (
+                <span className="block mt-2 text-destructive">
+                  Warning: All files in this workspace will be permanently deleted from browser storage.
+                </span>
+              )}
+              {workspaceToDelete?.type === 'local' && (
+                <span className="block mt-2">
+                  Note: Your local files will not be deleted, only the workspace connection will be removed.
+                </span>
+              )}
+              {workspaceToDelete?.type === 'drive' && (
+                <span className="block mt-2">
+                  Note: Your Google Drive files will not be deleted, only the workspace connection will be removed.
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsDeleteDialogOpen(false);
+                setWorkspaceToDelete(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmDelete}
+            >
+              Delete Workspace
             </Button>
           </DialogFooter>
         </DialogContent>
