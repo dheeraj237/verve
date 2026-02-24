@@ -93,7 +93,14 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
       setGoogleFolder: (folderId: string) => {
         try {
           window.localStorage.setItem('verve_gdrive_folder_id', folderId);
-          set({ currentDirectoryName: `Google Drive (${folderId})`, currentDirectoryPath: folderId });
+          // Prefer showing the active workspace name (user-specific) when available
+          try {
+            const activeWs = useWorkspaceStore.getState().activeWorkspace?.();
+            const name = activeWs?.name ?? `Google Drive`;
+            set({ currentDirectoryName: name, currentDirectoryPath: folderId });
+          } catch (err) {
+            set({ currentDirectoryName: `Google Drive`, currentDirectoryPath: folderId });
+          }
         } catch (e) {
           console.error('Failed to set Google Drive folder', e);
         }
@@ -262,7 +269,7 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
           return;
         }
 
-        // For Google Drive workspace
+        // For Google Drive workspace: show the workspace name as the root folder label
         if (activeWorkspace.type === 'drive' && activeWorkspace.driveFolder) {
           try {
             const gdriveFolder = activeWorkspace.driveFolder;
@@ -278,17 +285,19 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
               });
             }
 
+            const rootName = activeWorkspace.name || 'Google Drive';
+
             const nodes: FileNode[] = [
               {
                 id: `gdrive-${gdriveFolder}`,
-                name: 'Google Drive (Verve)',
+                name: rootName,
                 path: gdriveFolder,
                 type: 'folder',
                 children
               },
             ];
 
-            set({ fileTree: nodes });
+            set({ fileTree: nodes, currentDirectoryName: rootName, currentDirectoryPath: gdriveFolder });
             return;
           } catch (e) {
             console.error('Failed to load Google Drive folder', e);

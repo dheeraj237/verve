@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useUserStore } from "@/core/store/user-store";
 import { Button } from "@/shared/components/ui/button";
 import { 
   Dialog,
@@ -22,6 +23,7 @@ export function WorkspaceTypePicker({
   onSelectType 
 }: WorkspaceTypePickerProps) {
   const [selectedType, setSelectedType] = useState<'browser' | 'local' | 'drive'>('browser');
+  const isLoggedIn = useUserStore((s) => s.isLoggedIn);
 
   const handleNext = () => {
     onSelectType(selectedType);
@@ -104,16 +106,18 @@ export function WorkspaceTypePicker({
               </div>
             </button>
 
-            {/* Google Drive option */}
+            {/* Google Drive option (only available when logged in) */}
             <button
               type="button"
-              onClick={() => setSelectedType('drive')}
+              onClick={() => isLoggedIn && setSelectedType('drive')}
+              disabled={!isLoggedIn}
               className={cn(
                 "w-full text-left p-4 rounded-lg border-2 transition-colors",
                 "hover:border-primary/50 focus:outline-none focus:border-primary",
                 selectedType === 'drive'
                   ? "border-primary bg-primary/5"
-                  : "border-border"
+                  : "border-border",
+                !isLoggedIn && "opacity-60 cursor-not-allowed"
               )}
             >
               <div className="flex items-center space-x-3">
@@ -130,7 +134,7 @@ export function WorkspaceTypePicker({
                 <div className="flex-1">
                   <div className="font-medium">Google Drive</div>
                   <div className="text-sm text-muted-foreground">
-                    Sync workspace files with Google Drive
+                    {isLoggedIn ? 'Sync workspace files with Google Drive' : 'Sign in to enable Google Drive'}
                   </div>
                 </div>
               </div>

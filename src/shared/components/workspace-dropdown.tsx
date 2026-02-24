@@ -251,6 +251,14 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
           // Still continue with workspace switch, refresh will show empty tree
         }
       } else if (workspace.type === 'drive' && workspace.driveFolder) {
+        // Try to obtain a non-interactive Drive token so switching doesn't require re-auth
+        try {
+          await requestDriveAccessToken(false);
+        } catch (err) {
+          // Non-interactive token request may fail if no prior grant exists; ignore here
+          console.warn('Non-interactive Drive token request failed (no prior grant?):', err);
+        }
+
         // Set the Google Drive folder for this workspace
         if (setGoogleFolder) {
           setGoogleFolder(workspace.driveFolder);
