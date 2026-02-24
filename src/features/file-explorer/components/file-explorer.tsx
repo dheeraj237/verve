@@ -2,22 +2,19 @@ import { useEffect, useState } from "react";
 import { FileNode } from "@/shared/types";
 import { useFileExplorerStore } from "../store/file-explorer-store";
 import { FileTreeItem } from "./file-tree-item";
-import { Loader2, FolderOpen, FileText, FilePlus, FolderPlus, RefreshCw, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
+import { FilePlus, FolderPlus, RefreshCw, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
-import { GoogleDriveSync } from "@/shared/components/google-drive-sync";
-import { useEditorStore } from "@/features/editor/store/editor-store";
 import { InlineInput } from "./inline-input";
 import { toast } from "@/shared/utils/toast";
 import { cn } from "@/shared/utils/cn";
 import { initializeDemoFileTree } from "@/utils/demo-file-tree";
 import { useWorkspaceStore } from "@/core/store/workspace-store";
+import { FileTreeFilter } from "./file-tree-filter";
 
 export function FileExplorer() {
   const {
     fileTree,
     setFileTree,
-    openLocalDirectory,
-    isLoadingLocalFiles,
     refreshFileTree,
     toggleCollapseExpand,
     expandedFolders,
@@ -26,13 +23,12 @@ export function FileExplorer() {
     currentDirectoryName,
     currentDirectoryPath,
     setCurrentDirectory,
-    setGoogleFolder,
   } = useFileExplorerStore();
-  const { openLocalFile } = useEditorStore();
   const { activeWorkspace } = useWorkspaceStore();
   const [newItemType, setNewItemType] = useState<'file' | 'folder' | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [hasInitialized, setHasInitialized] = useState(false);
+  const [filterValue, setFilterValue] = useState("");
 
   useEffect(() => {
     async function loadFiles() {
@@ -124,66 +120,89 @@ export function FileExplorer() {
     return fileTree.map(node => node.name);
   };
 
+  // Filter file tree based on search query
+  const filterFileTree = (nodes: FileNode[], query: string): FileNode[] => {
+    if (!query.trim()) return nodes;
+
+    const lowerQuery = query.toLowerCase();
+
+    const filterNodes = (nodes: FileNode[]): FileNode[] => {
+      return nodes.reduce((acc: FileNode[], node) => {
+        const nameMatches = node.name.toLowerCase().includes(lowerQuery);
+        const children = node.children ? filterNodes(node.children) : [];
+
+        if (nameMatches || children.length > 0) {
+          acc.push({
+            ...node,
+            children: children.length > 0 ? children : node.children,
+          });
+        }
+
+        return acc;
+      }, []);
+    };
+
+    return filterNodes(nodes);
+  };
+
+  const filteredFileTree = filterFileTree(fileTree, filterValue);
+
   return (
     <div className="h-full flex flex-col">
-      {/* Static Explorer heading */}
-      <div className="px-4 py-2 border-b border-sidebar-border">
-        <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-          Explorer
-        </h2>
-      </div>
+      {/* File tree filter */}
+      <FileTreeFilter onFilterChange={setFilterValue} />
 
       {/* Directory name with action buttons */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-sidebar-border">
+      <div className="flex items-center justify-between px-3 py-1.5 border-b border-sidebar-border">
         <h3
-          className="text-xs font-semibold text-foreground truncate flex-1 mr-2"
+          className="text-xs font-medium text-foreground truncate flex-1 mr-2"
           title={currentDirectoryPath || undefined}
         >
           {currentDirectoryName || 'No folder open'}
         </h3>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5">
           <Button
             variant="ghost"
             size="icon"
             onClick={handleNewFile}
             disabled={fileTree.length === 0}
-            className="h-6 w-6 hover:bg-sidebar-hover cursor-pointer"
+            className="h-5 w-5 hover:bg-sidebar-hover cursor-pointer"
             title="New File"
           >
-            <FilePlus className="h-4 w-4" />
+            <FilePlus className="h-3.5 w-3.5" />
           </Button>
           <Button
             variant="ghost"
             size="icon"
             onClick={handleNewFolder}
             disabled={fileTree.length === 0}
-            className="h-6 w-6 hover:bg-sidebar-hover cursor-pointer"
+            className="h-5 w-5 hover:bg-sidebar-hover cursor-pointer"
             title="New Folder"
           >
-            <FolderPlus className="h-4 w-4" />
+            <FolderPlus className="h-3.5 w-3.5" />
           </Button>
           <Button
             variant="ghost"
             size="icon"
             onClick={handleRefresh}
             disabled={isRefreshing || fileTree.length === 0}
-            className="h-6 w-6 hover:bg-sidebar-hover cursor-pointer"
+            className="h-5 w-5 hover:bg-sidebar-hover cursor-pointer"
             title="Refresh Explorer"
           >
-            <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
+            <RefreshCw className={cn("h-3.5 w-3.5", isRefreshing && "animate-spin")} />
           </Button>
           <Button
             variant="ghost"
             size="icon"
             onClick={handleToggleCollapseExpand}
             disabled={fileTree.length === 0}
-            className="h-6 w-6 hover:bg-sidebar-hover cursor-pointer"
+            className="h-5 w-5 hover:bg-sidebar-hover cursor-pointer"
             title={expandedFolders.size > 0 ? "Collapse All" : "Expand All"}
           >
             {expandedFolders.size > 0 ? (
-              <ChevronsDownUp className="h-4 w-4" />
+              <ChevronsDownUp className="h-3.5 w-3.5" />
             ) : (
-              <ChevronsUpDown className="h-4 w-4" />
+                <ChevronsUpDown className="h-3.5 w-3.5" />
             )}
           </Button>
         </div>
@@ -210,45 +229,17 @@ export function FileExplorer() {
               existingNames={getExistingNames()}
             />
           )}
-          {fileTree.map((node) => (
-            <FileTreeItem key={node.id} node={node} level={0} parentNode={undefined} />
-          ))}
-        </div>
+            {filteredFileTree.length > 0 ? (
+              filteredFileTree.map((node) => (
+                <FileTreeItem key={node.id} node={node} level={0} parentNode={undefined} />
+            ))
+            ) : (
+              <div className="px-3 py-2 text-xs text-muted-foreground">
+                No files match filter
+              </div>
+            )}
+          </div>
       )}
-
-      {/* Google Drive sync row (separate line above local folder/file controls) */}
-      <div className="px-2 pt-2 border-t border-sidebar-border">
-        <GoogleDriveSync />
-      </div>
-
-      {/* Open folder/file buttons at bottom */}
-      <div className="flex gap-2 p-2 border-t border-sidebar-border mt-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => openLocalDirectory()}
-          disabled={isLoadingLocalFiles}
-          className="flex-1 gap-2 text-xs cursor-pointer"
-          title="Open folder"
-        >
-          {isLoadingLocalFiles ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <FolderOpen className="h-4 w-4" />
-          )}
-          Folder
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={openLocalFile}
-          className="flex-1 gap-2 text-xs cursor-pointer"
-          title="Open file"
-        >
-          <FileText className="h-4 w-4" />
-          File
-        </Button>
-      </div>
     </div>
   );
 }

@@ -82,6 +82,7 @@ interface EditorStore {
 
   openFile: (file: MarkdownFile) => void;
   closeTab: (fileId: string) => void;
+  closeAllTabs: () => void;
   setActiveTab: (fileId: string) => void;
 
   updateFileContent: (fileId: string, content: string) => void;
@@ -152,6 +153,11 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       activeTabId: newActiveId,
     };
   }),
+
+  /**
+   * Closes all open tabs
+   */
+  closeAllTabs: () => set({ openTabs: [], activeTabId: null }),
 
   /**
    * Sets the currently active tab

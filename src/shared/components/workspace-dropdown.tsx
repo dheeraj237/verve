@@ -364,7 +364,7 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
                       <MoreHorizontal className="h-3 w-3" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
+                  <DropdownMenuContent align="end" side="right">
                     <DropdownMenuItem 
                       onClick={() => handleDeleteClick(workspace)}
                       className="text-destructive cursor-pointer"

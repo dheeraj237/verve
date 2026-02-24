@@ -28,17 +28,17 @@ export function OpenedFilesSection() {
 
   if (openTabs.length === 0) {
     return (
-      <div className="px-3 py-2">
-        <div className="text-xs text-muted-foreground py-2">
-          No files opened
+      <div className="px-3 py-1.5">
+        <div className="text-xs text-muted-foreground">
+          No opened editors
         </div>
       </div>
     );
   }
 
   return (
-    <div className="px-3 py-2">
-      <div className="space-y-1">
+    <div className="px-3 py-1">
+      <div className="space-y-0.5">
         {openTabs.map((file) => {
           const isActive = file.id === activeTabId;
           const isDirty = file.isSaving || false;
@@ -47,7 +47,7 @@ export function OpenedFilesSection() {
             <div
               key={file.id}
               className={cn(
-                "group flex items-center gap-2 px-2 py-1 rounded-sm cursor-pointer hover:bg-sidebar-hover transition-colors text-xs",
+                "group flex items-center gap-1.5 px-2 py-0.5 rounded-sm cursor-pointer hover:bg-sidebar-hover transition-colors text-xs",
                 isActive && "bg-accent text-accent-foreground"
               )}
               onClick={() => handleFileClick(file.id)}

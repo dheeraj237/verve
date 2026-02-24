@@ -1,66 +1,32 @@
-import { useState } from "react";
-import { Button } from "@/shared/components/ui/button";
-import { 
-  Plus, 
-  FolderPlus, 
-  ChevronDown,
-  FolderOpen,
-  FileText
-} from "lucide-react";
 import { cn } from "@/shared/utils/cn";
-import { useWorkspaceStore } from "@/core/store/workspace-store";
-import { useFileExplorerStore } from "@/features/file-explorer/store/file-explorer-store";
-import { useEditorStore } from "@/features/editor/store/editor-store";
-import { ThemeToggle } from "@/shared/components/theme-toggle";
-import { CollapsibleFileExplorer } from "@/features/file-explorer/components/collapsible-file-explorer";
+import { FileExplorer } from "@/features/file-explorer/components/file-explorer";
 import { WorkspaceDropdown } from "@/shared/components/workspace-dropdown";
 import { OpenedFilesSection } from "@/shared/components/opened-files-section";
 import { SearchBar } from "@/shared/components/search-bar";
 import { CollapsibleSection } from "@/shared/components/collapsible-section";
-import { CreateActions } from "@/shared/components/create-actions";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger
-} from "@/shared/components/ui/dropdown-menu";
+import { Button } from "@/shared/components/ui/button";
+import { XCircle } from "lucide-react";
+import { useEditorStore } from "@/features/editor/store/editor-store";
 
 interface LeftNavigationPanelProps {
   className?: string;
 }
 
 export function LeftNavigationPanel({ className }: LeftNavigationPanelProps) {
-  const { createWorkspace } = useWorkspaceStore();
-  const { openLocalDirectory } = useFileExplorerStore();
-  const { openLocalFile } = useEditorStore();
-  
-  const handleNewNote = () => {
-    // This will be connected to the file creation logic
-    console.log("Creating new note...");
-  };
+  const { closeAllTabs } = useEditorStore();
 
-  const handleNewWorkspace = () => {
-    // Open the workspace creation modal from WorkspaceDropdown
-    const workspaceDropdownEvent = new CustomEvent('openNewWorkspaceModal');
-    document.dispatchEvent(workspaceDropdownEvent);
-  };
-
-  const handleOpenFolder = async () => {
-    try {
-      await openLocalDirectory();
-    } catch (error) {
-      console.error("Error opening folder:", error);
-    }
-  };
-
-  const handleOpenFile = async () => {
-    try {
-      await openLocalFile();
-    } catch (error) {
-      console.error("Error opening file:", error);
-    }
-  };
+  // Close all button for open editors header
+  const closeAllButton = (
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={closeAllTabs}
+      className="h-5 w-5 hover:bg-sidebar-hover cursor-pointer"
+      title="Close All"
+    >
+      <XCircle className="h-3.5 w-3.5" />
+    </Button>
+  );
 
   return (
     <div className={cn("h-full flex flex-col bg-sidebar-background", className)}>
@@ -74,60 +40,29 @@ export function LeftNavigationPanel({ className }: LeftNavigationPanelProps) {
         <SearchBar />
       </div>
 
-      {/* Open folder/file buttons */}
-      <div className="px-3 py-2 border-b border-sidebar-border">
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleOpenFolder}
-            className="flex-1 gap-2 text-xs cursor-pointer"
-            title="Open folder"
-          >
-            <FolderOpen className="h-4 w-4" />
-            Folder
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleOpenFile}
-            className="flex-1 gap-2 text-xs cursor-pointer"
-            title="Open file"
-          >
-            <FileText className="h-4 w-4" />
-            File
-          </Button>
+      {/* Main content area - scrollable */}
+      <div className="flex-1 overflow-auto">
+        {/* EXPLORER heading */}
+        <div className="px-3 py-2">
+          <h2 className="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wider">
+            Explorer
+          </h2>
         </div>
-      </div>
 
-      {/* Collapsible Files Section */}
-      <CollapsibleSection
-        title="Files"
-        className="flex-1 overflow-hidden border-b border-sidebar-border"
-        storageKey="files"
-      >
-        <div className="h-full overflow-hidden">
-          <CollapsibleFileExplorer />
-        </div>
-      </CollapsibleSection>
-
-      {/* Bottom sections */}
-      <div className="border-t border-sidebar-border">
-        {/* Collapsible Opened Files Section */}
+        {/* Open Editors Section - Default collapsed */}
         <CollapsibleSection
-          title="Opened"
+          title="Open Editors"
           isDefaultOpen={false}
-          className="border-b border-sidebar-border"
-          storageKey="opened"
+          storageKey="open-editors"
+          headerAction={closeAllButton}
         >
           <OpenedFilesSection />
         </CollapsibleSection>
 
-        {/* Create Actions */}
-        <CreateActions
-          onNewNote={handleNewNote}
-          onNewWorkspace={handleNewWorkspace}
-        />
+        {/* File Explorer Section (includes filter and tree) */}
+        <div className="flex-1">
+          <FileExplorer />
+        </div>
       </div>
     </div>
   );

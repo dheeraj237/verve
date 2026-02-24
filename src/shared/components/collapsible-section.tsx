@@ -9,6 +9,7 @@ interface CollapsibleSectionProps {
   className?: string;
   headerClassName?: string;
   storageKey?: string; // Optional storage key to persist state
+  headerAction?: React.ReactNode; // Optional action button on the right
 }
 
 export function CollapsibleSection({
@@ -18,6 +19,7 @@ export function CollapsibleSection({
   className,
   headerClassName,
   storageKey,
+  headerAction,
 }: CollapsibleSectionProps) {
   const [isOpen, setIsOpen] = useState(isDefaultOpen);
 
@@ -43,20 +45,29 @@ export function CollapsibleSection({
 
   return (
     <div className={cn("", className)}>
-      <button
-        onClick={handleToggle}
+      <div
         className={cn(
-          "w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-muted-foreground hover:bg-accent/50 transition-colors focus:outline-none focus:bg-accent/50",
+          "w-full flex items-center justify-between px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent/50 transition-colors",
           headerClassName
         )}
       >
-        <span>{title}</span>
-        {isOpen ? (
-          <ChevronDown className="h-3 w-3 transition-transform duration-200" />
-        ) : (
-          <ChevronRight className="h-3 w-3 transition-transform duration-200" />
+        <button
+          onClick={handleToggle}
+          className="flex items-center gap-1.5 flex-1 focus:outline-none"
+        >
+          {isOpen ? (
+            <ChevronDown className="h-3.5 w-3.5 shrink-0 transition-transform duration-200" />
+          ) : (
+            <ChevronRight className="h-3.5 w-3.5 shrink-0 transition-transform duration-200" />
+          )}
+          <span className="uppercase tracking-wide">{title}</span>
+        </button>
+        {headerAction && (
+          <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
+            {headerAction}
+          </div>
         )}
-      </button>
+      </div>
       <div className={cn(
         "overflow-hidden transition-all duration-200 ease-in-out",
         isOpen ? "max-h-[50vh] opacity-100" : "max-h-0 opacity-0"
