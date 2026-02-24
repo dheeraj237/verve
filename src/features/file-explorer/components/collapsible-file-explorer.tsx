@@ -6,6 +6,7 @@ import { useEditorStore } from "@/features/editor/store/editor-store";
 import { InlineInput } from "./inline-input";
 import { toast } from "@/shared/utils/toast";
 import { initializeDemoFileTree } from "@/utils/demo-file-tree";
+import { useWorkspaceStore } from "@/core/store/workspace-store";
 
 export function CollapsibleFileExplorer() {
   const {
@@ -24,14 +25,19 @@ export function CollapsibleFileExplorer() {
   useEffect(() => {
     async function loadFiles() {
       try {
-        // Load demo files from localStorage
-        const demoFileTree = await initializeDemoFileTree();
-        
-        if (demoFileTree && demoFileTree.length > 0) {
-          setFileTree(demoFileTree);
-          // Set default directory name for demo files
-          if (!currentDirectoryName) {
-            setCurrentDirectory('Demo Files', '/demo');
+        // Only load demo files for Verve Samples workspace
+        const currentWorkspace = useWorkspaceStore.getState().activeWorkspace();
+
+        if (currentWorkspace?.type === 'browser' && currentWorkspace.id === 'verve-samples') {
+          // Load demo files from localStorage
+          const demoFileTree = await initializeDemoFileTree();
+
+          if (demoFileTree && demoFileTree.length > 0) {
+            setFileTree(demoFileTree);
+            // Set default directory name for demo files
+            if (!currentDirectoryName) {
+              setCurrentDirectory('Verve Samples', '/demo');
+            }
           }
         }
       } catch (error) {

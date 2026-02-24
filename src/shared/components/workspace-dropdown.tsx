@@ -62,24 +62,16 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
 
   const currentWorkspace = activeWorkspace();
 
-  // Initialize default demo workspace if no workspaces exist (check persisted storage first)
+  // Initialize default Verve Samples workspace if it doesn't exist
   React.useEffect(() => {
-    if (workspaces.length > 0) return;
+    // Check if Verve Samples workspace already exists
+    const verveSamplesExists = workspaces.some(w => w.id === 'verve-samples');
 
-    try {
-      const saved = window.localStorage.getItem('verve-workspace-store');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        // Persist structure may wrap state under `state` depending on zustand version
-        const savedWorkspaces = parsed?.state?.workspaces ?? parsed?.workspaces;
-        if (Array.isArray(savedWorkspaces) && savedWorkspaces.length > 0) return;
-      }
-    } catch (e) {
-      // ignore parse errors and fall back to creating demo
+    if (!verveSamplesExists) {
+      // Create the permanent Verve Samples workspace with a fixed ID
+      createWorkspace("Verve Samples", "browser", { id: 'verve-samples' });
     }
-
-    createWorkspace("Demo", "browser");
-  }, [workspaces.length, createWorkspace]);
+  }, [workspaces, createWorkspace]);
 
   // Restore workspace on mount
   React.useEffect(() => {
@@ -290,9 +282,9 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
   const handleConfirmDelete = () => {
     if (!workspaceToDelete) return;
 
-    // Prevent deletion of demo workspace
-    if (workspaceToDelete.name === "Demo" && workspaceToDelete.type === "browser") {
-      toast.error("Cannot delete the demo workspace");
+    // Prevent deletion of Verve Samples workspace
+    if (workspaceToDelete.id === 'verve-samples') {
+      toast.error("Cannot delete the Verve Samples workspace");
       setIsDeleteDialogOpen(false);
       setWorkspaceToDelete(null);
       return;
@@ -392,7 +384,7 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
                   </span>
                 </div>
               </DropdownMenuItem>
-              {workspaces.length > 1 && !(workspace.name === "Demo" && workspace.type === "browser") && (
+              {workspaces.length > 1 && workspace.id !== 'verve-samples' && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button 

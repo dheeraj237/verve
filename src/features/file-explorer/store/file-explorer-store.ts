@@ -258,10 +258,21 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
         // Get the active workspace to determine which file tree to load
         const activeWorkspace = useWorkspaceStore.getState().activeWorkspace();
 
-        // If no workspace is active or it's a browser workspace, load demo files
-        if (!activeWorkspace || activeWorkspace.type === 'browser') {
-          const fileTree = await buildDemoFileTree();
-          set({ fileTree });
+        // If no workspace is active, show empty
+        if (!activeWorkspace) {
+          set({ fileTree: [], currentDirectoryName: null, currentDirectoryPath: null });
+          return;
+        }
+
+        // For browser workspaces, only load demo files for Verve Samples
+        if (activeWorkspace.type === 'browser') {
+          if (activeWorkspace.id === 'verve-samples') {
+            const fileTree = await buildDemoFileTree();
+            set({ fileTree, currentDirectoryName: 'Verve Samples', currentDirectoryPath: '/demo' });
+          } else {
+            // Other browser workspaces start empty
+            set({ fileTree: [], currentDirectoryName: activeWorkspace.name, currentDirectoryPath: '/' });
+          }
           return;
         }
 
@@ -270,12 +281,12 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
           if (hasLocalDirectory()) {
             const fileTree = await refreshLocalDirectory();
             if (fileTree) {
-              set({ fileTree });
+              set({ fileTree, currentDirectoryName: activeWorkspace.name, currentDirectoryPath: '/' });
               return;
             }
           }
           // If local workspace but no directory handle, show empty or prompt to restore
-          set({ fileTree: [] });
+          set({ fileTree: [], currentDirectoryName: activeWorkspace.name, currentDirectoryPath: '/' });
           return;
         }
 
@@ -319,9 +330,8 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
           }
         }
 
-        // Fallback to demo files if no workspace type matches
-        const fileTree = await buildDemoFileTree();
-        set({ fileTree });
+        // No matching workspace type - show empty
+        set({ fileTree: [], currentDirectoryName: null, currentDirectoryPath: null });
       },
 
       /** Clears the currently open local directory */

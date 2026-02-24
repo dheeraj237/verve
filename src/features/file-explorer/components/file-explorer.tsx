@@ -39,11 +39,8 @@ export function FileExplorer() {
       try {
         const currentWorkspace = activeWorkspace();
 
-        // Only load demo files if:
-        // 1. No workspace exists yet (first time user)
-        // 2. OR active workspace is 'browser' type (demo workspace)
-        // For 'local' or 'drive' workspaces, let WorkspaceDropdown restoration handle it
-        if (!currentWorkspace || currentWorkspace.type === 'browser') {
+        // Only load demo files for Verve Samples workspace
+        if (currentWorkspace?.type === 'browser' && currentWorkspace.id === 'verve-samples') {
           // Load demo files from localStorage
           const demoFileTree = await initializeDemoFileTree();
 
@@ -51,12 +48,12 @@ export function FileExplorer() {
             setFileTree(demoFileTree);
             // Set default directory name for demo files
             if (!currentDirectoryName) {
-              setCurrentDirectory('Demo Files', '/demo');
+              setCurrentDirectory('Verve Samples', '/demo');
             }
           }
         }
-        // For non-browser workspaces, the WorkspaceDropdown component
-        // will handle restoration via its useEffect
+        // For all other workspaces (including other browser workspaces),
+        // the WorkspaceDropdown component will handle restoration via its useEffect
       } catch (error) {
         console.error("Error loading demo files:", error);
       }
