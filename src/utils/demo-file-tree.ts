@@ -47,7 +47,7 @@ export async function buildDemoFileTree(): Promise<FileNode[]> {
       const path = basePath ? `${basePath}/${key}` : key;
       
       // Check if it's a file
-      if (value && typeof value === 'object' && value.isFile) {
+      if (value && typeof value === 'object' && 'isFile' in value && (value as any).isFile) {
         nodes.push({
           id: `demo-${path}`,
           name: key,

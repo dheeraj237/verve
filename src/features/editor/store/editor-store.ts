@@ -351,7 +351,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
         });
       } else {
         
-        const manager = getFileManager(false);
+        const manager = getActiveFileManager();
         const fileData = await manager.loadFile(fileNode.path);
 
         get().openFile({

@@ -38,7 +38,7 @@ interface WorkspaceStore {
   /** Deletes a workspace by ID */
   deleteWorkspace: (id: string) => void;
   /** Switches to a different workspace */
-  switchWorkspace: (id: string) => void;
+  switchWorkspace: (id: string) => Promise<void>;
   /** Updates workspace properties */
   updateWorkspace: (id: string, updates: Partial<Workspace>) => void;
   /** Opens or closes the workspace picker dialog */
@@ -56,8 +56,8 @@ interface WorkspaceStore {
   tabsByWorkspace: Record<string, { openTabs: MarkdownFile[]; activeTabId: string | null }>;
   /** Save current editor tabs into the store for a workspace */
   saveTabsForWorkspace: (workspaceId?: string) => void;
-  /** Restore editor tabs from the store for a workspace */
-  restoreTabsForWorkspace: (workspaceId?: string) => void;
+  /** Restore editor tabs from the store for a workspace (reloads content from file manager) */
+  restoreTabsForWorkspace: (workspaceId?: string) => Promise<void>;
 }
 
 /**
@@ -115,7 +115,7 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
        * Switches to a different workspace by ID
        * Updates the lastAccessed timestamp for the workspace
        */
-      switchWorkspace: (id) => {
+      switchWorkspace: async (id) => {
         // Save current editor tabs for the previous workspace
         try {
           const prevId = get().activeWorkspaceId;
@@ -140,9 +140,9 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
           };
         });
 
-        // Restore tabs for the newly active workspace
+        // Restore tabs for the newly active workspace (reloads content from file manager)
         try {
-          get().restoreTabsForWorkspace(id);
+          await get().restoreTabsForWorkspace(id);
         } catch (err) {
           console.warn('Failed to restore tabs for workspace:', err);
         }
@@ -220,21 +220,63 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
 
       /**
        * Restore editor tabs for the provided workspaceId (or active workspace if omitted)
+       * Reloads file contents from the file manager to ensure fresh data for the workspace
        */
-      restoreTabsForWorkspace: (workspaceId) => {
+      restoreTabsForWorkspace: async (workspaceId) => {
         const idToRestore = workspaceId ?? get().activeWorkspaceId;
         if (!idToRestore) return;
 
         try {
           const saved = get().tabsByWorkspace[idToRestore];
-          if (saved && saved.openTabs) {
-            useEditorStore.setState({ openTabs: saved.openTabs, activeTabId: saved.activeTabId });
+          if (saved && saved.openTabs && saved.openTabs.length > 0) {
+            // First, set the tabs structure (without content to avoid stale data)
+            useEditorStore.setState({
+              openTabs: saved.openTabs,
+              activeTabId: saved.activeTabId,
+              isLoading: true
+            });
+
+            // Then reload file contents from the file manager for the new workspace
+            const workspace = get().workspaces.find(w => w.id === idToRestore);
+            if (workspace) {
+              const { getFileManager } = await import('@/core/store/file-manager-integration');
+              const fileManager = getFileManager(workspace);
+
+              // Reload each tab's content from the file manager
+              const reloadedTabs = await Promise.all(
+                saved.openTabs.map(async (tab) => {
+                  try {
+                    // Load fresh content from the file manager
+                    const fileData = await fileManager.loadFile(tab.path);
+                    return {
+                      ...tab,
+                      content: fileData.content,
+                      id: fileData.id, // Use the file manager's ID
+                    };
+                  } catch (err) {
+                    console.warn(`Failed to reload file ${tab.path}:`, err);
+                    // Keep the tab but with a note that it failed to load
+                    return tab;
+                  }
+                })
+              );
+
+              // Update tabs with fresh content
+              useEditorStore.setState({
+                openTabs: reloadedTabs,
+                activeTabId: saved.activeTabId,
+                isLoading: false
+              });
+            } else {
+              useEditorStore.setState({ isLoading: false });
+            }
           } else {
             // No saved tabs for this workspace -> clear editor
             useEditorStore.getState().closeAllTabs();
           }
         } catch (err) {
           console.warn('Failed to restore tabs for workspace:', err);
+          useEditorStore.setState({ isLoading: false });
         }
       },
     }),

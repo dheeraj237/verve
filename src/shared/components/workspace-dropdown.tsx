@@ -307,8 +307,8 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
       // This ensures we start fresh with the new workspace
       clearLocalDirectory();
 
-      // Switch the active workspace in the store first
-      switchWorkspace(workspace.id);
+      // Switch the active workspace in the store first (this will reload tabs with fresh content)
+      await switchWorkspace(workspace.id);
 
       // If switching to a local workspace, try to restore the directory handle
       if (workspace.type === 'local') {
