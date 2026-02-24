@@ -301,9 +301,19 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
         // For browser workspaces, use adapter to load files
         if (activeWorkspace.type === 'browser') {
           if (activeWorkspace.id === 'verve-samples') {
-            // Special case: Load static demo files for samples workspace
-            const fileTree = await buildDemoFileTree();
-            set({ fileTree, currentDirectoryName: 'Verve Samples', currentDirectoryPath: '/demo' });
+            // Special case: Load demo files for samples workspace using FileManager
+            try {
+              const fileManager = getFileManager(activeWorkspace);
+              const fileTree = await buildFileTreeFromAdapter(
+                fileManager,
+                '',
+                'demo-'
+              );
+              set({ fileTree, currentDirectoryName: 'Verve Samples', currentDirectoryPath: '/demo' });
+            } catch (e) {
+              console.error('Failed to load verve-samples workspace files', e);
+              set({ fileTree: [], currentDirectoryName: 'Verve Samples', currentDirectoryPath: '/demo' });
+            }
           } else {
             // Other browser workspaces: Load from DemoAdapterV2
             try {

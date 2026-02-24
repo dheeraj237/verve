@@ -12,7 +12,7 @@ import type { Workspace } from './workspace-store';
 export function createAdapterForWorkspace(workspace: Workspace): WorkspaceAdapter {
   switch (workspace.type) {
     case 'browser': {
-      const adapter = new DemoAdapterV2();
+      const adapter = new DemoAdapterV2(workspace.id);
       // Initialize asynchronously
       adapter.initialize().catch(err => 
         console.error('Failed to initialize DemoAdapter:', err)
@@ -22,7 +22,15 @@ export function createAdapterForWorkspace(workspace: Workspace): WorkspaceAdapte
 
     case 'local': {
       const adapter = new LocalAdapterV2();
-      // Local adapter needs directory handle - will be initialized separately
+      // Initialize with directory handle if available
+      const dirHandle = (window as any).__localDirHandle;
+      if (dirHandle) {
+        adapter.initialize(dirHandle).catch(err =>
+          console.error('Failed to initialize LocalAdapter:', err)
+        );
+      } else {
+        console.warn('Local adapter created but no directory handle available');
+      }
       return adapter;
     }
 
@@ -43,14 +51,35 @@ export function createAdapterForWorkspace(workspace: Workspace): WorkspaceAdapte
  * Global file manager instance (singleton)
  */
 let globalFileManager: FileManager | null = null;
+let currentWorkspaceId: string | null = null;
 
 /**
  * Get or create the global file manager instance
+ * Automatically switches adapter if workspace changed
  */
 export function getFileManager(workspace?: Workspace): FileManager {
-  if (!globalFileManager && workspace) {
+  // If workspace provided and it's different from current, switch adapter
+  if (workspace && workspace.id !== currentWorkspaceId) {
+    console.log(`[FileManagerIntegration] Workspace changed: ${currentWorkspaceId} -> ${workspace.id}`);
+
+    const adapter = createAdapterForWorkspace(workspace);
+
+    if (globalFileManager) {
+      // Switch adapter on existing manager
+      globalFileManager.switchAdapter(adapter, false).catch(err =>
+        console.error('Failed to switch adapter:', err)
+      );
+    } else {
+      // Create new manager
+      globalFileManager = new FileManager(adapter);
+    }
+
+    currentWorkspaceId = workspace.id;
+  } else if (!globalFileManager && workspace) {
+  // First time initialization
     const adapter = createAdapterForWorkspace(workspace);
     globalFileManager = new FileManager(adapter);
+    currentWorkspaceId = workspace.id;
   }
 
   if (!globalFileManager) {
@@ -64,6 +93,8 @@ export function getFileManager(workspace?: Workspace): FileManager {
  * Switch file manager to a different workspace
  */
 export async function switchFileManager(workspace: Workspace): Promise<FileManager> {
+  console.log(`[FileManagerIntegration] Explicitly switching to workspace: ${workspace.id}`);
+
   const adapter = createAdapterForWorkspace(workspace);
   
   if (globalFileManager) {
@@ -72,6 +103,7 @@ export async function switchFileManager(workspace: Workspace): Promise<FileManag
     globalFileManager = new FileManager(adapter);
   }
 
+  currentWorkspaceId = workspace.id;
   return globalFileManager;
 }
 
@@ -82,5 +114,6 @@ export function disposeFileManager(): void {
   if (globalFileManager) {
     globalFileManager.dispose();
     globalFileManager = null;
+    currentWorkspaceId = null;
   }
 }

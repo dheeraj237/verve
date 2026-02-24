@@ -40,14 +40,14 @@ export function useDemoMode() {
   };
 }
 
-export function getDemoAdapter() {
-  if (!demoAdapter) {
-    demoAdapter = new DemoAdapterV2();
-    demoAdapter.initialize().catch(err => {
-      console.error('Failed to initialize demo adapter:', err);
-    });
-  }
-  return demoAdapter;
+export function getDemoAdapter(workspaceId: string = 'default') {
+  // Always create a new adapter with the specific workspace ID
+  // This ensures each workspace has its own isolated adapter
+  const adapter = new DemoAdapterV2(workspaceId);
+  adapter.initialize().catch(err => {
+    console.error(`Failed to initialize demo adapter for workspace ${workspaceId}:`, err);
+  });
+  return adapter;
 }
 
 export function getDemoFileManager() {

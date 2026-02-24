@@ -221,6 +221,24 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
             } catch (e) {
               console.warn('Failed to refresh file tree after creating default file', e);
             }
+
+            // Pre-cache the created file
+            try {
+              const { getFileManager } = await import('@/core/store/file-manager-integration');
+              const { useWorkspaceStore } = await import('@/core/store/workspace-store');
+              const driveWorkspace = useWorkspaceStore.getState().activeWorkspace();
+              if (driveWorkspace) {
+                const manager = getFileManager(driveWorkspace);
+                const files = await manager.listFiles();
+                files.forEach(file => {
+                  manager.loadFile(file.path).catch(err =>
+                    console.warn(`Failed to pre-cache file ${file.path}:`, err)
+                  );
+                });
+              }
+            } catch (err) {
+              console.warn('Failed to pre-cache files:', err);
+            }
           } catch (err) {
             console.warn('Failed to create default verve.md file:', err);
           }
@@ -316,6 +334,23 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
 
       // Refresh file tree for the newly active workspace
       await refreshFileTree();
+
+      // Pre-cache all files for the workspace to improve performance
+      try {
+        const { getFileManager } = await import('@/core/store/file-manager-integration');
+        const manager = getFileManager(workspace);
+        const files = await manager.listFiles();
+
+        // Pre-load all files into cache (don't wait for completion)
+        files.forEach(file => {
+          manager.loadFile(file.path).catch(err =>
+            console.warn(`Failed to pre-cache file ${file.path}:`, err)
+          );
+        });
+      } catch (err) {
+        console.warn('Failed to pre-cache files:', err);
+      }
+
       toast.success(`Switched to "${workspace.name}"`);
     } catch (e) {
       console.error('Failed to switch workspace:', e);
@@ -330,7 +365,7 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
     setIsDeleteDialogOpen(true);
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!workspaceToDelete) return;
 
     // Prevent deletion of Verve Samples workspace
@@ -358,6 +393,14 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
     }
 
     deleteWorkspace(workspaceToDelete.id);
+
+    // Refresh file tree to reflect the active workspace
+    try {
+      await refreshFileTree();
+    } catch (e) {
+      console.warn('Failed to refresh file tree after deleting workspace', e);
+    }
+
     toast.success(`Workspace "${workspaceToDelete.name}" deleted`);
     setIsDeleteDialogOpen(false);
     setWorkspaceToDelete(null);
@@ -415,7 +458,7 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
             <ChevronDown className="h-4 w-4 opacity-50 shrink-0" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-64">
+        <DropdownMenuContent align="end" side="right" className="w-64">
           {workspaces.map((workspace) => (
             <div key={workspace.id} className="flex items-center group">
               <DropdownMenuItem

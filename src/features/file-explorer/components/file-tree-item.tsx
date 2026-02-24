@@ -8,7 +8,8 @@ import { FileContextMenu } from "./context-menu";
 import { InlineInput } from "./inline-input";
 import { toast } from "@/shared/utils/toast";
 import { Button } from "@/shared/components/ui/button";
-import { getDemoAdapter } from "@/hooks/use-demo-mode";
+import { getFileManager } from "@/core/store/file-manager-integration";
+import { useWorkspaceStore } from "@/core/store/workspace-store";
 
 interface FileTreeItemProps {
   node: FileNode;
@@ -74,6 +75,9 @@ export function FileTreeItem({ node, level, parentNode }: FileTreeItemProps) {
     setIsLoading(true);
 
     try {
+      // Get active workspace to determine how to load the file
+      const activeWorkspace = useWorkspaceStore.getState().activeWorkspace();
+
       // Check if this is a local file
       if (node.id.startsWith('local-file-')) {
         // Read file from local file system
@@ -103,10 +107,38 @@ export function FileTreeItem({ node, level, parentNode }: FileTreeItemProps) {
           fileHandle,
           isLocal: true,
         });
-      } else if (node.id.startsWith('demo-')) {
-        // Load from demo adapter (localStorage)
-        const demoAdapter = getDemoAdapter();
-        const fileData = await demoAdapter.readFile(node.path);
+      } else if (node.id.startsWith('gdrive-')) {
+        // Google Drive file - use FileManager
+        if (!activeWorkspace || activeWorkspace.type !== 'drive') {
+          throw new Error('No Google Drive workspace active');
+        }
+
+        const fileManager = getFileManager(activeWorkspace);
+        const fileData = await fileManager.loadFile(node.path);
+
+        openFile({
+          id: node.id,
+          path: node.path,
+          name: node.name,
+          content: fileData.content,
+          category: fileData.category,
+        });
+      } else if (node.id.startsWith('demo-') && activeWorkspace?.id === 'verve-samples') {
+        // Load from verve-samples workspace using FileManager
+        const fileManager = getFileManager(activeWorkspace);
+        const fileData = await fileManager.loadFile(node.path);
+
+        openFile({
+          id: node.id,
+          path: node.path,
+          name: node.name,
+          content: fileData.content,
+          category: fileData.category,
+        });
+      } else if (activeWorkspace?.type === 'browser' && activeWorkspace.id !== 'verve-samples') {
+        // Browser workspace (non-samples) - use FileManager with DemoAdapterV2
+        const fileManager = getFileManager(activeWorkspace);
+        const fileData = await fileManager.loadFile(node.path);
 
         openFile({
           id: node.id,

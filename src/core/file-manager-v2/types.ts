@@ -58,7 +58,7 @@ export interface WorkspaceAdapter {
   capabilities: AdapterCapabilities;
 
   readFile(path: string): Promise<FileData>;
-  writeFile(path: string, content: string, version?: string): Promise<void>;
+  writeFile(path: string, content: string, version?: string): Promise<string | void>;
   deleteFile(path: string): Promise<void>;
   listFiles(directory: string): Promise<FileMetadata[]>;
 

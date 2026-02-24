@@ -22,6 +22,7 @@ export class SyncQueue {
   private processing = false;
   private debounceTimers = new Map<string, NodeJS.Timeout>();
   private listeners = new Set<(status: QueueStatus) => void>();
+  private fileCreatedCallbacks = new Set<(oldPath: string, newId: string) => void>();
 
   constructor(adapter: WorkspaceAdapter) {
     this.adapter = adapter;
@@ -72,8 +73,13 @@ export class SyncQueue {
       this.notifyListeners();
 
       try {
-        await this.executeOperation(operation);
+        const newId = await this.executeOperation(operation);
         operation.status = 'completed';
+
+        // If a new file ID was returned (Drive file creation), emit event to update cache
+        if (newId && operation.type === 'create') {
+          this.emitFileCreated(operation.path, newId);
+        }
       } catch (error) {
         if (this.shouldRetry(operation, error)) {
           operation.status = 'pending';
@@ -99,13 +105,13 @@ export class SyncQueue {
 
   /**
    * Execute a single operation via adapter
+   * Returns new file ID if applicable (for Drive file creation)
    */
-  private async executeOperation(operation: SyncOperation): Promise<void> {
+  private async executeOperation(operation: SyncOperation): Promise<string | void> {
     switch (operation.type) {
       case 'create':
       case 'update':
-        await this.adapter.writeFile(operation.path, operation.content!, operation.version);
-        break;
+        return await this.adapter.writeFile(operation.path, operation.content!, operation.version);
       case 'delete':
         await this.adapter.deleteFile(operation.path);
         break;
@@ -214,6 +220,12 @@ export class SyncQueue {
    */
   setAdapter(adapter: WorkspaceAdapter): void {
     this.adapter = adapter;
+
+    // Clear queue when adapter changes to prevent operations from wrong workspace
+    this.queue = [];
+    this.saveQueue();
+
+    console.log('[SyncQueue] Adapter changed, queue cleared');
   }
 
   /**
@@ -233,12 +245,28 @@ export class SyncQueue {
   }
 
   /**
+   * Subscribe to file created events (when new ID is assigned)
+   */
+  onFileCreated(callback: (oldPath: string, newId: string) => void): () => void {
+    this.fileCreatedCallbacks.add(callback);
+    return () => this.fileCreatedCallbacks.delete(callback);
+  }
+
+  /**
+   * Emit file created event
+   */
+  private emitFileCreated(oldPath: string, newId: string): void {
+    this.fileCreatedCallbacks.forEach(callback => callback(oldPath, newId));
+  }
+
+  /**
    * Cleanup resources
    */
   dispose(): void {
     this.debounceTimers.forEach(timer => clearTimeout(timer));
     this.debounceTimers.clear();
     this.listeners.clear();
+    this.fileCreatedCallbacks.clear();
     this.saveQueue();
   }
 

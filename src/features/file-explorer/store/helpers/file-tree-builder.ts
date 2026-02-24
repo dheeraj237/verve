@@ -20,6 +20,18 @@ export async function buildFileTreeFromAdapter(
   try {
     const files = await fileManager.listFiles(directory);
 
+    // Check if any files have nested paths (contain '/')
+    const hasNestedPaths = files.some(f => {
+      const pathWithoutLeadingSlash = f.path.startsWith('/') ? f.path.slice(1) : f.path;
+      return pathWithoutLeadingSlash.includes('/');
+    });
+
+    // If we have nested paths, build a tree structure
+    if (hasNestedPaths) {
+      return buildTreeFromFlatPaths(files, idPrefix);
+    }
+
+    // Otherwise, use the simple flat mapping for adapters that return explicit folders
     const nodes: FileNode[] = files.map((file: FileMetadata) => {
       const isFolder = file.mimeType === 'application/vnd.google-apps.folder';
 
@@ -38,6 +50,99 @@ export async function buildFileTreeFromAdapter(
     console.error('Error building file tree from adapter:', error);
     return [];
   }
+}
+
+/**
+ * Builds a tree structure from flat file paths
+ * Handles nested directories like /content1/file.md
+ */
+function buildTreeFromFlatPaths(files: FileMetadata[], idPrefix: string = ''): FileNode[] {
+  const root: Map<string, any> = new Map();
+
+  files.forEach(file => {
+    // Skip files with empty or invalid paths
+    if (!file.path || file.path.trim() === '') {
+      console.warn('Skipping file with empty path:', file);
+      return;
+    }
+
+    const pathWithoutLeadingSlash = file.path.startsWith('/') ? file.path.slice(1) : file.path;
+    // Filter out empty parts (from double slashes or trailing slashes)
+    const parts = pathWithoutLeadingSlash.split('/').filter(p => p.trim() !== '');
+
+    // Skip if no valid parts
+    if (parts.length === 0) {
+      console.warn('Skipping file with no valid path parts:', file);
+      return;
+    }
+
+    let currentLevel = root;
+    let currentPath = '';
+
+    // Build nested structure (skip the last part which is the file name)
+    for (let i = 0; i < parts.length - 1; i++) {
+      const part = parts[i];
+      currentPath = currentPath ? `${currentPath}/${part}` : part;
+
+      if (!currentLevel.has(part)) {
+        currentLevel.set(part, {
+          isFolder: true,
+          path: `/${currentPath}`,
+          children: new Map(),
+        });
+      }
+
+      const folderEntry = currentLevel.get(part);
+      if (!folderEntry || !folderEntry.children) {
+        console.error('Invalid folder structure for part:', part);
+        return;
+      }
+      currentLevel = folderEntry.children;
+    }
+
+    // Add the file
+    const fileName = parts[parts.length - 1];
+    if (!fileName || fileName.trim() === '') {
+      console.warn('Skipping file with empty filename:', file);
+      return;
+    }
+
+    currentPath = currentPath ? `${currentPath}/${fileName}` : fileName;
+    currentLevel.set(fileName, {
+      isFolder: false,
+      path: file.path,
+      metadata: file,
+    });
+  });
+
+  // Convert map structure to FileNode array
+  function buildNodes(map: Map<string, any>, basePath: string = ''): FileNode[] {
+    const nodes: FileNode[] = [];
+
+    for (const [name, value] of map.entries()) {
+      if (value.isFolder) {
+        const children = buildNodes(value.children, value.path);
+        nodes.push({
+          id: `${idPrefix}folder-${value.path}`,
+          name,
+          path: value.path,
+          type: 'folder',
+          children,
+        });
+      } else {
+        nodes.push({
+          id: `${idPrefix}${value.metadata.id || value.path}`,
+          name,
+          path: value.path,
+          type: 'file',
+        });
+      }
+    }
+
+    return sortFileNodes(nodes);
+  }
+
+  return buildNodes(root);
 }
 
 /**

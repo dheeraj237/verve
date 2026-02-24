@@ -19,6 +19,7 @@ interface StoredFile {
 
 /**
  * Demo adapter that stores files in browser localStorage
+ * Each workspace gets its own storage key to prevent mixing
  */
 export class DemoAdapterV2 implements WorkspaceAdapter {
   type = WorkspaceType.DEMO;
@@ -33,6 +34,8 @@ export class DemoAdapterV2 implements WorkspaceAdapter {
 
   private files = new Map<string, StoredFile>();
   private initialized = false;
+  private storageKey: string;
+  private workspaceId: string;
 
   private sampleFiles = [
     { path: '/01-basic-formatting.md', category: 'samples' },
@@ -46,6 +49,16 @@ export class DemoAdapterV2 implements WorkspaceAdapter {
     { path: '/content1/test-feature-link-navigation.md', category: 'content1' },
     { path: '/notes-101/notes.md', category: 'notes-101' },
   ];
+
+  /**
+   * Constructor
+   * @param workspaceId - Unique workspace ID for storage isolation
+   */
+  constructor(workspaceId: string = 'default') {
+    this.workspaceId = workspaceId;
+    // Use workspace-specific storage key
+    this.storageKey = `${STORAGE_KEYS.demoFiles}_${workspaceId}`;
+  }
 
   /**
    * Initialize adapter and load sample files
@@ -88,7 +101,7 @@ export class DemoAdapterV2 implements WorkspaceAdapter {
   /**
    * Write a file
    */
-  async writeFile(path: string, content: string, version?: string): Promise<void> {
+  async writeFile(path: string, content: string, version?: string): Promise<string | void> {
     await this.initialize();
 
     const existing = this.files.get(path);
@@ -196,6 +209,14 @@ export class DemoAdapterV2 implements WorkspaceAdapter {
    * Load sample files from public/content directory
    */
   private async loadSampleFiles(): Promise<void> {
+    // Only load sample files for the 'verve-samples' workspace
+    if (this.workspaceId !== 'verve-samples') {
+      return;
+    }
+
+    console.log('[DemoAdapterV2] Loading sample files for verve-samples workspace');
+    let loadedCount = 0;
+
     for (const sample of this.sampleFiles) {
       try {
         const response = await fetch(`/content${sample.path}`);
@@ -213,11 +234,14 @@ export class DemoAdapterV2 implements WorkspaceAdapter {
             version: now,
             category: sample.category,
           });
+          loadedCount++;
         }
       } catch (error) {
         console.warn(`Failed to load sample file ${sample.path}:`, error);
       }
     }
+
+    console.log(`[DemoAdapterV2] Loaded ${loadedCount} sample files`);
   }
 
   /**
@@ -225,7 +249,7 @@ export class DemoAdapterV2 implements WorkspaceAdapter {
    */
   private loadFromStorage(): void {
     try {
-      const stored = localStorage.getItem(STORAGE_KEYS.demoFiles);
+      const stored = localStorage.getItem(this.storageKey);
       if (stored) {
         const files: StoredFile[] = JSON.parse(stored);
         files.forEach(file => this.files.set(file.path, file));
@@ -241,7 +265,7 @@ export class DemoAdapterV2 implements WorkspaceAdapter {
   private saveToStorage(): void {
     try {
       const files = Array.from(this.files.values());
-      localStorage.setItem(STORAGE_KEYS.demoFiles, JSON.stringify(files));
+      localStorage.setItem(this.storageKey, JSON.stringify(files));
     } catch (error) {
       console.error('Failed to save demo files to storage:', error);
     }

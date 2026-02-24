@@ -104,8 +104,9 @@ export class GoogleDriveAdapterV2 implements WorkspaceAdapter {
 
   /**
    * Write a file to Google Drive
+   * Returns the file ID if a new file was created
    */
-  async writeFile(path: string, content: string, version?: string): Promise<void> {
+  async writeFile(path: string, content: string, version?: string): Promise<string | void> {
     const token = await this.ensureAuthenticated();
 
     try {
@@ -121,7 +122,7 @@ export class GoogleDriveAdapterV2 implements WorkspaceAdapter {
         }
       }
 
-      // Check if file exists
+      // Check if file exists (path should be a Drive file ID)
       const exists = await this.fileExists(path);
 
       if (exists) {
@@ -137,8 +138,9 @@ export class GoogleDriveAdapterV2 implements WorkspaceAdapter {
             body: content,
           }
         );
+        return; // No new ID, file already existed
       } else {
-        // Create new file
+        // Create new file - path is filename when file doesn't exist
         const folderId = this.folderId || await this.getStoredFolderId();
         if (!folderId) {
           throw new FileSystemError(
@@ -158,14 +160,21 @@ export class GoogleDriveAdapterV2 implements WorkspaceAdapter {
         form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
         form.append('file', new Blob([content], { type: 'text/markdown' }));
 
-        await fetch(
-          'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
+        const response = await fetch(
+          'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',
           {
             method: 'POST',
             headers: { Authorization: `Bearer ${token}` },
             body: form,
           }
         );
+
+        if (!response.ok) {
+          throw new Error('Failed to create file');
+        }
+
+        const data = await response.json();
+        return data.id; // Return the new Drive file ID
       }
     } catch (error: any) {
       if (error instanceof FileSystemError) throw error;

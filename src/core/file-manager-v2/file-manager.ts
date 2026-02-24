@@ -19,6 +19,11 @@ export class FileManager {
     this.adapter = adapter;
     this.cache = new FileCache();
     this.syncQueue = new SyncQueue(adapter);
+
+    // Listen for file created events to update cache with real Drive IDs
+    this.syncQueue.onFileCreated((oldPath, newId) => {
+      this.handleFileCreated(oldPath, newId);
+    });
   }
 
   /**
@@ -288,5 +293,25 @@ export class FileManager {
     const parts = path.split('/').filter(Boolean);
     parts.pop(); // Remove filename
     return parts.join('/');
+  }
+
+  /**
+   * Handle file created event - update cache with real file ID
+   */
+  private handleFileCreated(oldPath: string, newId: string): void {
+    const cached = this.cache.get(oldPath);
+    if (cached) {
+      // Remove old entry
+      this.cache.remove(oldPath);
+
+      // Add with new ID
+      this.cache.set(newId, {
+        ...cached,
+        id: newId,
+        path: newId,
+      });
+
+      console.log(`[FileManager] Updated cache: ${oldPath} -> ${newId}`);
+    }
   }
 }

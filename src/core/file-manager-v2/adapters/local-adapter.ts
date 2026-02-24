@@ -21,26 +21,51 @@ export class LocalAdapterV2 implements WorkspaceAdapter {
 
   private rootHandle: FileSystemDirectoryHandle | null = null;
   private fileHandles = new Map<string, FileSystemFileHandle>();
+  private initializationPromise: Promise<void> | null = null;
 
   /**
    * Initialize with a directory handle
    */
   async initialize(directoryHandle: FileSystemDirectoryHandle): Promise<void> {
-    this.rootHandle = directoryHandle;
-    await this.loadFileHandles();
+    if (this.initializationPromise) {
+      return this.initializationPromise;
+    }
+
+    this.initializationPromise = (async () => {
+      this.rootHandle = directoryHandle;
+      await this.loadFileHandles();
+    })();
+
+    return this.initializationPromise;
+  }
+
+  /**
+   * Ensure adapter is initialized (checks for global directory handle if not yet initialized)
+   */
+  private async ensureInitialized(): Promise<void> {
+    if (this.rootHandle) {
+      return;
+    }
+
+    // Check for global directory handle
+    const globalHandle = (window as any).__localDirHandle;
+    if (globalHandle) {
+      await this.initialize(globalHandle);
+      return;
+    }
+
+    throw new FileSystemError(
+      FileErrorType.ADAPTER_ERROR,
+      '',
+      'Local directory not initialized. Please select a directory.'
+    );
   }
 
   /**
    * Read a file
    */
   async readFile(path: string): Promise<FileData> {
-    if (!this.rootHandle) {
-      throw new FileSystemError(
-        FileErrorType.ADAPTER_ERROR,
-        path,
-        'Root directory not initialized'
-      );
-    }
+    await this.ensureInitialized();
 
     try {
       const fileHandle = await this.getFileHandle(path);
@@ -70,14 +95,8 @@ export class LocalAdapterV2 implements WorkspaceAdapter {
   /**
    * Write a file
    */
-  async writeFile(path: string, content: string, version?: string): Promise<void> {
-    if (!this.rootHandle) {
-      throw new FileSystemError(
-        FileErrorType.ADAPTER_ERROR,
-        path,
-        'Root directory not initialized'
-      );
-    }
+  async writeFile(path: string, content: string, version?: string): Promise<string | void> {
+    await this.ensureInitialized();
 
     try {
       // Check version conflict if provided
@@ -117,13 +136,7 @@ export class LocalAdapterV2 implements WorkspaceAdapter {
    * Delete a file
    */
   async deleteFile(path: string): Promise<void> {
-    if (!this.rootHandle) {
-      throw new FileSystemError(
-        FileErrorType.ADAPTER_ERROR,
-        path,
-        'Root directory not initialized'
-      );
-    }
+    await this.ensureInitialized();
 
     try {
       const parts = path.split('/').filter(Boolean);
@@ -149,13 +162,7 @@ export class LocalAdapterV2 implements WorkspaceAdapter {
    * List files in a directory
    */
   async listFiles(directory = ''): Promise<FileMetadata[]> {
-    if (!this.rootHandle) {
-      throw new FileSystemError(
-        FileErrorType.ADAPTER_ERROR,
-        directory,
-        'Root directory not initialized'
-      );
-    }
+    await this.ensureInitialized();
 
     try {
       const files: FileMetadata[] = [];
@@ -202,13 +209,7 @@ export class LocalAdapterV2 implements WorkspaceAdapter {
    * Create a folder
    */
   async createFolder(path: string): Promise<void> {
-    if (!this.rootHandle) {
-      throw new FileSystemError(
-        FileErrorType.ADAPTER_ERROR,
-        path,
-        'Root directory not initialized'
-      );
-    }
+    await this.ensureInitialized();
 
     try {
       await this.getDirectoryHandle(path, true);
