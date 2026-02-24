@@ -32,7 +32,7 @@ interface WorkspaceStore {
   isWorkspacePickerOpen: boolean;
   
   /** Creates a new workspace */
-  createWorkspace: (name: string, type: Workspace['type'], options?: { path?: string; driveFolder?: string }) => void;
+  createWorkspace: (name: string, type: Workspace['type'], options?: { id?: string; path?: string; driveFolder?: string }) => void;
   /** Deletes a workspace by ID */
   deleteWorkspace: (id: string) => void;
   /** Switches to a different workspace */
@@ -68,8 +68,9 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
        * Automatically sets it as the active workspace
        */
       createWorkspace: (name, type, options = {}) => {
+        const workspaceId = options.id ?? `${type}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         const workspace: Workspace = {
-          id: `${type}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          id: workspaceId,
           name,
           type,
           path: options.path,

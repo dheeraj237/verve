@@ -62,11 +62,23 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
 
   const currentWorkspace = activeWorkspace();
 
-  // Initialize default demo workspace if no workspaces exist
+  // Initialize default demo workspace if no workspaces exist (check persisted storage first)
   React.useEffect(() => {
-    if (workspaces.length === 0) {
-      createWorkspace("Demo", "browser");
+    if (workspaces.length > 0) return;
+
+    try {
+      const saved = window.localStorage.getItem('verve-workspace-store');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // Persist structure may wrap state under `state` depending on zustand version
+        const savedWorkspaces = parsed?.state?.workspaces ?? parsed?.workspaces;
+        if (Array.isArray(savedWorkspaces) && savedWorkspaces.length > 0) return;
+      }
+    } catch (e) {
+      // ignore parse errors and fall back to creating demo
     }
+
+    createWorkspace("Demo", "browser");
   }, [workspaces.length, createWorkspace]);
 
   // Restore workspace on mount
@@ -143,11 +155,11 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
 
     try {
       if (selectedWorkspaceType === 'local') {
-        // For local workspace, open directory picker first
+        // For local workspace, open directory picker first and create workspace using same id
         const newWorkspaceId = `local-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         await openLocalDirectory(newWorkspaceId);
-        // Create workspace with the selected directory
-        createWorkspace(newWorkspaceName, 'local');
+        // Create workspace with the selected directory using the same id so stored directory handle matches
+        createWorkspace(newWorkspaceName, 'local', { id: newWorkspaceId });
         toast.success("Local workspace created successfully!");
       } else if (selectedWorkspaceType === 'drive') {
         // For Google Drive workspace, authenticate and create folder
