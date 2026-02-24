@@ -41,6 +41,7 @@ function App() {
         defaultTheme="system"
         enableSystem
         disableTransitionOnChange
+        storageKey="theme"
       >
         <WorkspaceLoader />
         <Routes>

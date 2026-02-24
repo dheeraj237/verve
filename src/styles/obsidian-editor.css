@@ -1,8 +1,15 @@
 /* Obsidian-like CSS for Live Markdown Editor */
 
 .obsidian-editor {
-  background-color: hsl(var(--editor-background));
-  color: hsl(var(--foreground));
+  /* Ensure editor respects theme variables with higher specificity */
+  background-color: hsl(var(--editor-background)) !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+/* Stronger rules when html has dark class to avoid flash/mismatch */
+html.dark .obsidian-editor {
+  background-color: hsl(var(--editor-background)) !important;
+  color: hsl(var(--foreground)) !important;
 }
 
 /* Smooth transitions for syntax hiding */
@@ -58,6 +65,12 @@
   background: hsl(var(--muted) / 0.3);
 }
 
+/* Ensure blockquote contrast honors theme */
+html.dark .obsidian-editor .cm-blockquote-line {
+  background: hsl(var(--muted) / 0.25) !important;
+  border-left-color: hsl(var(--primary) / 0.5) !important;
+}
+
 .obsidian-editor .cm-blockquote-line::before {
   content: "";
   position: absolute;
@@ -103,6 +116,12 @@
   display: inline;
   line-height: 1;
   vertical-align: baseline;
+}
+
+/* Force list markers to follow theme */
+html.dark .obsidian-editor .cm-list-bullet,
+html.dark .obsidian-editor .cm-list-number {
+  color: hsl(var(--primary)) !important;
 }
 
 .obsidian-editor .cm-list-bullet[data-level="1"],
@@ -238,6 +257,14 @@
   color: hsl(142, 76%, 56%);
 }
 
+/* Prefer theme primary color for copy success so it adapts */
+.obsidian-editor .cm-code-block-copy-success {
+  color: hsl(var(--primary)) !important;
+}
+.dark .obsidian-editor .cm-code-block-copy-success {
+  color: hsl(var(--primary)) !important;
+}
+
 .obsidian-editor .cm-code-block-copy svg {
   width: 14px;
   height: 14px;
@@ -278,7 +305,7 @@
 .obsidian-editor .cm-code-block-code {
   display: block;
   line-height: 1.5;
-  color: hsl(var(--foreground));
+  color: hsl(var(--foreground)) !important;
   white-space: pre;
   word-wrap: normal;
   tab-size: 2;
@@ -574,7 +601,7 @@
   align-items: center;
   gap: 0.5rem;
   transition: background-color 0.2s;
-  color: hsl(var(--foreground));
+  color: hsl(var(--foreground)) !important;
 }
 
 .obsidian-editor .cm-summary::-webkit-details-marker {
@@ -604,8 +631,9 @@
 
 .obsidian-editor .cm-details-content {
   padding: 1rem;
-  border-top: 1px solid hsl(var(--border));
-  background: hsl(var(--background));
+  border-top: 1px solid hsl(var(--border)) !important;
+  background: hsl(var(--background)) !important;
+  color: hsl(var(--foreground)) !important;
   line-height: 1.6;
 }
 
