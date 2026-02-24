@@ -217,9 +217,13 @@ export class DemoAdapterV2 implements WorkspaceAdapter {
     console.log('[DemoAdapterV2] Loading sample files for verve-samples workspace');
     let loadedCount = 0;
 
+    // Use base URL to support GitHub Pages and other deployments
+    const baseUrl = import.meta.env.BASE_URL || '/';
+    const contentPath = baseUrl.endsWith('/') ? `${baseUrl}content` : `${baseUrl}/content`;
+
     for (const sample of this.sampleFiles) {
       try {
-        const response = await fetch(`/content${sample.path}`);
+        const response = await fetch(`${contentPath}${sample.path}`);
         if (response.ok) {
           const content = await response.text();
           const now = new Date().toISOString();
