@@ -17,7 +17,7 @@ import {
   renameNode as renameNodeOp,
   deleteNode as deleteNodeOp,
 } from "./helpers/file-operations";
-import { syncQueue } from "@/core/file-manager/sync-queue";
+import { getFileManager } from "@/core/store/file-manager-integration";
 
 /**
  * File Explorer Store State
@@ -346,7 +346,7 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
   )
 );
 
-// Listen for Drive changes emitted by the Google Drive adapter and refresh the tree
+// Listen for Drive changes and refresh the tree
 if (typeof window !== 'undefined') {
   window.addEventListener('verve:gdrive:changed', () => {
     try {
@@ -356,13 +356,18 @@ if (typeof window !== 'undefined') {
     }
   });
 
-  // Subscribe to sync queue changes to update pending count
-  syncQueue.subscribe((queue) => {
+  // Subscribe to file manager sync status for pending count
+  setInterval(() => {
     try {
-      const pendingCount = syncQueue.getPendingCount();
-      useFileExplorerStore.getState().setPendingSyncCount(pendingCount);
+      const workspace = useWorkspaceStore.getState().activeWorkspace();
+      if (workspace) {
+        const manager = getFileManager(workspace);
+        const syncStatus = manager.getSyncStatus();
+        const pendingCount = syncStatus.pending + syncStatus.processing;
+        useFileExplorerStore.getState().setPendingSyncCount(pendingCount);
+      }
     } catch (e) {
-      console.error('Error updating sync count:', e);
+      // ignore if manager not initialized yet
     }
-  });
+  }, 1000);
 }

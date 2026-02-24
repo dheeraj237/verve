@@ -1,6 +1,6 @@
 /**
  * Editor Store - Manages open files, tabs, and view mode
- * Uses Zustand for state management with file manager integration
+ * Uses Zustand for state management with File Manager V2 integration
  * 
  * Features:
  * - Multi-tab editing
@@ -11,39 +11,24 @@
  */
 import { create } from "zustand";
 import { MarkdownFile } from "@/shared/types";
-import { FileManager } from "@/core/file-manager";
-import { DemoFileSystemAdapter } from "@/core/file-manager/adapters/demo-adapter";
-import { LocalFileSystemAdapter } from "@/core/file-manager/adapters/local-adapter";
-
- 
-const demoAdapter = new DemoFileSystemAdapter();
-const localAdapter = new LocalFileSystemAdapter();
-let fileManager: FileManager | null = null;
+import { getFileManager, switchFileManager } from "@/core/store/file-manager-integration";
+import { useWorkspaceStore } from "@/core/store/workspace-store";
+import { DEBOUNCE_CONFIG } from "@/core/file-manager-v2/constants";
 
 /**
- * Gets or creates the file manager instance (lazy initialization)
- * Sets up external update listener on first creation
- * 
- * @param isLocal - Whether to use local file system adapter
- * @returns FileManager instance
+ * Gets the active file manager instance based on current workspace
  */
-function getFileManager(isLocal: boolean = false): FileManager {
-  if (!fileManager) {
-    fileManager = new FileManager(isLocal ? localAdapter : demoAdapter);
-    fileManager.onUpdate((fileId, content) => {
-      useEditorStore.getState().handleExternalUpdate(fileId, content);
-    });
+function getActiveFileManager() {
+  const workspace = useWorkspaceStore.getState().activeWorkspace();
+  if (!workspace) {
+    throw new Error('No active workspace');
   }
-  return fileManager;
+  return getFileManager(workspace);
 }
 
 /**
- * Enables Google Drive as the active file manager
- * Replaces any existing FileManager instance
- * 
- * @param folderId - Optional Google Drive folder ID
- * @returns FileManager instance configured for Google Drive
- * @throws Error if GoogleDriveAdapter is not available
+ * Enables Google Drive workspace
+ * @param folderId - Google Drive folder ID
  */
 export async function enableGoogleDrive(folderId?: string) {
   try {
@@ -51,21 +36,15 @@ export async function enableGoogleDrive(folderId?: string) {
       window.localStorage.setItem("verve_gdrive_folder_id", folderId);
     }
 
-    const mod = await import("@/core/file-manager/adapters/google-drive-adapter");
-    const GoogleDriveAdapter = (mod as any).GoogleDriveAdapter;
-    if (!GoogleDriveAdapter) throw new Error("GoogleDriveAdapter not available");
+    // Switch to drive workspace
+    const workspaceStore = useWorkspaceStore.getState();
+    const driveWorkspaces = workspaceStore.getDriveWorkspaces();
 
-    if (fileManager) {
-      try { fileManager.destroy(); } catch (e) { }
-      fileManager = null;
+    if (driveWorkspaces.length > 0) {
+      await switchFileManager(driveWorkspaces[0]);
     }
 
-    const adapter = new GoogleDriveAdapter(folderId);
-    fileManager = new FileManager(adapter);
-    fileManager.onUpdate((fileId, content) => {
-      useEditorStore.getState().handleExternalUpdate(fileId, content);
-    });
-    return fileManager;
+    return getActiveFileManager();
   } catch (err) {
     console.error("Failed to enable Google Drive:", err);
     throw err;
@@ -214,17 +193,19 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     const tab = get().openTabs.find(t => t.id === fileId);
     if (!tab) return;
 
-    const manager = getFileManager(tab.isLocal);
+    try {
+      const manager = getActiveFileManager();
 
-    
-    await manager.applyPatch({
-      fileId,
-      content,
-      timestamp: Date.now(),
-    });
+      // Optimistic update - UI updates immediately
+      get().updateFileContent(fileId, content);
 
-    
-    get().updateFileContent(fileId, content);
+      // Background sync with auto-save debounce
+      await manager.updateFile(tab.path, content, false);
+    } catch (error) {
+      console.error('Failed to save file:', error);
+      // Revert optimistic update on error
+      get().updateFileContent(fileId, tab.content);
+    }
   },
 
   /**
@@ -235,7 +216,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     try {
       set({ isLoading: true });
 
-      const manager = getFileManager(isLocal);
+      const manager = getActiveFileManager();
       const fileData = await manager.loadFile(path);
 
       const markdownFile: MarkdownFile = {

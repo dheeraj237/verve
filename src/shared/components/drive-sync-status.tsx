@@ -7,7 +7,8 @@
 
 import { useEffect, useState } from "react";
 import { Cloud, CloudOff, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
-import { syncQueue, type SyncOperation } from "@/core/file-manager/sync-queue";
+import { getFileManager } from "@/core/store/file-manager-integration";
+import { useWorkspaceStore } from "@/core/store/workspace-store";
 import { Button } from "@/shared/components/ui/button";
 import {
   Tooltip,
@@ -17,20 +18,45 @@ import {
 } from "@/shared/components/ui/tooltip";
 import { cn } from "@/shared/utils/cn";
 
+interface QueueStatus {
+  pending: number;
+  processing: number;
+  completed: number;
+  failed: number;
+  isProcessing: boolean;
+}
+
 export function DriveSyncStatus() {
-  const [queue, setQueue] = useState<SyncOperation[]>([]);
+  const [syncStatus, setSyncStatus] = useState<QueueStatus>({
+    pending: 0,
+    processing: 0,
+    completed: 0,
+    failed: 0,
+    isProcessing: false,
+  });
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = syncQueue.subscribe(setQueue);
-    return unsubscribe;
+    // Poll sync status every second
+    const interval = setInterval(() => {
+      try {
+        const workspace = useWorkspaceStore.getState().activeWorkspace();
+        if (workspace) {
+          const manager = getFileManager(workspace);
+          const status = manager.getSyncStatus();
+          setSyncStatus(status);
+        }
+      } catch (e) {
+        // Ignore if manager not initialized
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
   }, []);
 
-  const pendingCount = queue.filter(
-    (op) => op.status === "pending" || op.status === "processing"
-  ).length;
-  const failedCount = queue.filter((op) => op.status === "failed").length;
-  const isSyncing = syncQueue.isSyncing();
+  const pendingCount = syncStatus.pending + syncStatus.processing;
+  const failedCount = syncStatus.failed;
+  const isSyncing = syncStatus.isProcessing;
 
   if (pendingCount === 0 && failedCount === 0) {
     return (
@@ -42,7 +68,7 @@ export function DriveSyncStatus() {
               <span>Synced</span>
             </div>
           </TooltipTrigger>
-          <TooltipContent>All changes synced to Google Drive</TooltipContent>
+          <TooltipContent>All changes synced</TooltipContent>
         </Tooltip>
       </TooltipProvider>
     );
@@ -79,7 +105,7 @@ export function DriveSyncStatus() {
         </TooltipTrigger>
         <TooltipContent>
           <div className="space-y-1">
-            <p className="font-medium">Google Drive Sync</p>
+            <p className="font-medium">Sync Status</p>
             {pendingCount > 0 && <p>{pendingCount} operations pending</p>}
             {failedCount > 0 && (
               <p className="text-red-500">{failedCount} operations failed</p>
@@ -100,54 +126,41 @@ export function DriveSyncStatus() {
             </button>
           </div>
 
-          <div className="space-y-2 max-h-96 overflow-y-auto">
-            {queue.length === 0 ? (
-              <p className="text-xs text-muted-foreground">No pending operations</p>
-            ) : (
-              queue.map((op) => (
-                <div
-                  key={op.id}
-                  className="flex items-start gap-2 text-xs p-2 bg-muted rounded"
-                >
-                  {op.status === "processing" ? (
-                    <Loader2 className="h-3 w-3 animate-spin shrink-0 mt-0.5" />
-                  ) : op.status === "completed" ? (
-                    <CheckCircle2 className="h-3 w-3 text-green-500 shrink-0 mt-0.5" />
-                  ) : op.status === "failed" ? (
-                    <AlertCircle className="h-3 w-3 text-red-500 shrink-0 mt-0.5" />
-                  ) : (
-                    <Cloud className="h-3 w-3 text-blue-500 shrink-0 mt-0.5" />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">{op.name}</p>
-                    <p className="text-muted-foreground capitalize">
-                      {op.type.replace("-", " ")}
-                      {op.retries > 0 && ` (retry ${op.retries})`}
-                    </p>
-                    {op.error && (
-                      <p className="text-red-500 text-xs mt-1">{op.error}</p>
-                    )}
-                  </div>
-                </div>
-              ))
+          <div className="space-y-2">
+            <div className="flex justify-between text-xs">
+              <span className="text-muted-foreground">Pending:</span>
+              <span className="font-medium">{syncStatus.pending}</span>
+            </div>
+            <div className="flex justify-between text-xs">
+              <span className="text-muted-foreground">Processing:</span>
+              <span className="font-medium">{syncStatus.processing}</span>
+            </div>
+            <div className="flex justify-between text-xs">
+              <span className="text-muted-foreground">Completed:</span>
+              <span className="font-medium text-green-500">{syncStatus.completed}</span>
+            </div>
+            {syncStatus.failed > 0 && (
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">Failed:</span>
+                <span className="font-medium text-red-500">{syncStatus.failed}</span>
+              </div>
             )}
           </div>
 
-          {failedCount > 0 && (
-            <div className="mt-3 pt-3 border-t">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  syncQueue.retryFailed();
-                  setIsOpen(false);
-                }}
-                className="w-full"
-              >
-                Retry Failed Operations
-              </Button>
-            </div>
-          )}
+          <div className="mt-4 text-xs text-muted-foreground">
+            {isSyncing ? (
+              <p className="flex items-center gap-2">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Synchronizing changes...
+              </p>
+            ) : failedCount > 0 ? (
+              <p className="text-red-500">Some operations failed. They will be retried automatically.</p>
+            ) : pendingCount > 0 ? (
+              <p>Changes will be synced automatically.</p>
+            ) : (
+              <p className="text-green-500">All changes are synced.</p>
+            )}
+          </div>
         </div>
       )}
     </TooltipProvider>

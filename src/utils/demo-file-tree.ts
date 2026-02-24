@@ -12,21 +12,42 @@ import { getDemoAdapter } from '@/hooks/use-demo-mode';
 export async function buildDemoFileTree(): Promise<FileNode[]> {
   const adapter = getDemoAdapter();
   
-  // Organization by category
-  const categories: { [key: string]: FileNode[] } = {};
-  
   // Get all files from demo adapter
-  const tree = await adapter.getFileTree();
+  const files = await adapter.listFiles('');
   
-  // Convert tree to FileNode array
+  // Build a tree structure from flat file list
+  const root: { [key: string]: any } = {};
+  
+  files.forEach(file => {
+    const parts = file.path.split('/').filter(Boolean);
+    let current = root;
+    
+    // Build nested structure
+    for (let i = 0; i < parts.length - 1; i++) {
+      const part = parts[i];
+      if (!current[part]) {
+        current[part] = {};
+      }
+      current = current[part];
+    }
+    
+    // Add the file
+    const fileName = parts[parts.length - 1];
+    current[fileName] = {
+      ...file,
+      isFile: true,
+    };
+  });
+  
+  // Convert tree structure to FileNode array
   const buildNodes = (obj: any, basePath: string = ''): FileNode[] => {
     const nodes: FileNode[] = [];
     
     for (const [key, value] of Object.entries(obj)) {
       const path = basePath ? `${basePath}/${key}` : key;
       
-      // Check if it's a file object (has 'content' property)
-      if (value && typeof value === 'object' && 'content' in value) {
+      // Check if it's a file
+      if (value && typeof value === 'object' && value.isFile) {
         nodes.push({
           id: `demo-${path}`,
           name: key,
@@ -61,7 +82,7 @@ export async function buildDemoFileTree(): Promise<FileNode[]> {
     return nodes;
   };
   
-  return buildNodes(tree);
+  return buildNodes(root);
 }
 
 /**

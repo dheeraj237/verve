@@ -1,13 +1,13 @@
 /**
  * Demo Initialization Hook
- * Initializes demo files on app startup
+ * Initializes demo files on app startup with File Manager V2
  */
 
 import { useEffect, useState } from 'react';
-import { DemoFileSystemAdapter } from '@/core/file-manager/adapters/demo-adapter';
-import { FileManager } from '@/core/file-manager/file-manager';
+import { DemoAdapterV2 } from '@/core/file-manager-v2/adapters/demo-adapter';
+import { FileManager } from '@/core/file-manager-v2/file-manager';
 
-let demoAdapter: DemoFileSystemAdapter | null = null;
+let demoAdapter: DemoAdapterV2 | null = null;
 let fileManager: FileManager | null = null;
 
 export function useDemoMode() {
@@ -18,7 +18,8 @@ export function useDemoMode() {
     const initializeDemo = async () => {
       try {
         if (!demoAdapter) {
-          demoAdapter = new DemoFileSystemAdapter();
+          demoAdapter = new DemoAdapterV2();
+          await demoAdapter.initialize();
           fileManager = new FileManager(demoAdapter);
         }
         setIsInitialized(true);
@@ -41,7 +42,10 @@ export function useDemoMode() {
 
 export function getDemoAdapter() {
   if (!demoAdapter) {
-    demoAdapter = new DemoFileSystemAdapter();
+    demoAdapter = new DemoAdapterV2();
+    demoAdapter.initialize().catch(err => {
+      console.error('Failed to initialize demo adapter:', err);
+    });
   }
   return demoAdapter;
 }
