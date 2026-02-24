@@ -4,6 +4,7 @@ import { GrowthBookWrapper } from '@/core/config/growthbook-provider';
 import { Toaster } from '@/shared/components/toaster';
 import { LandingPage } from '@/shared/components/landing-page';
 import { EditorPage } from '@/pages/EditorPage';
+import { SettingsPage } from '@/pages/SettingsPage';
 import { useDemoMode } from '@/hooks/use-demo-mode';
 
 function App() {
@@ -43,6 +44,7 @@ function App() {
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/editor" element={<EditorPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
         </Routes>
         <Toaster />
       </ThemeProvider>

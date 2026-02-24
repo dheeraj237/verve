@@ -23,6 +23,10 @@ export function UserMenu() {
     navigate("/");
   };
 
+  const handleSettings = () => {
+    navigate("/settings");
+  };
+
   // console.log("UserMenu - isLoggedIn:", isLoggedIn, "profile:", profile);
 
   return (
@@ -64,10 +68,16 @@ export function UserMenu() {
 
         <DropdownMenuSeparator />
         {isLoggedIn && (
-          <DropdownMenuItem onClick={handleLogout}>
-            <LogOut className="mr-2 h-4 w-4" />
-            Logout
-          </DropdownMenuItem>
+          <>
+            <DropdownMenuItem onClick={handleSettings}>
+              <User className="mr-2 h-4 w-4" />
+              Settings
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleLogout}>
+              <LogOut className="mr-2 h-4 w-4" />
+              Logout
+            </DropdownMenuItem>
+          </>
         )}
         <DropdownMenuItem>
           <HelpCircle className="mr-2 h-4 w-4" />

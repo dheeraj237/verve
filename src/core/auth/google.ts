@@ -255,8 +255,54 @@ export function clearTokens() {
   // nothing persisted long-term; tokens are short lived
 }
 
+/**
+ * Revoke the current Drive access token.
+ * Tries to obtain an access token non-interactively first, falls back to interactive if needed.
+ */
+export async function revokeAccessToken(): Promise<boolean> {
+  try {
+    // Try non-interactive first to get currently granted token
+    let token = await requestDriveAccessToken(false);
+
+    if (!token) {
+      // If no token is available, attempt an interactive request so we can revoke the obtained token
+      token = await requestDriveAccessToken(true);
+      if (!token) return false;
+    }
+
+    // Prefer using the client library revoke if available
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    if (window.google && window.google.accounts && window.google.accounts.oauth2 && window.google.accounts.oauth2.revoke) {
+      return await new Promise<boolean>((resolve) => {
+        // @ts-ignore
+        window.google.accounts.oauth2.revoke(token, (done: any) => {
+          clearTokens();
+          resolve(true);
+        });
+      });
+    }
+
+    // Fallback to the HTTP revoke endpoint
+    const resp = await fetch(`https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(token)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    });
+    if (resp.ok) {
+      clearTokens();
+      return true;
+    }
+    console.warn("Token revoke returned non-ok status", resp.status);
+    return false;
+  } catch (err) {
+    console.error("Failed to revoke access token", err);
+    return false;
+  }
+}
+
 export default {
   ensureGisLoaded,
   requestDriveAccessToken,
   clearTokens,
+  revokeAccessToken,
 };
