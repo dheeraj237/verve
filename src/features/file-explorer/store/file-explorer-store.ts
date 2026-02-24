@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { FileNode } from "@/shared/types";
 import { buildDemoFileTree } from "@/utils/demo-file-tree";
-import { getAllFolderIds } from "./helpers/file-tree-builder";
+import { getAllFolderIds, buildFileTreeFromAdapter } from "./helpers/file-tree-builder";
 import {
   openLocalDirectory as openLocalDir,
   restoreLocalDirectory as restoreLocalDir,
@@ -180,7 +180,16 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
        */
       createFile: async (parentPath: string, fileName: string) => {
         try {
+          const filePath = parentPath ? `${parentPath}/${fileName}` : fileName;
           await createFileOp(parentPath, fileName);
+
+          // Force sync the file immediately and wait for completion
+          const workspace = useWorkspaceStore.getState().activeWorkspace();
+          if (workspace) {
+            const manager = getFileManager(workspace);
+            await manager.forceSync(filePath);
+          }
+
           await get().refreshFileTree();
         } catch (error) {
           console.error('Error creating file:', error);
@@ -195,7 +204,16 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
        */
       createFolder: async (parentPath: string, folderName: string) => {
         try {
+          const folderPath = parentPath ? `${parentPath}/${folderName}` : folderName;
           await createFolderOp(parentPath, folderName);
+
+          // Force sync the folder immediately and wait for completion
+          const workspace = useWorkspaceStore.getState().activeWorkspace();
+          if (workspace) {
+            const manager = getFileManager(workspace);
+            await manager.forceSync(folderPath);
+          }
+
           await get().refreshFileTree();
         } catch (error) {
           console.error('Error creating folder:', error);
@@ -207,6 +225,14 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
       renameNode: async (nodePath: string, newName: string) => {
         try {
           await renameNodeOp(nodePath, newName);
+
+          // Force sync and wait for completion
+          const workspace = useWorkspaceStore.getState().activeWorkspace();
+          if (workspace) {
+            const manager = getFileManager(workspace);
+            await manager.forceSync(nodePath);
+          }
+
           await get().refreshFileTree();
         } catch (error) {
           console.error('Error renaming:', error);
@@ -222,6 +248,14 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
       deleteNode: async (nodePath: string, isFolder: boolean) => {
         try {
           await deleteNodeOp(nodePath, isFolder);
+
+          // Force sync and wait for completion
+          const workspace = useWorkspaceStore.getState().activeWorkspace();
+          if (workspace) {
+            const manager = getFileManager(workspace);
+            await manager.forceSync(nodePath);
+          }
+
           await get().refreshFileTree();
         } catch (error) {
           console.error('Error deleting:', error);
@@ -264,14 +298,30 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
           return;
         }
 
-        // For browser workspaces, only load demo files for Verve Samples
+        // For browser workspaces, use adapter to load files
         if (activeWorkspace.type === 'browser') {
           if (activeWorkspace.id === 'verve-samples') {
+            // Special case: Load static demo files for samples workspace
             const fileTree = await buildDemoFileTree();
             set({ fileTree, currentDirectoryName: 'Verve Samples', currentDirectoryPath: '/demo' });
           } else {
-            // Other browser workspaces start empty
-            set({ fileTree: [], currentDirectoryName: activeWorkspace.name, currentDirectoryPath: '/' });
+            // Other browser workspaces: Load from DemoAdapterV2
+            try {
+              const fileManager = getFileManager(activeWorkspace);
+              const fileTree = await buildFileTreeFromAdapter(
+                fileManager,
+                '',
+                ''
+              );
+              set({
+                fileTree,
+                currentDirectoryName: activeWorkspace.name,
+                currentDirectoryPath: '/'
+              });
+            } catch (e) {
+              console.error('Failed to load browser workspace files', e);
+              set({ fileTree: [], currentDirectoryName: activeWorkspace.name, currentDirectoryPath: '/' });
+            }
           }
           return;
         }
@@ -290,36 +340,23 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
           return;
         }
 
-        // For Google Drive workspace: show the workspace name as the root folder label
+        // For Google Drive workspace: fetch and display all files from the drive folder
         if (activeWorkspace.type === 'drive' && activeWorkspace.driveFolder) {
           set({ isSyncingDrive: true });
           try {
-            const gdriveFolder = activeWorkspace.driveFolder;
-            const verveFileId = window.localStorage.getItem('verve_gdrive_verve_file_id');
-            const children: FileNode[] = [];
-
-            if (verveFileId) {
-              children.push({
-                id: `gdrive-${verveFileId}`,
-                name: 'verve.md',
-                path: verveFileId,
-                type: 'file'
-              });
-            }
+            const fileManager = getFileManager(activeWorkspace);
+            const fileTree = await buildFileTreeFromAdapter(
+              fileManager,
+              activeWorkspace.driveFolder,
+              'gdrive-'
+            );
 
             const rootName = activeWorkspace.name || 'Google Drive';
-
-            const nodes: FileNode[] = [
-              {
-                id: `gdrive-${gdriveFolder}`,
-                name: rootName,
-                path: gdriveFolder,
-                type: 'folder',
-                children
-              },
-            ];
-
-            set({ fileTree: nodes, currentDirectoryName: rootName, currentDirectoryPath: gdriveFolder });
+            set({
+              fileTree,
+              currentDirectoryName: rootName,
+              currentDirectoryPath: activeWorkspace.driveFolder
+            });
             return;
           } catch (e) {
             console.error('Failed to load Google Drive folder', e);

@@ -1,5 +1,44 @@
 import { FileNode } from "@/shared/types";
 import { MARKDOWN_EXTENSIONS, CODE_EXTENSIONS, TEXT_EXTENSIONS } from "@/shared/utils/file-type-detector";
+import { FileManager } from "@/core/file-manager-v2";
+import type { FileMetadata } from "@/core/file-manager-v2/types";
+
+/**
+ * Builds a file tree from a FileManager adapter
+ * Works with Google Drive, local, and other adapters
+ * 
+ * @param fileManager - FileManager instance
+ * @param directory - Directory path to list (empty for root)
+ * @param idPrefix - Prefix for node IDs (e.g., 'gdrive-', 'local-')
+ * @returns Promise<FileNode[]> - Array of file nodes sorted by type and name
+ */
+export async function buildFileTreeFromAdapter(
+  fileManager: FileManager,
+  directory: string = '',
+  idPrefix: string = ''
+): Promise<FileNode[]> {
+  try {
+    const files = await fileManager.listFiles(directory);
+
+    const nodes: FileNode[] = files.map((file: FileMetadata) => {
+      const isFolder = file.mimeType === 'application/vnd.google-apps.folder';
+
+      return {
+        id: `${idPrefix}${file.id}`,
+        name: file.name,
+        path: file.path,
+        type: isFolder ? 'folder' : 'file',
+        // For folders, we'll lazy load children when expanded
+        children: isFolder ? [] : undefined,
+      };
+    });
+
+    return sortFileNodes(nodes);
+  } catch (error) {
+    console.error('Error building file tree from adapter:', error);
+    return [];
+  }
+}
 
 /**
  * Builds a file tree from a local directory handle

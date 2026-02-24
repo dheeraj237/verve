@@ -127,6 +127,29 @@ export class FileCache {
   }
 
   /**
+   * Invalidate directory index
+   */
+  invalidateDirectoryIndex(directory: string = ''): void {
+    // Invalidate the specific directory
+    this.directoryIndex.delete(directory);
+    this.directoryIndexTime.delete(directory);
+
+    // Also invalidate parent directories and root
+    if (directory) {
+      const parts = directory.split('/').filter(Boolean);
+      for (let i = parts.length - 1; i >= 0; i--) {
+        const parentDir = parts.slice(0, i).join('/');
+        this.directoryIndex.delete(parentDir);
+        this.directoryIndexTime.delete(parentDir);
+      }
+    }
+
+    // Always invalidate root
+    this.directoryIndex.delete('');
+    this.directoryIndexTime.delete('');
+  }
+
+  /**
    * Clear entire cache
    */
   clear(): void {

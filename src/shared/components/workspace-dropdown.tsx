@@ -197,6 +197,34 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
             console.warn('Failed to refresh file tree after creating Drive workspace', e);
           }
 
+          // Create default verve.md file in the Drive folder
+          try {
+            const fileMetadata = {
+              name: 'verve.md',
+              parents: [folder.id],
+              mimeType: 'text/markdown'
+            };
+            const fileContent = '# Verve';
+            const form = new FormData();
+            form.append('metadata', new Blob([JSON.stringify(fileMetadata)], { type: 'application/json' }));
+            form.append('file', new Blob([fileContent], { type: 'text/markdown' }));
+
+            await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${token}` },
+              body: form
+            });
+
+            // Refresh file tree to show the new file
+            try {
+              await refreshFileTree();
+            } catch (e) {
+              console.warn('Failed to refresh file tree after creating default file', e);
+            }
+          } catch (err) {
+            console.warn('Failed to create default verve.md file:', err);
+          }
+
           toast.success("Google Drive workspace created successfully!");
         } catch (error) {
           console.error('Error creating Google Drive workspace:', error);
@@ -205,7 +233,30 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
         }
       } else {
         // Browser workspace
-        createWorkspace(newWorkspaceName, 'browser');
+        const workspaceId = `browser-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        createWorkspace(newWorkspaceName, 'browser', { id: workspaceId });
+
+        // Create default verve.md file for browser workspace
+        try {
+          const { getFileManager } = await import('@/core/store/file-manager-integration');
+          const { useWorkspaceStore } = await import('@/core/store/workspace-store');
+          const workspace = useWorkspaceStore.getState().workspaces.find(w => w.id === workspaceId);
+          if (workspace) {
+            const manager = getFileManager(workspace);
+            await manager.createFile('verve.md', '# Verve');
+            // Force sync to ensure file is created
+            await manager.forceSync('verve.md');
+            // Refresh file tree to show the new file
+            try {
+              await refreshFileTree();
+            } catch (e) {
+              console.warn('Failed to refresh file tree after creating default file', e);
+            }
+          }
+        } catch (err) {
+          console.warn('Failed to create default verve.md file:', err);
+        }
+
         toast.success("Browser workspace created successfully!");
       }
       

@@ -92,6 +92,10 @@ export class FileManager {
       lastAccess: Date.now(),
     });
 
+    // Invalidate directory index so file tree refreshes
+    const directory = this.getDirectoryFromPath(path);
+    this.cache.invalidateDirectoryIndex(directory);
+
     this.syncQueue.enqueue({
       type: 'create',
       path,
@@ -106,6 +110,10 @@ export class FileManager {
    */
   async deleteFile(path: string): Promise<void> {
     this.cache.remove(path);
+
+    // Invalidate directory index so file tree refreshes
+    const directory = this.getDirectoryFromPath(path);
+    this.cache.invalidateDirectoryIndex(directory);
 
     this.syncQueue.enqueue({
       type: 'delete',
@@ -123,6 +131,14 @@ export class FileManager {
     
     if (cached) {
       this.cache.rename(oldPath, newPath);
+    }
+
+    // Invalidate directory indexes for both old and new locations
+    const oldDirectory = this.getDirectoryFromPath(oldPath);
+    const newDirectory = this.getDirectoryFromPath(newPath);
+    this.cache.invalidateDirectoryIndex(oldDirectory);
+    if (oldDirectory !== newDirectory) {
+      this.cache.invalidateDirectoryIndex(newDirectory);
     }
 
     this.syncQueue.enqueue({
@@ -157,6 +173,10 @@ export class FileManager {
     if (!this.adapter.capabilities.supportsDirectories) {
       throw new Error('Adapter does not support directories');
     }
+
+    // Invalidate directory index so new folder appears
+    const parentDirectory = this.getDirectoryFromPath(path);
+    this.cache.invalidateDirectoryIndex(parentDirectory);
 
     this.syncQueue.enqueue({
       type: 'create-folder',
@@ -259,5 +279,14 @@ export class FileManager {
   private getCategoryFromPath(path: string): string {
     const parts = path.split('/').filter(Boolean);
     return parts.length > 1 ? parts[0] : 'root';
+  }
+
+  /**
+   * Get directory path from file path
+   */
+  private getDirectoryFromPath(path: string): string {
+    const parts = path.split('/').filter(Boolean);
+    parts.pop(); // Remove filename
+    return parts.join('/');
   }
 }

@@ -78,16 +78,18 @@ export function FileExplorer() {
   };
 
   const handleNewFile = () => {
-    if (fileTree.length === 0) {
-      toast.error('No workspace', 'Open a folder first');
+    const currentWorkspace = activeWorkspace();
+    if (!currentWorkspace) {
+      toast.error('No workspace', 'Please create or select a workspace first');
       return;
     }
     setNewItemType('file');
   };
 
   const handleNewFolder = () => {
-    if (fileTree.length === 0) {
-      toast.error('No workspace', 'Open a folder first');
+    const currentWorkspace = activeWorkspace();
+    if (!currentWorkspace) {
+      toast.error('No workspace', 'Please create or select a workspace first');
       return;
     }
     setNewItemType('folder');
@@ -99,8 +101,19 @@ export function FileExplorer() {
     const toastId = toast.loading(`Creating ${itemType.toLowerCase()}...`, name);
 
     try {
-      // Create at root level (use empty string or first node's parent path)
-      const rootPath = fileTree[0]?.id || '';
+      // Determine root path based on workspace type and file tree
+      let rootPath = '';
+      const currentWorkspace = activeWorkspace();
+
+      if (fileTree.length > 0) {
+        // If there are files, use the first node's parent path
+        rootPath = fileTree[0]?.id || '';
+      } else if (currentWorkspace?.type === 'drive' && currentWorkspace.driveFolder) {
+        // For empty Drive workspace, use the drive folder ID
+        rootPath = currentWorkspace.driveFolder;
+      }
+      // For browser and local, empty string is fine
+
       if (newItemType === 'file') {
         await createFile(rootPath, name);
       } else if (newItemType === 'folder') {
@@ -162,7 +175,7 @@ export function FileExplorer() {
             variant="ghost"
             size="icon"
             onClick={handleNewFile}
-            disabled={fileTree.length === 0}
+            disabled={!activeWorkspace()}
             className="h-5 w-5 hover:bg-sidebar-hover cursor-pointer"
             title="New File"
           >
@@ -172,7 +185,7 @@ export function FileExplorer() {
             variant="ghost"
             size="icon"
             onClick={handleNewFolder}
-            disabled={fileTree.length === 0}
+            disabled={!activeWorkspace()}
             className="h-5 w-5 hover:bg-sidebar-hover cursor-pointer"
             title="New Folder"
           >
@@ -182,7 +195,7 @@ export function FileExplorer() {
             variant="ghost"
             size="icon"
             onClick={handleRefresh}
-            disabled={isRefreshing || fileTree.length === 0}
+            disabled={isRefreshing || !activeWorkspace()}
             className="h-5 w-5 hover:bg-sidebar-hover cursor-pointer"
             title="Refresh Explorer"
           >
@@ -206,37 +219,39 @@ export function FileExplorer() {
       </div>
 
       {/* File tree - scrollable area */}
-      {fileTree.length === 0 ? (
-        <div className="flex items-center justify-center flex-1">
-          <div className="text-center text-muted-foreground text-sm">
-            <p>No folder open</p>
-            <p className="text-xs mt-1">Open a folder to get started</p>
+      <div className="flex-1 overflow-auto">
+        {/* New item input at root */}
+        {newItemType && (
+          <InlineInput
+            type={newItemType}
+            level={0}
+            defaultValue={newItemType === 'file' ? 'newfile.md' : 'newfolder'}
+            onConfirm={handleNewItemConfirm}
+            onCancel={() => setNewItemType(null)}
+            existingNames={getExistingNames()}
+          />
+        )}
+        {fileTree.length === 0 && !newItemType ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center text-muted-foreground text-sm">
+              <p>No files yet</p>
+              <p className="text-xs mt-1">Click + to create your first file</p>
+            </div>
           </div>
-        </div>
-      ) : (
-        <div className="flex-1 overflow-auto">
-          {/* New item input at root */}
-          {newItemType && (
-            <InlineInput
-              type={newItemType}
-              level={0}
-              defaultValue={newItemType === 'file' ? 'newfile.md' : 'newfolder'}
-              onConfirm={handleNewItemConfirm}
-              onCancel={() => setNewItemType(null)}
-              existingNames={getExistingNames()}
-            />
-          )}
-            {filteredFileTree.length > 0 ? (
-              filteredFileTree.map((node) => (
-                <FileTreeItem key={node.id} node={node} level={0} parentNode={undefined} />
+        ) : (
+          filteredFileTree.length > 0 ? (
+            filteredFileTree.map((node) => (
+              <FileTreeItem key={node.id} node={node} level={0} parentNode={undefined} />
             ))
             ) : (
+                fileTree.length > 0 && (
               <div className="px-3 py-2 text-xs text-muted-foreground">
                 No files match filter
               </div>
-            )}
-          </div>
-      )}
+                )
+              )
+        )}
+      </div>
     </div>
   );
 }
