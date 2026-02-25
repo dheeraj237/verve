@@ -8,6 +8,7 @@ import { FileExplorer } from "@/features/file-explorer/components/file-explorer"
 import { LeftNavigationPanel } from "@/shared/components/left-navigation-panel";
 import { TableOfContents } from "@/features/editor/components/table-of-contents";
 import { useTocStore } from "@/features/editor/store/toc-store";
+import { useLoadingStore } from '@/core/store/loading-store';
 import { useEditorStore, useCurrentFile } from "@/features/editor/store/editor-store";
 import { isMarkdownFile } from "@/shared/utils/file-type-detector";
 import { isMobileOrTablet, onViewportChange } from "@/shared/utils/mobile";
@@ -27,6 +28,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   } = usePanelStore();
 
   const { isWorkspaceSwitching } = useWorkspaceStore();
+  const isLoading = useLoadingStore((s) => s.isLoading);
   const { activeTabId, isCodeViewMode } = useEditorStore();
   const currentFile = useCurrentFile();
   const { items: tocItems, activeId } = useTocStore();
@@ -105,7 +107,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       
       <div className="flex-1 overflow-hidden pb-14 lg:pb-0 relative">
         {/* Workspace switching overlay - disables pointer events */}
-        {isWorkspaceSwitching && (
+        {(isWorkspaceSwitching || isLoading) && (
           <div className="absolute inset-0 bg-background/50 backdrop-blur-sm z-50 pointer-events-auto">
             <div className="h-full w-full flex items-center justify-center">
               <div className="text-center space-y-2">

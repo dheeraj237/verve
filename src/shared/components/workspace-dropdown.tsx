@@ -29,6 +29,7 @@ import {
   AlertTriangle
 } from "lucide-react";
 import { useWorkspaceStore, Workspace } from "@/core/store/workspace-store";
+import { runWithLoading } from '@/core/loading/run-with-loading';
 import { useFileExplorerStore } from "@/features/file-explorer/store/file-explorer-store";
 import { cn } from "@/shared/utils/cn";
 import { toast } from "@/shared/utils/toast";
@@ -299,65 +300,69 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
 
     setIsSwitching(true);
 
-    try {
-      // Clear selection immediately so it doesn't point to a file from the previous workspace
-      setSelectedFile(null);
-
-      // Always clear local directory handle before switching workspaces
-      // This ensures we start fresh with the new workspace
-      clearLocalDirectory();
-
-      // Switch the active workspace in the store first (this will reload tabs with fresh content)
-      await switchWorkspace(workspace.id);
-
-      // If switching to a local workspace, try to restore the directory handle
-      if (workspace.type === 'local') {
-        const restored = await restoreLocalDirectory(workspace.id);
-        if (!restored) {
-          toast.error("Failed to restore local directory. Please select the directory again.");
-          // Still continue with workspace switch, refresh will show empty tree
-        }
-      } else if (workspace.type === 'drive' && workspace.driveFolder) {
-        // Try to obtain a non-interactive Drive token so switching doesn't require re-auth
-        try {
-          await requestDriveAccessToken(false);
-        } catch (err) {
-          // Non-interactive token request may fail if no prior grant exists; ignore here
-          console.warn('Non-interactive Drive token request failed (no prior grant?):', err);
-        }
-
-        // Set the Google Drive folder for this workspace
-        if (setGoogleFolder) {
-          setGoogleFolder(workspace.driveFolder);
-        }
-      }
-
-      // Refresh file tree for the newly active workspace
-      await refreshFileTree();
-
-      // Pre-cache all files for the workspace to improve performance
+    // Wrap the entire switching flow with runWithLoading so the global AppLoader
+    // remains visible until refresh and pre-caching complete.
+    await runWithLoading(async () => {
       try {
-        const { getFileManager } = await import('@/core/store/file-manager-integration');
-        const manager = getFileManager(workspace);
-        const files = await manager.listFiles();
+        // Clear selection immediately so it doesn't point to a file from the previous workspace
+        setSelectedFile(null);
 
-        // Pre-load all files into cache (don't wait for completion)
-        files.forEach(file => {
-          manager.loadFile(file.path).catch(err =>
-            console.warn(`Failed to pre-cache file ${file.path}:`, err)
-          );
-        });
-      } catch (err) {
-        console.warn('Failed to pre-cache files:', err);
+        // Always clear local directory handle before switching workspaces
+        // This ensures we start fresh with the new workspace
+        clearLocalDirectory();
+
+        // Switch the active workspace in the store first (this will reload tabs with fresh content)
+        await switchWorkspace(workspace.id);
+
+        // If switching to a local workspace, try to restore the directory handle
+        if (workspace.type === 'local') {
+          const restored = await restoreLocalDirectory(workspace.id);
+          if (!restored) {
+            toast.error("Failed to restore local directory. Please select the directory again.");
+            // Still continue with workspace switch, refresh will show empty tree
+          }
+        } else if (workspace.type === 'drive' && workspace.driveFolder) {
+          // Try to obtain a non-interactive Drive token so switching doesn't require re-auth
+          try {
+            await requestDriveAccessToken(false);
+          } catch (err) {
+            // Non-interactive token request may fail if no prior grant exists; ignore here
+            console.warn('Non-interactive Drive token request failed (no prior grant?):', err);
+          }
+
+          // Set the Google Drive folder for this workspace
+          if (setGoogleFolder) {
+            setGoogleFolder(workspace.driveFolder);
+          }
+        }
+
+        // Refresh file tree for the newly active workspace
+        await refreshFileTree();
+
+        // Pre-cache all files for the workspace to improve performance
+        try {
+          const { getFileManager } = await import('@/core/store/file-manager-integration');
+          const manager = getFileManager(workspace);
+          const files = await manager.listFiles();
+
+          // Pre-load all files into cache (don't wait for completion)
+          files.forEach(file => {
+            manager.loadFile(file.path).catch(err =>
+              console.warn(`Failed to pre-cache file ${file.path}:`, err)
+            );
+          });
+        } catch (err) {
+          console.warn('Failed to pre-cache files:', err);
+        }
+
+        toast.success(`Switched to "${workspace.name}"`);
+      } catch (e) {
+        console.error('Failed to switch workspace:', e);
+        toast.error("Failed to switch workspace");
       }
+    });
 
-      toast.success(`Switched to "${workspace.name}"`);
-    } catch (e) {
-      console.error('Failed to switch workspace:', e);
-      toast.error("Failed to switch workspace");
-    } finally {
-      setIsSwitching(false);
-    }
+    setIsSwitching(false);
   };
 
   const handleDeleteClick = (workspace: Workspace) => {
