@@ -10,6 +10,7 @@ import {
   observeCachedFiles,
   upsertCachedFile
 } from '../cache';
+import { useWorkspaceStore } from '@/core/store/workspace-store';
 import type { CachedFile, CrdtDoc } from '../cache/types';
 
 /**
@@ -395,7 +396,10 @@ export class SyncManager {
    */
   private async pullFileFromAdapter(fileId: string, adapter: ISyncAdapter): Promise<void> {
     try {
-      const file = await getCachedFile(fileId);
+      const workspace = useWorkspaceStore.getState().activeWorkspace?.();
+      const workspaceId = workspace?.id;
+
+      const file = await getCachedFile(fileId, workspaceId);
       if (!file || !file.crdtId) return;
 
       const remoteState = await adapter.pull(fileId);

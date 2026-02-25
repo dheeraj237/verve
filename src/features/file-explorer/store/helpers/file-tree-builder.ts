@@ -9,19 +9,34 @@ import type { FileMetadata } from "@/core/cache";
  * 
  * @param directory - Directory path to list (empty for root)
  * @param idPrefix - Prefix for node IDs (e.g., 'gdrive-', 'local-')
+ * @param workspaceType - Workspace type to filter cached files by (browser|local|drive|gdrive|s3)
  * @returns Promise<FileNode[]> - Array of file nodes sorted by type and name
  */
 export async function buildFileTreeFromAdapter(
   _fileManager: any,  // Kept for backwards compatibility but unused
   directory: string = '',
-  idPrefix: string = ''
+  idPrefix: string = '',
+  workspaceType: string = 'browser',
+  workspaceId?: string
 ): Promise<FileNode[]> {
   try {
-    // Get all files from RxDB cache
-    const files = await getAllFiles();
+    // Get all files from RxDB cache (scoped to workspace when provided)
+    const files = await getAllFiles(workspaceId);
+
+    // Normalize workspace type for cache comparison (map 'drive' -> 'gdrive')
+    const normalizedWsType = workspaceType === 'drive' ? 'gdrive' : workspaceType;
+
+    // Filter files belonging to the requested workspace type so multiple
+    // workspaces (or sample files) don't mix together in the tree.
+    let workspaceFiltered = files.filter(f => String(f.workspaceType) === String(normalizedWsType));
+
+    // If a specific workspaceId is provided, further restrict to that workspace
+    if (workspaceId) {
+      workspaceFiltered = workspaceFiltered.filter(f => f.workspaceId === workspaceId);
+    }
 
     // Filter files based on directory path
-    const filteredFiles = filterFilesByDirectory(files, directory);
+    const filteredFiles = filterFilesByDirectory(workspaceFiltered, directory);
 
     // Check if any files have nested paths (contain '/')
     const hasNestedPaths = filteredFiles.some(f => {
@@ -60,8 +75,8 @@ export async function buildFileTreeFromAdapter(
  */
 function filterFilesByDirectory(files: FileMetadata[], directory: string): FileMetadata[] {
   if (!directory || directory === '' || directory === '/') {
-    // Return root level files (no slashes in path)
-    return files.filter(f => !f.path.includes('/'));
+    // At root, return all files — buildTreeFromFlatPaths will construct folders when nested paths exist
+    return files;
   }
 
   const dirPath = directory.replace(/\/$/, ''); // Remove trailing slash

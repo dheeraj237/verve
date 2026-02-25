@@ -200,8 +200,10 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       get().setFileSaveError(fileId, undefined);
 
       const workspaceType = getActiveWorkspaceType();
+      const workspace = useWorkspaceStore.getState().activeWorkspace?.();
+      const workspaceId = workspace?.id;
 
-      saveFile(tab.path, content, workspaceType)
+      saveFile(tab.path, content, workspaceType, undefined, workspaceId)
         .then(() => {
           get().setFileSaving(fileId, false);
           get().setFileLastSaved(fileId, new Date());
@@ -227,7 +229,9 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       set({ isLoading: true });
 
       const workspaceType = getActiveWorkspaceType();
-      const fileData = await loadFile(path, workspaceType);
+      const workspace = useWorkspaceStore.getState().activeWorkspace?.();
+      const workspaceId = workspace?.id;
+      const fileData = await loadFile(path, workspaceType, workspaceId);
 
       const markdownFile: MarkdownFile = {
         id: fileData.id,
@@ -359,7 +363,9 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       } else {
         // Load from RxDB cache
         const workspaceType = getActiveWorkspaceType();
-        const fileData = await loadFile(fileNode.path, workspaceType);
+        const workspace = useWorkspaceStore.getState().activeWorkspace?.();
+        const workspaceId = workspace?.id;
+        const fileData = await loadFile(fileNode.path, workspaceType, workspaceId);
 
         get().openFile({
           id: fileData.id,

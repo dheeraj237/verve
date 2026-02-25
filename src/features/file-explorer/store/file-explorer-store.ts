@@ -289,7 +289,9 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
               const fileTree = await buildFileTreeFromAdapter(
                 null,  // No FileManager needed, uses RxDB
                 '',
-                ''
+                '',
+                activeWorkspace.type,
+                activeWorkspace.id
               );
               set({
                 fileTree,
@@ -325,7 +327,9 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
             const fileTree = await buildFileTreeFromAdapter(
               null,  // No FileManager needed, uses RxDB
               activeWorkspace.driveFolder,
-              'gdrive-'
+              'gdrive-',
+              activeWorkspace.type,
+              activeWorkspace.id
             );
 
             const rootName = activeWorkspace.name || 'Google Drive';

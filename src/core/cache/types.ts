@@ -6,6 +6,7 @@ export type CachedFile = {
   path: string;
   type: 'file' | 'dir';
   workspaceType: WorkspaceType; // Determines which adapters to use
+  workspaceId?: string; // Optional workspace instance id to separate multiple workspaces of same type
   crdtId?: string;
   metadata?: Record<string, any>;
   lastModified?: number;

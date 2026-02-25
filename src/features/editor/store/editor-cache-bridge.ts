@@ -11,6 +11,7 @@ import {
   getYjsText,
   setYjsText
 } from '../../../core/cache';
+import { useWorkspaceStore } from '@/core/store/workspace-store';
 import type { CachedFile } from '../../../core/cache/types';
 
 export interface EditorCacheContextType {
@@ -70,8 +71,11 @@ export function useOpenFileForEditing(
 
     const loadFile = async () => {
       try {
+        const workspace = useWorkspaceStore.getState().activeWorkspace?.();
+        const workspaceId = workspace?.id;
+
         // Load or create cached file entry
-        let cachedFile = await getCachedFile(fileId);
+        let cachedFile = await getCachedFile(fileId, workspaceId);
         if (!cachedFile) {
           // Create new cached file if doesn't exist
           cachedFile = {
@@ -80,7 +84,8 @@ export function useOpenFileForEditing(
             path: filePath || fileId,
             type: 'file',
             workspaceType,
-            dirty: false
+            dirty: false,
+            workspaceId: workspaceId
           };
           await upsertCachedFile(cachedFile);
         }
@@ -95,7 +100,7 @@ export function useOpenFileForEditing(
 
         // Update cached file with CRDT link if new
         if (!cachedFile.crdtId) {
-          await upsertCachedFile({ ...cachedFile, crdtId });
+          await upsertCachedFile({ ...cachedFile, crdtId, workspaceId: cachedFile.workspaceId });
         }
 
         setYdoc(doc);
@@ -163,9 +168,11 @@ export function useEditorSync(fileId: string | null, ydoc: Y.Doc | null) {
  */
 async function markFileAsDirty(fileId: string): Promise<void> {
   try {
-    const fileMetadata = await getCachedFile(fileId);
+    const workspace = useWorkspaceStore.getState().activeWorkspace?.();
+    const workspaceId = workspace?.id;
+    const fileMetadata = await getCachedFile(fileId, workspaceId);
     if (fileMetadata && !fileMetadata.dirty) {
-      await upsertCachedFile({ ...fileMetadata, dirty: true });
+      await upsertCachedFile({ ...fileMetadata, dirty: true, workspaceId: fileMetadata.workspaceId });
     }
   } catch (error) {
     console.error('Failed to mark file as dirty:', fileId, error);
@@ -182,11 +189,22 @@ export function useCachedFilesList(pathPrefix?: string) {
 
   useEffect(() => {
     setLoading(true);
+    const workspace = useWorkspaceStore.getState().activeWorkspace?.();
+    const workspaceId = workspace?.id;
+
     const subscription = observeCachedFiles((cachedFiles) => {
+      // Prefer workspace-scoped files when an active workspace exists
+      let filteredByWorkspace = cachedFiles;
+      if (workspaceId) {
+        filteredByWorkspace = cachedFiles.filter(f => f.workspaceId === workspaceId);
+      } else if (workspace) {
+        filteredByWorkspace = cachedFiles.filter(f => f.workspaceType === workspace.type);
+      }
+
       // Filter by path prefix if provided
       const filtered = pathPrefix
-        ? cachedFiles.filter((f) => f.path.startsWith(pathPrefix))
-        : cachedFiles;
+        ? filteredByWorkspace.filter((f) => f.path.startsWith(pathPrefix))
+        : filteredByWorkspace;
       setFiles(filtered);
       setLoading(false);
     });
@@ -208,8 +226,17 @@ export function useDirtyFiles() {
   const [dirtyFiles, setDirtyFiles] = useState<CachedFile[]>([]);
 
   useEffect(() => {
+    const workspace = useWorkspaceStore.getState().activeWorkspace?.();
+    const workspaceId = workspace?.id;
     const subscription = observeCachedFiles((cachedFiles) => {
-      const dirty = cachedFiles.filter((f) => f.dirty);
+      let filtered = cachedFiles;
+      if (workspaceId) {
+        filtered = cachedFiles.filter(f => f.workspaceId === workspaceId);
+      } else if (workspace) {
+        filtered = cachedFiles.filter(f => f.workspaceType === workspace.type);
+      }
+
+      const dirty = filtered.filter((f) => f.dirty);
       setDirtyFiles(dirty);
     });
 

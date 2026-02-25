@@ -43,7 +43,7 @@ export function DriveSyncStatus() {
         const workspace = useWorkspaceStore.getState().activeWorkspace();
         if (workspace) {
           // Get dirty files from RxDB cache
-          getDirtyFiles().then(dirtyFiles => {
+          getDirtyFiles(workspace.id).then(dirtyFiles => {
             setSyncStatus({
               pending: dirtyFiles.length,
               processing: 0,
@@ -52,6 +52,9 @@ export function DriveSyncStatus() {
               isProcessing: dirtyFiles.length > 0
             });
           });
+        } else {
+          // No active workspace -> clear
+          setSyncStatus({ pending: 0, processing: 0, completed: 0, failed: 0, isProcessing: false });
         }
       } catch (e) {
         // Ignore if cache not initialized yet

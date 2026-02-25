@@ -10,8 +10,8 @@ import { getAllFiles } from '@/core/cache/file-operations';
  * Build browser file tree from RxDB cache
  */
 export async function buildSamplesFileTree(): Promise<FileNode[]> {
-  // Get all files from RxDB cache
-  const files = await getAllFiles();
+  // Get all files from RxDB cache (only sample workspace)
+  const files = await getAllFiles('verve-samples');
   
   // Build a tree structure from flat file list
   const root: { [key: string]: any } = {};

@@ -33,6 +33,8 @@ export async function createFile(parentPath: string, fileName: string): Promise<
       // proceed — saveFile will throw if DB is unavailable
     }
     const workspaceType = getActiveWorkspaceType();
+    const workspace = useWorkspaceStore.getState().activeWorkspace?.();
+    const workspaceId = workspace?.id;
     const filePath = parentPath ? `${parentPath}/${fileName}` : fileName;
     // Provide sensible default content for certain filenames
     let defaultContent = '';
@@ -42,7 +44,7 @@ export async function createFile(parentPath: string, fileName: string): Promise<
       defaultContent = '# Verve 🚀';
     }
 
-    await saveFile(filePath, defaultContent, workspaceType);
+    await saveFile(filePath, defaultContent, workspaceType, undefined, workspaceId);
   } catch (error) {
     console.error('Error creating file:', error);
     throw error;
@@ -66,8 +68,10 @@ export async function createFolder(parentPath: string, folderName: string): Prom
       console.warn('Failed to initialize file operations before creating folder:', initErr);
     }
     const workspaceType = getActiveWorkspaceType();
+    const workspace = useWorkspaceStore.getState().activeWorkspace?.();
+    const workspaceId = workspace?.id;
     const folderPath = parentPath ? `${parentPath}/${folderName}` : folderName;
-    await createDirectory(folderPath, workspaceType);
+    await createDirectory(folderPath, workspaceType, workspaceId);
   } catch (error) {
     console.error('Error creating folder:', error);
     throw error;
@@ -84,7 +88,9 @@ export async function createFolder(parentPath: string, folderName: string): Prom
  */
 export async function deleteNode(nodePath: string, isFolder: boolean): Promise<void> {
   try {
-    await deleteFileRxDB(nodePath);
+    const workspace = useWorkspaceStore.getState().activeWorkspace?.();
+    const workspaceId = workspace?.id;
+    await deleteFileRxDB(nodePath, workspaceId);
   } catch (error) {
     console.error('Error deleting:', error);
     throw error;
@@ -105,7 +111,9 @@ export async function renameNode(nodePath: string, newName: string): Promise<voi
     pathParts[pathParts.length - 1] = newName;
     const newPath = pathParts.join('/');
 
-    await renameFileRxDB(nodePath, newPath);
+    const workspace = useWorkspaceStore.getState().activeWorkspace?.();
+    const workspaceId = workspace?.id;
+    await renameFileRxDB(nodePath, newPath, workspaceId);
   } catch (error) {
     console.error('Error renaming:', error);
     throw error;

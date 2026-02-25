@@ -4,6 +4,7 @@ import { RxDBLeaderElectionPlugin } from 'rxdb/plugins/leader-election';
 import { RxDBJsonDumpPlugin } from 'rxdb/plugins/json-dump';
 import { RxDBDevModePlugin } from 'rxdb/plugins/dev-mode';
 import { RxDBMigrationPlugin } from 'rxdb/plugins/migration';
+import { RxDBQueryBuilderPlugin } from 'rxdb/plugins/query-builder';
 
 import { cachedFileSchema, crdtDocSchema, syncQueueSchema, migrationStrategies } from './schemas';
 import type { CachedFile, CrdtDoc } from './types';
@@ -15,6 +16,7 @@ if (import.meta.env.DEV) {
 addRxPlugin(RxDBLeaderElectionPlugin);
 addRxPlugin(RxDBJsonDumpPlugin);
 addRxPlugin(RxDBMigrationPlugin);
+addRxPlugin(RxDBQueryBuilderPlugin);
 
 /**
  * Safely convert an error to a serializable string, handling circular references
@@ -320,14 +322,27 @@ export async function upsertCachedFile(file: CachedFile): Promise<void> {
  * This helper first attempts to resolve by `id`, and if not found, falls back
  * to resolving by `path` so both lookup styles are supported.
  */
-export async function getCachedFile(idOrPath: string): Promise<CachedFile | null> {
+export async function getCachedFile(idOrPath: string, workspaceId?: string): Promise<CachedFile | null> {
   const db = getCacheDB();
   try {
-    // Try to find by id first (most callers use id)
-    let doc = await db.cached_files.findOne({ selector: { id: idOrPath } }).exec();
+    // Try to find by id first (most callers use id). If workspaceId is provided,
+    // try scoped lookup first to prefer workspace-scoped entries.
+    let doc = null;
+
+    if (workspaceId) {
+      doc = await db.cached_files.findOne({ selector: { id: idOrPath, workspaceId } }).exec();
+      if (doc) return doc.toJSON();
+    }
+
+    doc = await db.cached_files.findOne({ selector: { id: idOrPath } }).exec();
     if (doc) return doc.toJSON();
 
     // Fallback: try to find by path (some modules pass the path)
+    if (workspaceId) {
+      doc = await db.cached_files.findOne({ selector: { path: idOrPath, workspaceId } }).exec();
+      if (doc) return doc.toJSON();
+    }
+
     doc = await db.cached_files.findOne({ selector: { path: idOrPath } }).exec();
     return doc ? doc.toJSON() : null;
   } catch (error) {

@@ -76,6 +76,7 @@ export interface FileMetadata {
   lastModified?: number;
   dirty?: boolean;
   workspaceType: WorkspaceType;
+  workspaceId?: string;
 }
 
 /**
@@ -108,16 +109,20 @@ export async function initializeFileOperations(): Promise<void> {
  * Load a file by path
  * Checks cached_files and returns content from crdt_docs if it exists, or empty string for new files
  */
-export async function loadFile(path: string, workspaceType: WorkspaceType | 'browser' | 'local' | 'drive' | 'gdrive' | 's3' = 'browser'): Promise<FileData> {
+export async function loadFile(
+  path: string,
+  workspaceType: WorkspaceType | 'browser' | 'local' | 'drive' | 'gdrive' | 's3' = 'browser',
+  workspaceId?: string
+): Promise<FileData> {
   const cacheType = toCacheWorkspaceType(workspaceType as any);
-  return loadFileSync(path, cacheType);
+  return loadFileSync(path, cacheType, workspaceId);
 }
 
-async function loadFileSync(path: string, workspaceType: WorkspaceType = 'browser'): Promise<FileData> {
+async function loadFileSync(path: string, workspaceType: WorkspaceType = 'browser', workspaceId?: string): Promise<FileData> {
   const db = await getCacheDB();
   
   // Try to find existing file
-  const cached = await getCachedFile(path);
+  const cached = await getCachedFile(path, workspaceId);
   
   if (cached) {
     // File exists, load its content from CRDT doc if available
@@ -178,23 +183,25 @@ export function saveFile(
   path: string,
   content: string,
   workspaceType: WorkspaceType | 'browser' | 'local' | 'drive' | 'gdrive' | 's3' = 'browser',
-  metadata?: Record<string, any>
+  metadata?: Record<string, any>,
+  workspaceId?: string
 ): Promise<FileData> {
   const cacheType = toCacheWorkspaceType(workspaceType as any);
-  return saveSyncFile(path, content, cacheType, metadata);
+  return saveSyncFile(path, content, cacheType, metadata, workspaceId);
 }
 
 async function saveSyncFile(
   path: string,
   content: string,
   workspaceType: WorkspaceType = 'browser',
-  metadata?: Record<string, any>
+  metadata?: Record<string, any>,
+  workspaceId?: string
 ): Promise<FileData> {
   const db = await getCacheDB();
   
   // Get or create file ID
   let fileId: string;
-  const existing = await getCachedFile(path);
+  const existing = await getCachedFile(path, workspaceId);
   
   if (existing) {
     fileId = existing.id;
@@ -202,8 +209,8 @@ async function saveSyncFile(
     fileId = uuidv4();
   }
   
-  // Create or load CRDT doc for content
-  const crdtId = uuidv4();
+  // Create or load CRDT doc for content — reuse existing crdtId when present
+  const crdtId = existing && (existing as any).crdtId ? (existing as any).crdtId : uuidv4();
   const ydoc = await createOrLoadYjsDoc({
     crdtId,
     fileId,
@@ -232,6 +239,7 @@ async function saveSyncFile(
     path,
     type: 'file',
     workspaceType,
+    workspaceId: workspaceId,
     crdtId,
     metadata: metadata || { mimeType: 'text/markdown' },
     lastModified: Date.now(),
@@ -253,9 +261,9 @@ async function saveSyncFile(
 /**
  * Delete a file
  */
-export async function deleteFile(path: string): Promise<void> {
+export async function deleteFile(path: string, workspaceId?: string): Promise<void> {
   const db = await getCacheDB();
-  const cached = await getCachedFile(path);
+  const cached = await getCachedFile(path, workspaceId);
   
   if (cached) {
     // Delete CRDT doc if it exists
@@ -271,8 +279,8 @@ export async function deleteFile(path: string): Promise<void> {
 /**
  * Rename a file
  */
-export async function renameFile(oldPath: string, newPath: string): Promise<void> {
-  const cached = await getCachedFile(oldPath);
+export async function renameFile(oldPath: string, newPath: string, workspaceId?: string): Promise<void> {
+  const cached = await getCachedFile(oldPath, workspaceId);
   
   if (!cached) {
     throw new Error(`File not found: ${oldPath}`);
@@ -292,12 +300,16 @@ export async function renameFile(oldPath: string, newPath: string): Promise<void
 /**
  * Create a directory
  */
-export async function createDirectory(path: string, workspaceType: WorkspaceType | 'browser' | 'local' | 'drive' | 'gdrive' | 's3' = 'browser'): Promise<FileMetadata> {
+export async function createDirectory(
+  path: string,
+  workspaceType: WorkspaceType | 'browser' | 'local' | 'drive' | 'gdrive' | 's3' = 'browser',
+  workspaceId?: string
+): Promise<FileMetadata> {
   const cacheType = toCacheWorkspaceType(workspaceType as any);
-  return createDirectorySync(path, cacheType);
+  return createDirectorySync(path, cacheType, workspaceId);
 }
 
-async function createDirectorySync(path: string, workspaceType: WorkspaceType = 'browser'): Promise<FileMetadata> {
+async function createDirectorySync(path: string, workspaceType: WorkspaceType = 'browser', workspaceId?: string): Promise<FileMetadata> {
   const dirName = path.split('/').pop() || 'untitled';
   const dirId = uuidv4();
   
@@ -307,6 +319,7 @@ async function createDirectorySync(path: string, workspaceType: WorkspaceType = 
     path,
     type: 'dir',
     workspaceType,
+    workspaceId: workspaceId,
     lastModified: Date.now(),
     dirty: workspaceType !== 'browser',
   };
@@ -327,7 +340,7 @@ async function createDirectorySync(path: string, workspaceType: WorkspaceType = 
  * List files in a directory
  * Returns files and subdirectories at the given path
  */
-export async function listFiles(dirPath: string = ''): Promise<FileMetadata[]> {
+export async function listFiles(dirPath: string = '', workspaceId?: string): Promise<FileMetadata[]> {
   const db = await getCacheDB();
   
   // Normalize path
@@ -336,7 +349,11 @@ export async function listFiles(dirPath: string = ''): Promise<FileMetadata[]> {
   // Query cached_files where path starts with dirPath
   const pattern = normalizedPath ? `${normalizedPath}/` : '';
   
-  const allFiles = await db.cached_files.find().exec();
+  let allFilesQuery: any = db.cached_files.find();
+  if (workspaceId) {
+    allFilesQuery = allFilesQuery.where('workspaceId').eq(workspaceId);
+  }
+  const allFiles = await allFilesQuery.exec();
   
   // Filter files that are direct children of the directory
   const children = allFiles.filter(file => {
@@ -356,6 +373,7 @@ export async function listFiles(dirPath: string = ''): Promise<FileMetadata[]> {
     path: file.path,
     type: file.type,
     workspaceType: file.workspaceType,
+    workspaceId: file.workspaceId,
     dirty: file.dirty,
     lastModified: file.lastModified,
   }));
@@ -364,10 +382,14 @@ export async function listFiles(dirPath: string = ''): Promise<FileMetadata[]> {
 /**
  * Get all files in the workspace
  */
-export async function getAllFiles(): Promise<FileMetadata[]> {
+export async function getAllFiles(workspaceId?: string): Promise<FileMetadata[]> {
   const db = await getCacheDB();
   
-  const allFiles = await db.cached_files.find().exec();
+  let query: any = db.cached_files.find();
+  if (workspaceId) {
+    query = query.where('workspaceId').eq(workspaceId);
+  }
+  const allFiles = await query.exec();
   
   return allFiles.map(file => ({
     id: file.id,
@@ -375,6 +397,7 @@ export async function getAllFiles(): Promise<FileMetadata[]> {
     path: file.path,
     type: file.type,
     workspaceType: file.workspaceType,
+    workspaceId: file.workspaceId,
     dirty: file.dirty,
     lastModified: file.lastModified,
   }));
@@ -384,21 +407,23 @@ export async function getAllFiles(): Promise<FileMetadata[]> {
  * Get dirty files (files with unsaved changes to sync)
  * Only returns non-browser workspace files
  */
-export async function getDirtyFiles(): Promise<FileMetadata[]> {
+export async function getDirtyFiles(workspaceId?: string): Promise<FileMetadata[]> {
   const db = await getCacheDB();
-  
-  const dirtyFiles = await db.cached_files
-    .find()
-    .where('dirty')
-    .eq(true)
-    .exec();
-  
+
+  let query: any = db.cached_files.find().where('dirty').eq(true);
+  if (workspaceId) {
+    query = query.where('workspaceId').eq(workspaceId);
+  }
+
+  const dirtyFiles = await query.exec();
+
   return dirtyFiles.map(file => ({
     id: file.id,
     name: file.name,
     path: file.path,
     type: file.type,
     workspaceType: file.workspaceType,
+    workspaceId: file.workspaceId,
     dirty: file.dirty,
     lastModified: file.lastModified,
   }));
@@ -516,6 +541,7 @@ export async function loadSampleFilesFromFolder(): Promise<void> {
           path: sample.path,
           type: 'file',
           workspaceType: 'browser',
+          workspaceId: 'verve-samples',
           crdtId: fileId,
           lastModified: Date.now(),
           dirty: false,

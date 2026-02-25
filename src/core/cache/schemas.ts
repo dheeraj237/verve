@@ -38,6 +38,11 @@ export const cachedFileSchema: RxJsonSchema<CachedFile> = {
       enum: ['browser', 'local', 'gdrive', 's3'],
       description: 'Workspace storage type (determines sync adapters)'
     },
+    workspaceId: {
+      type: 'string',
+      maxLength: 255,
+      description: 'Optional workspace instance id to scope files when multiple workspaces of same type exist'
+    },
     crdtId: {
       type: ['string', 'null'],
       maxLength: 255,
@@ -58,7 +63,7 @@ export const cachedFileSchema: RxJsonSchema<CachedFile> = {
     }
   },
   required: ['id', 'name', 'path', 'type', 'workspaceType', 'dirty'],
-  indexes: [['path'], ['workspaceType']]
+  indexes: [['path'], ['workspaceType'], ['workspaceId']]
 };
 
 /**
