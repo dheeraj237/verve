@@ -3,9 +3,31 @@ import { X, FileText, CircleDot } from "lucide-react";
 import { useEditorStore } from "@/features/editor/store/editor-store";
 import { cn } from "@/shared/utils/cn";
 import { isMarkdownFile } from "@/shared/utils/file-type-detector";
+import { useEffect, useState } from 'react';
+import { getCachedFile } from '@/core/cache';
+import { useWorkspaceStore } from '@/core/store/workspace-store';
 
 export function OpenedFilesSection() {
   const { openTabs, activeTabId, closeTab, openFile } = useEditorStore();
+  const activeWorkspace = useWorkspaceStore((s) => s.activeWorkspace());
+  const [dirtyMap, setDirtyMap] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const map: Record<string, boolean> = {};
+      for (const tab of openTabs) {
+        try {
+          const cached = await getCachedFile(tab.path, activeWorkspace?.id);
+          map[tab.id] = !!(cached && cached.dirty);
+        } catch (e) {
+          map[tab.id] = false;
+        }
+      }
+      if (mounted) setDirtyMap(map);
+    })();
+    return () => { mounted = false; };
+  }, [openTabs, activeWorkspace?.id]);
 
   const handleFileClick = (fileId: string) => {
     const file = openTabs.find(tab => tab.id === fileId);
@@ -64,19 +86,19 @@ export function OpenedFilesSection() {
               </span>
 
               {/* Dirty indicator or close button */}
-              <div className="shrink-0">
-                {isDirty ? (
-                  <CircleDot className="h-3 w-3 text-muted-foreground" />
-                ) : (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={(e) => handleCloseFile(e, file.id)}
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
-                )}
+              <div className="shrink-0 flex items-center gap-2">
+                {isDirty || dirtyMap[file.id] ? (
+                  <CircleDot className="h-3 w-3 text-amber-400" />
+                ) : null}
+
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={(e) => handleCloseFile(e, file.id)}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
               </div>
             </div>
           );

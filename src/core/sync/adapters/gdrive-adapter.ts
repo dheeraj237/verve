@@ -269,4 +269,69 @@ export class GDriveAdapter implements ISyncAdapter {
       };
     });
   }
+
+  /**
+   * Optional: list files for a Google Drive workspace. Not implemented yet.
+   */
+  async listWorkspaceFiles(workspaceId?: string, path?: string): Promise<{ id: string; path: string; metadata?: any }[]> {
+    if (!this.driveClient || !this.driveClient.files || typeof this.driveClient.files.list !== 'function') {
+      console.info('GDriveAdapter.listWorkspaceFiles: drive client not available');
+      return [];
+    }
+
+    try {
+      const parent = path || workspaceId || 'root';
+      const results: Array<{ id: string; path: string; metadata?: any }> = [];
+      let pageToken: string | undefined = undefined;
+      do {
+        const res = await this.driveClient.files.list({
+          q: `'${parent}' in parents and trashed = false`,
+          fields: 'nextPageToken, files(id, name, mimeType, modifiedTime) ',
+          pageToken,
+        });
+        const files = (res && (res.data || res.result || res))?.files || [];
+        for (const f of files) {
+          results.push({ id: f.id, path: f.name, metadata: f });
+        }
+        pageToken = (res && (res.data || res.result || res))?.nextPageToken;
+      } while (pageToken);
+
+      return results;
+    } catch (err) {
+      console.warn('GDriveAdapter.listWorkspaceFiles failed:', err);
+      return [];
+    }
+  }
+
+  /**
+   * Optional: pull multiple files for a workspace. Not implemented yet.
+   */
+  async pullWorkspace(workspaceId?: string, path?: string): Promise<Array<{ fileId: string; yjsState: Uint8Array }>> {
+    if (!this.driveClient || !this.driveClient.files) {
+      console.info('GDriveAdapter.pullWorkspace: drive client not available');
+      return [];
+    }
+
+    try {
+      const files = await this.listWorkspaceFiles(workspaceId, path);
+      const items: Array<{ fileId: string; yjsState: Uint8Array }> = [];
+      for (const f of files) {
+        try {
+          // Attempt to download file media
+          const res = await this.driveClient.files.get({ fileId: f.id, alt: 'media' }, { responseType: 'arraybuffer' });
+          const data = (res && (res.data || res.result || res)) || null;
+          if (data) {
+            const buf = data instanceof ArrayBuffer ? new Uint8Array(data) : Buffer.from(data);
+            items.push({ fileId: f.id, yjsState: buf instanceof Uint8Array ? buf : new Uint8Array(buf) });
+          }
+        } catch (err) {
+          console.warn('GDriveAdapter.pullWorkspace: failed to download', f.id, err);
+        }
+      }
+      return items;
+    } catch (err) {
+      console.warn('GDriveAdapter.pullWorkspace failed:', err);
+      return [];
+    }
+  }
 }

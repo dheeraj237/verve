@@ -70,4 +70,20 @@ export class S3Adapter implements ISyncAdapter {
       // Watch for changes and emit fileIds
     });
   }
+
+  /**
+   * Optional: list files for an S3 workspace. Not implemented yet.
+   */
+  async listWorkspaceFiles(workspaceId?: string, path?: string): Promise<{ id: string; path: string; metadata?: any }[]> {
+    console.info('S3Adapter.listWorkspaceFiles: stub (not implemented)');
+    return [];
+  }
+
+  /**
+   * Optional: pull multiple files for a workspace. Not implemented yet.
+   */
+  async pullWorkspace(workspaceId?: string, path?: string): Promise<Array<{ fileId: string; yjsState: Uint8Array }>> {
+    console.info('S3Adapter.pullWorkspace: stub (not implemented)');
+    return [];
+  }
 }

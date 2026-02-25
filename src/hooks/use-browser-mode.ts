@@ -5,6 +5,10 @@
 
 import { useEffect, useState } from 'react';
 import { initializeFileOperations, loadSampleFilesFromFolder } from '@/core/cache/file-operations';
+import { initializeSyncManager } from '@/core/sync/sync-manager';
+import { LocalAdapter } from '@/core/sync/adapters/local-adapter';
+import { GDriveAdapter } from '@/core/sync/adapters/gdrive-adapter';
+import { S3Adapter } from '@/core/sync/adapters/s3-adapter';
 import { useWorkspaceStore } from '@/core/store/workspace-store';
 
 export function useBrowserMode() {
@@ -30,6 +34,26 @@ export function useBrowserMode() {
           console.log('[BrowserMode] Loading sample files...');
           await loadSampleFilesFromFolder();
           console.log('[BrowserMode] Sample files loaded');
+        }
+
+        // Initialize SyncManager with available adapters. Adapters are
+        // responsible for doing external I/O; they will be no-ops in
+        // environments where their APIs are not available (e.g., browser).
+        try {
+          // Determine a sensible baseDir for LocalAdapter. When running in
+          // Electron, the preload script or main process may expose a global
+          // `__VERVE_LOCAL_BASE_DIR`. Also allow Vite env var `VITE_LOCAL_BASE_DIR`.
+          const win: any = typeof window !== 'undefined' ? window : {};
+          const baseDir = win.__VERVE_LOCAL_BASE_DIR || (import.meta.env.VITE_LOCAL_BASE_DIR as string) || './';
+
+          await initializeSyncManager([
+            new LocalAdapter(baseDir),
+            new GDriveAdapter(),
+            new S3Adapter('', ''),
+          ]);
+          console.log('[BrowserMode] SyncManager initialized');
+        } catch (err) {
+          console.warn('Failed to initialize SyncManager:', err);
         }
 
         setIsInitialized(true);

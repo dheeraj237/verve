@@ -50,6 +50,18 @@ export interface ISyncAdapter {
    * Should emit file IDs that changed
    */
   watch?(): Observable<string>;
+
+  /**
+   * Optional: list files for a workspace (used during workspace pulls)
+   * Returns objects containing an identifier and path/metadata.
+   */
+  listWorkspaceFiles?(workspaceId?: string, path?: string): Promise<{ id: string; path: string; metadata?: any }[]>;
+
+  /**
+   * Optional: pull multiple files for a workspace. Adapter can implement
+   * optimized workspace-level pulls. Returns array of { fileId, yjsState }.
+   */
+  pullWorkspace?(workspaceId?: string, path?: string): Promise<Array<{ fileId: string; yjsState: Uint8Array }>>;
 }
 
 export enum SyncStatus {
@@ -88,6 +100,8 @@ export class SyncManager {
   private maxRetries = 3;
   private retryDelays = [1000, 3000, 5000]; // exponential backoff
   private cachedFilesSub: any = null;
+  private pullInterval: ReturnType<typeof setInterval> | null = null;
+  private periodicPullIntervalMs = 60000; // 1 minute
 
   constructor(private batchSize = 5) {}
 
@@ -411,6 +425,98 @@ export class SyncManager {
           console.warn(`Failed to setup watcher for ${adapter.name}:`, error);
         }
       }
+    }
+  }
+
+  /**
+   * Public API to pull an entire workspace's remote state and upsert into RxDB.
+   * This is used during blocking workspace switches to ensure RxDB contains
+   * the latest remote files before the UI renders the workspace.
+   */
+  async pullWorkspace(workspace: { id: string; type: string; path?: string }): Promise<void> {
+    if (!workspace) return;
+
+    const adapterName = workspace.type === 'drive' ? 'gdrive' : workspace.type;
+    const adapter = this.adapters.get(adapterName);
+    if (!adapter) {
+      console.warn(`No adapter registered for workspace type: ${workspace.type}`);
+      return;
+    }
+
+    this.statusSubject.next(SyncStatus.SYNCING);
+
+    try {
+      // If adapter provides an optimized workspace pull, use it
+      if (typeof adapter.pullWorkspace === 'function') {
+        const items = await adapter.pullWorkspace(workspace.id, workspace.path);
+        for (const item of items || []) {
+          try {
+            const yjsState = item.yjsState instanceof Uint8Array ? item.yjsState : new Uint8Array();
+            const yjsBase64 = Buffer.from(yjsState).toString('base64');
+
+            // Upsert CRDT doc and cached file metadata
+            await upsertCrdtDoc({ id: item.fileId, fileId: item.fileId, yjsState: yjsBase64, lastUpdated: Date.now() });
+            await upsertCachedFile({ id: item.fileId, name: item.fileId.split('/').pop() || item.fileId, path: item.fileId, type: 'file', workspaceType: workspace.type as any, workspaceId: workspace.id, crdtId: item.fileId, lastModified: Date.now(), dirty: false });
+          } catch (err) {
+            console.warn('Failed to upsert remote item during pullWorkspace:', err);
+          }
+        }
+      } else if (typeof adapter.listWorkspaceFiles === 'function') {
+        // Fall back to listing files and pulling each individually
+        const list = await adapter.listWorkspaceFiles(workspace.id, workspace.path);
+        for (const entry of list || []) {
+          try {
+            const remoteState = await adapter.pull(entry.id);
+            if (remoteState) {
+              const yjsBase64 = Buffer.from(remoteState).toString('base64');
+              await upsertCrdtDoc({ id: entry.id, fileId: entry.id, yjsState: yjsBase64, lastUpdated: Date.now() });
+              await upsertCachedFile({ id: entry.id, name: entry.path.split('/').pop() || entry.id, path: entry.path, type: 'file', workspaceType: workspace.type as any, workspaceId: workspace.id, crdtId: entry.id, lastModified: Date.now(), dirty: false });
+            }
+          } catch (err) {
+            console.warn('Failed to pull remote file during pullWorkspace:', err);
+          }
+        }
+      } else {
+        // Adapter does not support workspace pulls; nothing to pull
+        console.info(`Adapter ${adapter.name} does not support workspace pulls`);
+      }
+
+      this.statusSubject.next(SyncStatus.ONLINE);
+    } catch (error) {
+      console.error('pullWorkspace error:', error);
+      this.statusSubject.next(SyncStatus.ERROR);
+      throw error;
+    }
+  }
+
+  /**
+   * Periodic pull scaffolding for future background pulls. Not enabled by default.
+   */
+  startPeriodicPulls(intervalMs?: number): void {
+    const ms = intervalMs ?? this.periodicPullIntervalMs;
+    if (this.pullInterval) return;
+    this.pullInterval = setInterval(() => {
+      this.performPull().catch((err) => console.error('Periodic pull failed:', err));
+    }, ms);
+  }
+
+  stopPeriodicPulls(): void {
+    if (this.pullInterval) {
+      clearInterval(this.pullInterval);
+      this.pullInterval = null;
+    }
+  }
+
+  private async performPull(): Promise<void> {
+    // Placeholder: iterate through configured workspaces and call pullWorkspace
+    // Future enhancement: discover active workspaces and only pull those
+    try {
+      const workspace = useWorkspaceStore.getState().activeWorkspace?.();
+      if (workspace) {
+        await this.pullWorkspace(workspace);
+      }
+    } catch (err) {
+      console.warn('performPull error:', err);
     }
   }
 

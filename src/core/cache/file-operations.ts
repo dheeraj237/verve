@@ -263,39 +263,9 @@ async function saveSyncFile(
   };
   
   await upsertCachedFile(cachedFile);
-  // If this is a local workspace in the browser, also attempt to write
-  // the file to the user's filesystem using the File System Access API
-  // if a directory handle was previously stored for this workspace.
-  // This keeps the RxDB cache as the source-of-truth while providing
-  // an immediate local write for 'local' workspaces.
-  if (typeof window !== 'undefined' && workspaceType === 'local') {
-    (async () => {
-      try {
-        const { getDirectoryHandle } = await import('@/shared/utils/idb-storage');
-        const root = await getDirectoryHandle(workspaceId || '');
-        if (root) {
-          // Traverse/create directories to parent
-          const parts = path.split('/').filter(Boolean);
-          const name = parts.pop();
-          if (name) {
-            let dir: FileSystemDirectoryHandle = root as any;
-            for (const part of parts) {
-              dir = await dir.getDirectoryHandle(part, { create: true });
-            }
-
-            const fileHandle = await dir.getFileHandle(name, { create: true });
-            const writable = await (fileHandle as any).createWritable();
-            await writable.write(content);
-            await writable.close();
-
-            console.log('[FileOperations] Wrote file to local filesystem:', path);
-          }
-        }
-      } catch (err) {
-        console.warn('[FileOperations] Failed to write to local filesystem:', err);
-      }
-    })();
-  }
+  // NOTE: External I/O (File System Access API, adapter writes) is handled
+  // centrally by SyncManager/adapters. `file-operations` is RxDB-only and
+  // must not perform side-effect writes to the host filesystem.
 
   return {
     id: fileId,
@@ -323,28 +293,8 @@ export async function deleteFile(path: string, workspaceId?: string): Promise<vo
     // Delete cached file by id
     await db.cached_files.findByIds([cached.id]).remove();
     // Attempt to delete from local filesystem if this is a local workspace
-    try {
-      if (typeof window !== 'undefined' && cached.workspaceType === 'local') {
-        const { getDirectoryHandle } = await import('@/shared/utils/idb-storage');
-        const root = await getDirectoryHandle(cached.workspaceId || '');
-        if (root) {
-          const parts = path.split('/').filter(Boolean);
-          const name = parts.pop();
-          if (name) {
-            let dir: FileSystemDirectoryHandle = root as any;
-            for (const part of parts) {
-              dir = await dir.getDirectoryHandle(part, { create: false });
-            }
-            if (typeof (dir as any).removeEntry === 'function') {
-              await (dir as any).removeEntry(name, { recursive: false });
-              console.log('[FileOperations] Deleted local file:', path);
-            }
-          }
-        }
-      }
-    } catch (err) {
-      console.warn('[FileOperations] Local delete failed (non-fatal):', err);
-    }
+    // NOTE: Local filesystem deletes are handled by SyncManager/adapters.
+    // `file-operations` will only update RxDB collections.
   }
 }
 
@@ -367,54 +317,8 @@ export async function renameFile(oldPath: string, newPath: string, workspaceId?:
     name: newName,
     dirty: cached.dirty || cached.workspaceType !== 'browser',
   });
-
-  // Attempt to rename on local filesystem for local workspaces
-  try {
-    if (typeof window !== 'undefined' && cached.workspaceType === 'local') {
-      const { getDirectoryHandle } = await import('@/shared/utils/idb-storage');
-      const root = await getDirectoryHandle(cached.workspaceId || '');
-      if (root) {
-        const oldParts = oldPath.split('/').filter(Boolean);
-        const oldName = oldParts.pop();
-        const newParts = newPath.split('/').filter(Boolean);
-        const newNameLocal = newParts.pop();
-
-        if (oldName && newNameLocal) {
-          let oldDir: FileSystemDirectoryHandle = root as any;
-          for (const part of oldParts) {
-            oldDir = await oldDir.getDirectoryHandle(part, { create: false });
-          }
-
-          let newDir: FileSystemDirectoryHandle = root as any;
-          for (const part of newParts) {
-            newDir = await newDir.getDirectoryHandle(part, { create: true });
-          }
-
-          // Copy file contents
-          try {
-            const oldHandle = await oldDir.getFileHandle(oldName);
-            const file = await oldHandle.getFile();
-            const arrayBuffer = await file.arrayBuffer();
-
-            const newHandle = await newDir.getFileHandle(newNameLocal, { create: true });
-            const writable = await (newHandle as any).createWritable();
-            await writable.write(new Uint8Array(arrayBuffer));
-            await writable.close();
-
-            // Remove old entry if supported
-            if (typeof (oldDir as any).removeEntry === 'function') {
-              await (oldDir as any).removeEntry(oldName);
-            }
-            console.log('[FileOperations] Renamed local file:', oldPath, '->', newPath);
-          } catch (e) {
-            console.warn('[FileOperations] Local rename failed (non-fatal):', e);
-          }
-        }
-      }
-    }
-  } catch (err) {
-    console.warn('[FileOperations] Local rename failed (non-fatal):', err);
-  }
+  // NOTE: Local filesystem rename is handled by SyncManager/adapters.
+  // `file-operations` only updates RxDB metadata.
 }
 
 /**
@@ -445,25 +349,8 @@ async function createDirectorySync(path: string, workspaceType: WorkspaceType = 
   };
   
   await upsertCachedFile(dir);
-  // Attempt to create directory on local filesystem for local workspaces
-  if (typeof window !== 'undefined' && workspaceType === 'local') {
-    (async () => {
-      try {
-        const { getDirectoryHandle } = await import('@/shared/utils/idb-storage');
-        const root = await getDirectoryHandle(workspaceId || '');
-        if (root) {
-          const parts = path.split('/').filter(Boolean);
-          let dirHandle: FileSystemDirectoryHandle = root as any;
-          for (const part of parts) {
-            dirHandle = await dirHandle.getDirectoryHandle(part, { create: true });
-          }
-          console.log('[FileOperations] Created local directory:', path);
-        }
-      } catch (err) {
-        console.warn('[FileOperations] Failed to create local directory:', err);
-      }
-    })();
-  }
+  // NOTE: Local filesystem directory creation is handled by SyncManager/adapters.
+  // `file-operations` only updates RxDB collections.
 
   return {
     id: dirId,

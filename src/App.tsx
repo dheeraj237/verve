@@ -3,6 +3,7 @@ import { ThemeProvider } from '@/shared/components/theme-provider';
 import { GrowthBookWrapper } from '@/core/config/growthbook-provider';
 import { Toaster } from '@/shared/components/toaster';
 import { AppLoader } from '@/shared/components/app-loader';
+import { SyncIndicator } from '@/shared/components/sync-indicator';
 import { PatchFetchClient } from '@/core/init/patch-fetch-client';
 import { LandingPage } from '@/shared/components/landing-page';
 import { EditorPage } from '@/pages/EditorPage';
@@ -45,6 +46,7 @@ function App() {
         storageKey="theme"
       >
         <AppLoader />
+        <SyncIndicator />
         <PatchFetchClient />
         <Routes>
           <Route path="/" element={<LandingPage />} />

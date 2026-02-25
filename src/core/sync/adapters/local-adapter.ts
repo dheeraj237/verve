@@ -247,11 +247,93 @@ export class LocalAdapter implements ISyncAdapter {
   }
 
   /**
+   * Optional: list files for a local workspace. Returns empty array by default.
+   */
+  async listWorkspaceFiles(workspaceId?: string, path?: string): Promise<{ id: string; path: string; metadata?: any }[]> {
+    try {
+      const subpath = path || '';
+      const files = await this.listFilesRecursive(subpath);
+      return files.map((fullPath) => {
+        const relative = fullPath.startsWith(this.baseDir) ? fullPath.slice(this.baseDir.length) : fullPath;
+        const normalized = relative.replace(/\\/g, '/');
+        const fileId = normalized.startsWith('/') ? normalized : '/' + normalized;
+        return { id: fileId, path: fileId, metadata: {} };
+      });
+    } catch (err) {
+      console.warn('LocalAdapter.listWorkspaceFiles failed:', err);
+      return [];
+    }
+  }
+
+  /**
+   * Optional: pull multiple files for a workspace. Returns empty array by default.
+   */
+  async pullWorkspace(workspaceId?: string, path?: string): Promise<Array<{ fileId: string; yjsState: Uint8Array }>> {
+    try {
+      const fs = await import('fs').then((m) => m.promises);
+      const subpath = path || '';
+      const files = await this.listFilesRecursive(subpath);
+      const items: Array<{ fileId: string; yjsState: Uint8Array }> = [];
+      for (const fullPath of files) {
+        try {
+          const buf = await fs.readFile(fullPath);
+          const relative = fullPath.startsWith(this.baseDir) ? fullPath.slice(this.baseDir.length) : fullPath;
+          const normalized = relative.replace(/\\/g, '/');
+          const fileId = normalized.startsWith('/') ? normalized : '/' + normalized;
+          items.push({ fileId, yjsState: new Uint8Array(buf) });
+        } catch (err) {
+          console.warn('LocalAdapter.pullWorkspace: failed to read file', fullPath, err);
+        }
+      }
+      return items;
+    } catch (err) {
+      console.warn('LocalAdapter.pullWorkspace failed:', err);
+      return [];
+    }
+  }
+
+  /**
    * Helper: construct full file path
    */
   private getFullPath(relativePath: string): string {
     const path = require('path');
     return path.join(this.baseDir, relativePath);
+  }
+
+  /**
+   * Recursively list files under the adapter baseDir (or optional subpath).
+   */
+  private async listFilesRecursive(subpath: string = ''): Promise<string[]> {
+    let fs: any;
+    let pathModule: any;
+    try {
+      fs = await import('fs').then((m) => m.promises);
+      pathModule = await import('path');
+    } catch (e) {
+      return [];
+    }
+
+    const root = this.getFullPath(subpath || '');
+    const results: string[] = [];
+
+    async function walk(dir: string) {
+      try {
+        const entries = await fs.readdir(dir, { withFileTypes: true });
+        for (const entry of entries) {
+          const full = pathModule.join(dir, entry.name);
+          if (entry.isDirectory()) {
+            await walk(full);
+          } else if (entry.isFile()) {
+            results.push(full);
+          }
+        }
+      } catch (err) {
+        // ignore errors per-file
+      }
+    }
+
+    await walk(root);
+    return results;
   }
 
   /**

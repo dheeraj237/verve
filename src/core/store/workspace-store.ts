@@ -7,6 +7,7 @@ import { persist } from "zustand/middleware";
 import { MarkdownFile } from "@/shared/types";
 import { useEditorStore } from "@/features/editor/store/editor-store";
 import { initializeFileOperations } from '@/core/cache/file-operations';
+import { getSyncManager } from '@/core/sync/sync-manager';
 
 /**
  * Workspace Interface
@@ -160,9 +161,13 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
           console.warn('Failed to save tabs for previous workspace:', err);
         }
 
+        // Update active workspace and timestamp first
+        let targetWorkspace = null as any;
         set((state) => {
           const workspace = state.workspaces.find(w => w.id === id);
           if (!workspace) return state;
+
+          targetWorkspace = { ...workspace, lastAccessed: new Date().toISOString() };
 
           const updatedWorkspaces = state.workspaces.map(w =>
             w.id === id ? { ...w, lastAccessed: new Date().toISOString() } : w
@@ -174,7 +179,16 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
           };
         });
 
-        // Restore tabs for the newly active workspace (reloads content from file manager)
+        // Pull fresh data from the remote source for this workspace (blocking)
+        try {
+          if (targetWorkspace) {
+            await getSyncManager().pullWorkspace(targetWorkspace);
+          }
+        } catch (err) {
+          console.warn('Failed to pull workspace contents during switch:', err);
+        }
+
+        // Restore tabs for the newly active workspace (reloads content from RxDB)
         try {
           await get().restoreTabsForWorkspace(id);
         } catch (err) {
