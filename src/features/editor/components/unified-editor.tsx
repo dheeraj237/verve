@@ -13,7 +13,7 @@ import { LiveMarkdownEditor } from "./live-markdown-editor";
 import { isMarkdownFile } from "@/shared/utils/file-type-detector";
 
 export function Editor() {
-  const { isLoading, applyEditorPatch, setFileSaving, setFileLastSaved, isCodeViewMode, setCodeViewMode } = useEditorStore();
+  const { isLoading, applyEditorPatch, setFileSaving, setFileLastSaved, isCodeViewMode, setCodeViewMode, editorViewKey } = useEditorStore();
   const currentFile = useCurrentFile();
   const [editableContent, setEditableContent] = useState("");
   const [hasChanges, setHasChanges] = useState(false);
@@ -156,11 +156,13 @@ export function Editor() {
             {isMarkdown ? (
               isCodeViewMode ? (
                 <CodeEditor
+                  key={`code-${currentFile.id}-${editorViewKey}`}
                   file={{ ...currentFile, content: editableContent }}
                   onContentChange={handleContentChange}
                 />
               ) : (
                 <LiveMarkdownEditor
+                  key={`live-${currentFile.id}-${editorViewKey}`}
                   file={{ ...currentFile, content: editableContent }}
                   onContentChange={handleContentChange}
                 />

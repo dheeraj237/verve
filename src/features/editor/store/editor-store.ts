@@ -55,6 +55,7 @@ export async function enableGoogleDrive(folderId?: string) {
 interface EditorStore {
   openTabs: MarkdownFile[];
   activeTabId: string | null;
+  editorViewKey: number;
   isLoading: boolean;
   isCodeViewMode: boolean;
   isSourceMode: boolean;
@@ -63,6 +64,7 @@ interface EditorStore {
   closeTab: (fileId: string) => void;
   closeAllTabs: () => void;
   setActiveTab: (fileId: string) => void;
+  bumpEditorViewKey: () => void;
 
   updateFileContent: (fileId: string, content: string) => void;
   handleExternalUpdate: (fileId: string, content: string) => void;
@@ -91,6 +93,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   isLoading: false,
   isCodeViewMode: false,
   isSourceMode: false,
+  editorViewKey: 0,
 
   /**
    * Opens a file in a new tab or switches to it if already open
@@ -131,13 +134,17 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     return {
       openTabs: newTabs,
       activeTabId: newActiveId,
+      // bump the editor view key so editor components remount and clear any stale instance
+      editorViewKey: state.editorViewKey + 1,
     };
   }),
 
   /**
    * Closes all open tabs
    */
-  closeAllTabs: () => set({ openTabs: [], activeTabId: null }),
+  closeAllTabs: () => set((state) => ({ openTabs: [], activeTabId: null, editorViewKey: state.editorViewKey + 1 })),
+
+  bumpEditorViewKey: () => set((state) => ({ editorViewKey: state.editorViewKey + 1 })),
 
   /**
    * Sets the currently active tab
