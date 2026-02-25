@@ -22,6 +22,22 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: 'dist',
       sourcemap: true,
+      rollupOptions: {
+        output: {
+          // Split large vendor libraries into separate chunks to
+          // reduce the main bundle size and make caching more effective.
+          manualChunks(id: string) {
+            if (id.includes('node_modules')) {
+              if (id.includes('mermaid')) return 'vendor_mermaid';
+              if (id.includes('cytoscape')) return 'vendor_cytoscape';
+              if (id.includes('katex')) return 'vendor_katex';
+              if (id.includes('treemap') || id.includes('d3') || id.includes('dagre')) return 'vendor_diagrams';
+              // fallback vendor chunk
+              return 'vendor';
+            }
+          },
+        },
+      },
     },
     server: {
       port: 3000,
