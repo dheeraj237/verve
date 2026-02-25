@@ -19,7 +19,7 @@ export class LocalAdapter implements ISyncAdapter {
   /**
    * Push local changes to the file system
    */
-  async push(file: CachedFile, yjsState: Uint8Array): Promise<boolean> {
+  async push(file: CachedFile, content: string): Promise<boolean> {
     const context = `${this.name}::push(${file.id})`;
     try {
       const filePath = this.getFullPath(file.path);
@@ -43,14 +43,14 @@ export class LocalAdapter implements ISyncAdapter {
         const dirPath = path.dirname(filePath);
         await fs.mkdir(dirPath, { recursive: true });
 
-        // Write file
-        await fs.writeFile(filePath, Buffer.from(yjsState));
+        // Write file (UTF-8 text)
+        await fs.writeFile(filePath, content, 'utf8');
 
         // Update version cache
         const stat = await fs.stat(filePath);
         this.fileVersionCache.set(file.id, stat.mtimeMs);
 
-        console.log(`${context}: Successfully wrote ${yjsState.length} bytes to ${filePath}`);
+        console.log(`${context}: Successfully wrote file to ${filePath}`);
         return true;
       } catch (fileError) {
         const err = fileError instanceof Error ? fileError : new Error(String(fileError));
@@ -67,7 +67,7 @@ export class LocalAdapter implements ISyncAdapter {
   /**
    * Pull remote changes from file system
    */
-  async pull(fileId: string, localVersion?: number): Promise<Uint8Array | null> {
+  async pull(fileId: string, localVersion?: number): Promise<string | null> {
     const context = `${this.name}::pull(${fileId})`;
     try {
       let fs: any;
@@ -273,14 +273,14 @@ export class LocalAdapter implements ISyncAdapter {
       const fs = await import('fs').then((m) => m.promises);
       const subpath = path || '';
       const files = await this.listFilesRecursive(subpath);
-      const items: Array<{ fileId: string; yjsState: Uint8Array }> = [];
+      const items: Array<{ fileId: string; content: string }> = [];
       for (const fullPath of files) {
         try {
           const buf = await fs.readFile(fullPath);
           const relative = fullPath.startsWith(this.baseDir) ? fullPath.slice(this.baseDir.length) : fullPath;
           const normalized = relative.replace(/\\/g, '/');
           const fileId = normalized.startsWith('/') ? normalized : '/' + normalized;
-          items.push({ fileId, yjsState: new Uint8Array(buf) });
+          items.push({ fileId, content: buf.toString('utf-8') });
         } catch (err) {
           console.warn('LocalAdapter.pullWorkspace: failed to read file', fullPath, err);
         }

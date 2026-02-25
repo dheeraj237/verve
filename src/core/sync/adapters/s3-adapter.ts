@@ -17,12 +17,12 @@ export class S3Adapter implements ISyncAdapter {
     private credentials?: any // AWS credentials or pre-signed URLs
   ) {}
 
-  async push(file: CachedFile, yjsState: Uint8Array): Promise<boolean> {
+  async push(file: CachedFile, content: string): Promise<boolean> {
     try {
       // TODO: Implement S3 PutObject
       // Use AWS SDK or presigned URL to upload file
       // Convert yjsState to a blob and upload to S3
-      console.log(`S3Adapter push: ${file.id}`);
+      console.log(`S3Adapter push: ${file.id} (content length=${content.length})`);
       return true;
     } catch (error) {
       console.error('S3Adapter push error:', error);
@@ -30,7 +30,7 @@ export class S3Adapter implements ISyncAdapter {
     }
   }
 
-  async pull(fileId: string, localVersion?: number): Promise<Uint8Array | null> {
+  async pull(fileId: string, localVersion?: number): Promise<string | null> {
     try {
       // TODO: Implement S3 GetObject
       // Check ETag or LastModified to see if remote has changes
@@ -82,7 +82,7 @@ export class S3Adapter implements ISyncAdapter {
   /**
    * Optional: pull multiple files for a workspace. Not implemented yet.
    */
-  async pullWorkspace(workspaceId?: string, path?: string): Promise<Array<{ fileId: string; yjsState: Uint8Array }>> {
+  async pullWorkspace(workspaceId?: string, path?: string): Promise<Array<{ fileId: string; content: string }>> {
     console.info('S3Adapter.pullWorkspace: stub (not implemented)');
     return [];
   }

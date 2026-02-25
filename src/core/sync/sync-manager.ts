@@ -4,15 +4,20 @@ import { throttleTime, distinctUntilChanged } from 'rxjs/operators';
 import {
   getCacheDB,
   getCachedFile,
-  getCrdtDoc,
   getDirtyCachedFiles,
   markCachedFileAsSynced,
   observeCachedFiles,
   upsertCachedFile,
-  upsertCrdtDoc
+  loadFile,
+  saveFile,
 } from '../cache';
 import { useWorkspaceStore } from '@/core/store/workspace-store';
-import type { CachedFile, CrdtDoc } from '../cache/types';
+import type { CachedFile } from '../cache/types';
+
+// CRDT/Yjs handling removed from SyncManager. SyncManager now operates
+// on plain file content strings. Adapters should accept/return string
+// content. CRDT merging can be reintroduced later as a cache-layer
+// responsibility and via adapter contracts.
 
 /**
  * Sync adapter interface for pushing/pulling changes from remote sources
@@ -27,13 +32,15 @@ export interface ISyncAdapter {
    * Push local changes to remote
    * Returns true if successful
    */
-  push(file: CachedFile, yjsState: Uint8Array): Promise<boolean>;
+  // Push receives the file metadata and plain `content` string.
+  push(file: CachedFile, content: string): Promise<boolean>;
 
   /**
    * Pull remote changes
    * Returns null if not found, or the remote Yjs state
    */
-  pull(fileId: string, localVersion?: number): Promise<Uint8Array | null>;
+  // Pull returns the remote file content as a string, or null if missing.
+  pull(fileId: string, localVersion?: number): Promise<string | null>;
 
   /**
    * Check if a file exists remotely
@@ -61,7 +68,8 @@ export interface ISyncAdapter {
    * Optional: pull multiple files for a workspace. Adapter can implement
    * optimized workspace-level pulls. Returns array of { fileId, yjsState }.
    */
-  pullWorkspace?(workspaceId?: string, path?: string): Promise<Array<{ fileId: string; yjsState: Uint8Array }>>;
+  // Adapter workspace pull returns array of fileId + content string
+  pullWorkspace?(workspaceId?: string, path?: string): Promise<Array<{ fileId: string; content: string }>>;
 }
 
 export enum SyncStatus {
@@ -276,34 +284,18 @@ export class SyncManager {
    * Sync a single file: push local, pull remote, merge if needed
    */
   private async syncFile(file: CachedFile): Promise<void> {
-    const { id: fileId, crdtId } = file;
-
-    if (!crdtId) {
-      console.warn(`File ${fileId} has no CRDT ID, skipping sync`);
-      return;
-    }
+    const { id: fileId } = file;
 
     try {
-      // Get current CRDT state
-      const crdtDoc = await getCrdtDoc(crdtId);
-      if (!crdtDoc) {
-        console.warn(`CRDT doc ${crdtId} not found for file ${fileId}`);
-        return;
-      }
-
-      // Get Yjs state (binary)
-      let yjsState: Uint8Array;
-      if (typeof crdtDoc.yjsState === 'string') {
-        yjsState = new Uint8Array(Buffer.from(crdtDoc.yjsState, 'base64'));
-      } else {
-        yjsState = crdtDoc.yjsState || new Uint8Array();
-      }
+      // Load the latest content from cache (RxDB) as a plain string
+      const fileData = await loadFile(file.path, file.workspaceType as any, file.workspaceId);
+      const content = fileData?.content ?? '';
 
       // Try to push to each adapter
       let pushed = false;
       for (const adapter of this.adapters.values()) {
         try {
-          const success = await this.pushWithRetry(adapter, file, yjsState);
+          const success = await this.pushWithRetry(adapter, file, content);
           if (success) {
             pushed = true;
             break; // Success, don't try other adapters
@@ -322,12 +314,13 @@ export class SyncManager {
         this.statsSubject.next(stats);
       }
 
-      // Try to pull from each adapter (merge remote changes)
+      // Try to pull from each adapter (overwrite local content for now)
       for (const adapter of this.adapters.values()) {
         try {
-          const remoteState = await adapter.pull(fileId);
-          if (remoteState) {
-            await this.mergeRemoteChanges(crdtId, remoteState);
+          const remoteContent = await adapter.pull(fileId);
+          if (remoteContent) {
+            // Save remote content into RxDB (single source of truth)
+            await saveFile(file.path, remoteContent, file.workspaceType as any, undefined, file.workspaceId);
           }
         } catch (error) {
           console.warn(`Failed to pull from ${adapter.name}:`, error);
@@ -348,11 +341,11 @@ export class SyncManager {
   private async pushWithRetry(
     adapter: ISyncAdapter,
     file: CachedFile,
-    yjsState: Uint8Array
+    content: string
   ): Promise<boolean> {
     for (let attempt = 0; attempt < this.maxRetries; attempt++) {
       try {
-        const success = await adapter.push(file, yjsState);
+        const success = await adapter.push(file, content as any);
         if (success) return true;
       } catch (error) {
         console.warn(`Push attempt ${attempt + 1} failed:`, error);
@@ -379,7 +372,7 @@ export class SyncManager {
       let remoteBase64 = '';
       try {
         if (remoteState instanceof Uint8Array) {
-          remoteBase64 = Buffer.from(remoteState).toString('base64');
+          remoteBase64 = uint8ArrayToBase64(remoteState);
         } else if (typeof remoteState === 'string') {
           remoteBase64 = remoteState;
         }
@@ -451,12 +444,12 @@ export class SyncManager {
         const items = await adapter.pullWorkspace(workspace.id, workspace.path);
         for (const item of items || []) {
           try {
-            const yjsState = item.yjsState instanceof Uint8Array ? item.yjsState : new Uint8Array();
-            const yjsBase64 = Buffer.from(yjsState).toString('base64');
+            // Adapter should return content string in `content`.
+            const content = (item as any).content ?? '';
 
-            // Upsert CRDT doc and cached file metadata
-            await upsertCrdtDoc({ id: item.fileId, fileId: item.fileId, yjsState: yjsBase64, lastUpdated: Date.now() });
-            await upsertCachedFile({ id: item.fileId, name: item.fileId.split('/').pop() || item.fileId, path: item.fileId, type: 'file', workspaceType: workspace.type as any, workspaceId: workspace.id, crdtId: item.fileId, lastModified: Date.now(), dirty: false });
+            // Upsert cached file metadata and store content via saveFile
+            await upsertCachedFile({ id: item.fileId, name: item.fileId.split('/').pop() || item.fileId, path: item.fileId, type: 'file', workspaceType: workspace.type as any, workspaceId: workspace.id, lastModified: Date.now(), dirty: false });
+            await saveFile(item.fileId, content, workspace.type as any, undefined, workspace.id);
           } catch (err) {
             console.warn('Failed to upsert remote item during pullWorkspace:', err);
           }
@@ -466,11 +459,10 @@ export class SyncManager {
         const list = await adapter.listWorkspaceFiles(workspace.id, workspace.path);
         for (const entry of list || []) {
           try {
-            const remoteState = await adapter.pull(entry.id);
-            if (remoteState) {
-              const yjsBase64 = Buffer.from(remoteState).toString('base64');
-              await upsertCrdtDoc({ id: entry.id, fileId: entry.id, yjsState: yjsBase64, lastUpdated: Date.now() });
-              await upsertCachedFile({ id: entry.id, name: entry.path.split('/').pop() || entry.id, path: entry.path, type: 'file', workspaceType: workspace.type as any, workspaceId: workspace.id, crdtId: entry.id, lastModified: Date.now(), dirty: false });
+            const remoteContent = await adapter.pull(entry.id);
+            if (remoteContent) {
+              await upsertCachedFile({ id: entry.id, name: entry.path.split('/').pop() || entry.id, path: entry.path, type: 'file', workspaceType: workspace.type as any, workspaceId: workspace.id, lastModified: Date.now(), dirty: false });
+              await saveFile(entry.path, remoteContent, workspace.type as any, undefined, workspace.id);
             }
           } catch (err) {
             console.warn('Failed to pull remote file during pullWorkspace:', err);

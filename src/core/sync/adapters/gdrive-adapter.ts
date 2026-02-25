@@ -21,7 +21,7 @@ export class GDriveAdapter implements ISyncAdapter {
   /**
    * Push local changes to Google Drive
    */
-  async push(file: CachedFile, yjsState: Uint8Array): Promise<boolean> {
+  async push(file: CachedFile, content: string): Promise<boolean> {
     const context = `${this.name}::push(${file.id})`;
     try {
       if (!this.driveClient) {
@@ -36,8 +36,8 @@ export class GDriveAdapter implements ISyncAdapter {
       }
 
       try {
-        // Create blob from Yjs state
-        const blob = new Blob([Buffer.from(yjsState)], { type: 'application/octet-stream' });
+        // Create blob from string content
+        const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
 
         // TODO: Implement actual Google Drive API call
         // const response = await this.driveClient.files.update({
@@ -52,7 +52,7 @@ export class GDriveAdapter implements ISyncAdapter {
         //   return true;
         // }
 
-        console.log(`${context}: Would upload ${yjsState.length} bytes to driveId ${driveId}`);
+        console.log(`${context}: Would upload content (length=${content.length}) to driveId ${driveId}`);
         return true;
       } catch (apiError) {
         const err = apiError instanceof Error ? apiError : new Error(String(apiError));
@@ -79,7 +79,7 @@ export class GDriveAdapter implements ISyncAdapter {
   /**
    * Pull remote changes from Google Drive
    */
-  async pull(fileId: string, localVersion?: number): Promise<Uint8Array | null> {
+  async pull(fileId: string, localVersion?: number): Promise<string | null> {
     const context = `${this.name}::pull(${fileId})`;
     try {
       if (!this.driveClient) {
@@ -306,7 +306,7 @@ export class GDriveAdapter implements ISyncAdapter {
   /**
    * Optional: pull multiple files for a workspace. Not implemented yet.
    */
-  async pullWorkspace(workspaceId?: string, path?: string): Promise<Array<{ fileId: string; yjsState: Uint8Array }>> {
+  async pullWorkspace(workspaceId?: string, path?: string): Promise<Array<{ fileId: string; content: string }>> {
     if (!this.driveClient || !this.driveClient.files) {
       console.info('GDriveAdapter.pullWorkspace: drive client not available');
       return [];
@@ -314,15 +314,15 @@ export class GDriveAdapter implements ISyncAdapter {
 
     try {
       const files = await this.listWorkspaceFiles(workspaceId, path);
-      const items: Array<{ fileId: string; yjsState: Uint8Array }> = [];
+      const items: Array<{ fileId: string; content: string }> = [];
       for (const f of files) {
         try {
           // Attempt to download file media
           const res = await this.driveClient.files.get({ fileId: f.id, alt: 'media' }, { responseType: 'arraybuffer' });
           const data = (res && (res.data || res.result || res)) || null;
           if (data) {
-            const buf = data instanceof ArrayBuffer ? new Uint8Array(data) : Buffer.from(data);
-            items.push({ fileId: f.id, yjsState: buf instanceof Uint8Array ? buf : new Uint8Array(buf) });
+            const buf = data instanceof ArrayBuffer ? Buffer.from(data) : Buffer.from(data);
+            items.push({ fileId: f.id, content: buf.toString('utf-8') });
           }
         } catch (err) {
           console.warn('GDriveAdapter.pullWorkspace: failed to download', f.id, err);

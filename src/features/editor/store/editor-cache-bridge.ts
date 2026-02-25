@@ -4,13 +4,15 @@ import {
   getCachedFile,
   upsertCachedFile,
   observeCachedFiles,
-  getCrdtDoc,
-  upsertCrdtDoc,
   saveFile,
   loadFile,
 } from '../../../core/cache';
 import { useWorkspaceStore } from '@/core/store/workspace-store';
 import type { CachedFile } from '../../../core/cache/types';
+
+// CRDT/Yjs-specific state handling removed here. Use `loadFile`/`saveFile`
+// as the single source of truth (RxDB) and keep future CRDT conversion as a
+// stubbed responsibility in the cache layer.
 
 export interface EditorCacheContextType {
   initialized: boolean;
@@ -47,8 +49,8 @@ export function useEditorCache() {
 }
 
 /**
- * Hook to open a file for editing with Yjs CRDT document
- * Returns the Y.Doc instance and file metadata
+ * Hook to open a file for editing
+ * Returns file content and file metadata
  */
 export function useOpenFileForEditing(
   fileId: string | null,
@@ -87,31 +89,11 @@ export function useOpenFileForEditing(
           };
           await upsertCachedFile(cachedFile);
         }
-        // Ensure CRDT doc exists (stores raw content as base64)
-        const crdtId = cachedFile.crdtId || `crdt_${fileId}`;
-        let crdt = await getCrdtDoc(crdtId);
-        if (!crdt) {
-          await upsertCrdtDoc({ id: crdtId, fileId, yjsState: '', lastUpdated: Date.now() });
-          crdt = await getCrdtDoc(crdtId);
-        }
-
-        // Decode content from crdt doc
-        let fileContent = '';
-        try {
-          if (crdt && crdt.yjsState) {
-            const state = typeof crdt.yjsState === 'string' ? Buffer.from(crdt.yjsState, 'base64') : crdt.yjsState;
-            fileContent = state ? Buffer.from(state).toString('utf-8') : '';
-          }
-        } catch (e) {
-          console.warn('Failed to decode CRDT content:', e);
-        }
-
-        // Update cached file with CRDT link if new
-        if (!cachedFile.crdtId) {
-          await upsertCachedFile({ ...cachedFile, crdtId, workspaceId: cachedFile.workspaceId });
-        }
-
-        setContent(fileContent);
+        // Load content from cache (RxDB) — `loadFile` is the single source
+        // of truth for file content. CRDT/Yjs state management is handled
+        // inside the cache layer if/when enabled in the future.
+        const fileData = await loadFile(cachedFile.path || (fileId as string), workspaceType, workspaceId);
+        setContent(fileData?.content || '');
         setFileMetadata(cachedFile);
         setIsDirty(Boolean(cachedFile.dirty));
         setError(null);
@@ -129,7 +111,7 @@ export function useOpenFileForEditing(
 }
 
 /**
- * Hook to sync editor content with Yjs document and mark as dirty
+ * Hook to sync editor content with cache (RxDB) and mark as dirty
  */
 export function useEditorSync(fileId: string | null, initialContent: string) {
   const [content, setContent] = useState(initialContent || '');
