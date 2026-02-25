@@ -1,6 +1,6 @@
 "use client";
 
-import { X, Loader2, Eye, Code2 } from "lucide-react";
+import { X, Loader2, Eye, Code2, AlertTriangle } from "lucide-react";
 import { useEditorStore } from "@/features/editor/store/editor-store";
 import { Button } from "@/shared/components/ui/button";
 import { cn } from "@/shared/utils/cn";
@@ -46,6 +46,20 @@ export function FileTabs() {
                 <span className="text-sm truncate flex-1 font-medium">{tab.name}</span>
                 {tab.isSaving ? (
                   <Loader2 className="h-3 w-3 animate-spin text-primary shrink-0" />
+                ) : tab.saveError ? (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="text-red-600 dark:text-red-400 rounded p-0.5 transition-all shrink-0 cursor-default">
+                        <AlertTriangle className="h-3.5 w-3.5" />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" asChild={false}>
+                      <div className="text-xs max-w-xs">
+                        <div className="font-medium">Sync error</div>
+                        <div className="text-muted-foreground break-words">{tab.saveError}</div>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
                 ) : (
                   <div
                     role="button"

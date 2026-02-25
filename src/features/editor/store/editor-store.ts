@@ -77,6 +77,7 @@ interface EditorStore {
   setSourceMode: (isSource: boolean) => void;
   setFileSaving: (fileId: string, isSaving: boolean) => void;
   setFileLastSaved: (fileId: string, lastSaved: Date) => void;
+  setFileSaveError: (fileId: string, error?: string | null) => void;
 }
 
  
@@ -157,7 +158,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
    */
   setFileSaving: (fileId, isSaving) => set((state) => ({
     openTabs: state.openTabs.map(tab =>
-      tab.id === fileId ? { ...tab, isSaving } : tab
+      tab.id === fileId ? { ...tab, isSaving, ...(isSaving ? { saveError: undefined } : {}) } : tab
     ),
   })),
 
@@ -167,6 +168,12 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   setFileLastSaved: (fileId, lastSaved) => set((state) => ({
     openTabs: state.openTabs.map(tab =>
       tab.id === fileId ? { ...tab, lastSaved } : tab
+    ),
+  })),
+
+  setFileSaveError: (fileId, error) => set((state) => ({
+    openTabs: state.openTabs.map(tab =>
+      tab.id === fileId ? { ...tab, saveError: error ?? undefined } : tab
     ),
   })),
 
@@ -199,12 +206,24 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       // Optimistic update - UI updates immediately
       get().updateFileContent(fileId, content);
 
-      // Background sync with auto-save debounce
-      await manager.updateFile(tab.path, content, false);
+      // Background sync with auto-save debounce (fire-and-forget)
+      get().setFileSaving(fileId, true);
+      // Clear any previous save error when starting a new save
+      get().setFileSaveError(fileId, undefined);
+      manager.updateFile(tab.path, content, false)
+        .then(() => {
+          get().setFileSaving(fileId, false);
+          get().setFileLastSaved(fileId, new Date());
+          get().setFileSaveError(fileId, undefined);
+        })
+        .catch((err) => {
+          console.error('Background save failed:', err);
+          get().setFileSaving(fileId, false);
+          const msg = err instanceof Error ? err.message : String(err);
+          get().setFileSaveError(fileId, msg);
+        });
     } catch (error) {
-      console.error('Failed to save file:', error);
-      // Revert optimistic update on error
-      get().updateFileContent(fileId, tab.content);
+      console.error('Failed to start background save:', error);
     }
   },
 

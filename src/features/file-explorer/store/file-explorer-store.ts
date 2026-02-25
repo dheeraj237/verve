@@ -183,13 +183,14 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
           const filePath = parentPath ? `${parentPath}/${fileName}` : fileName;
           await createFileOp(parentPath, fileName);
 
-          // Force sync the file immediately and wait for completion
+          // Kick off background sync but don't block the UI — file is already in cache
           const workspace = useWorkspaceStore.getState().activeWorkspace();
           if (workspace) {
             const manager = getFileManager(workspace);
-            await manager.forceSync(filePath);
+            manager.forceSync(filePath).catch(err => console.warn('Background sync failed:', err));
           }
 
+          // Refresh file tree immediately from cache/index
           await get().refreshFileTree();
         } catch (error) {
           console.error('Error creating file:', error);
@@ -207,13 +208,14 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
           const folderPath = parentPath ? `${parentPath}/${folderName}` : folderName;
           await createFolderOp(parentPath, folderName);
 
-          // Force sync the folder immediately and wait for completion
+          // Kick off background sync for folder creation; don't block UI
           const workspace = useWorkspaceStore.getState().activeWorkspace();
           if (workspace) {
             const manager = getFileManager(workspace);
-            await manager.forceSync(folderPath);
+            manager.forceSync(folderPath).catch(err => console.warn('Background sync failed:', err));
           }
 
+          // Refresh file tree immediately from cache/index
           await get().refreshFileTree();
         } catch (error) {
           console.error('Error creating folder:', error);
@@ -226,11 +228,11 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
         try {
           await renameNodeOp(nodePath, newName);
 
-          // Force sync and wait for completion
+          // Kick off background sync for rename; don't block UI
           const workspace = useWorkspaceStore.getState().activeWorkspace();
           if (workspace) {
             const manager = getFileManager(workspace);
-            await manager.forceSync(nodePath);
+            manager.forceSync(nodePath).catch(err => console.warn('Background sync failed:', err));
           }
 
           await get().refreshFileTree();
@@ -249,11 +251,11 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
         try {
           await deleteNodeOp(nodePath, isFolder);
 
-          // Force sync and wait for completion
+          // Kick off background sync for delete; don't block UI
           const workspace = useWorkspaceStore.getState().activeWorkspace();
           if (workspace) {
             const manager = getFileManager(workspace);
-            await manager.forceSync(nodePath);
+            manager.forceSync(nodePath).catch(err => console.warn('Background sync failed:', err));
           }
 
           await get().refreshFileTree();

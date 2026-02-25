@@ -19,6 +19,7 @@ export interface MarkdownFile {
   isExternalUpdate?: boolean; // Flag to indicate content was updated externally (not from editor)
   lastSaved?: Date; // Timestamp of last successful save
   isSaving?: boolean; // Flag to indicate if file is currently being saved
+  saveError?: string; // Optional error message from background save/sync
 }
 
 export type ViewMode = "code" | "live" | "preview";

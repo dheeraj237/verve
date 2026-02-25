@@ -21,6 +21,7 @@ export class SyncQueue {
   private queue: SyncOperation[] = [];
   private processing = false;
   private debounceTimers = new Map<string, NodeJS.Timeout>();
+  private pendingOperations = new Map<string, Omit<SyncOperation, 'id' | 'status' | 'retries'>>();
   private listeners = new Set<(status: QueueStatus) => void>();
   private fileCreatedCallbacks = new Set<(oldPath: string, newId: string) => void>();
 
@@ -41,15 +42,22 @@ export class SyncQueue {
     const id = this.generateId(operation);
     const debounceMs = operation.debounceMs ?? 0;
 
+    // Store pending operation so it can be flushed if needed (e.g., forceSync)
+    this.pendingOperations.set(operation.path, operation);
+
     if (debounceMs > 0) {
       const timer = setTimeout(() => {
-        this.addToQueue({ ...operation, id, status: 'pending', retries: 0 });
+        const pending = this.pendingOperations.get(operation.path) || operation;
+        this.addToQueue({ ...pending, id, status: 'pending', retries: 0 });
         this.debounceTimers.delete(operation.path);
+        this.pendingOperations.delete(operation.path);
       }, debounceMs);
       
       this.debounceTimers.set(operation.path, timer);
     } else {
-      this.addToQueue({ ...operation, id, status: 'pending', retries: 0 });
+      const pending = this.pendingOperations.get(operation.path) || operation;
+      this.addToQueue({ ...pending, id, status: 'pending', retries: 0 });
+      this.pendingOperations.delete(operation.path);
     }
 
     return id;
@@ -174,6 +182,20 @@ export class SyncQueue {
    * Process operations for a specific path
    */
   async processByPath(path: string): Promise<void> {
+    // If there's a debounced pending operation for this path, flush it immediately
+    if (this.debounceTimers.has(path)) {
+      const timer = this.debounceTimers.get(path)!;
+      clearTimeout(timer);
+      this.debounceTimers.delete(path);
+
+      const pending = this.pendingOperations.get(path);
+      if (pending) {
+        const id = this.generateId(pending);
+        this.addToQueue({ ...pending, id, status: 'pending', retries: 0 });
+        this.pendingOperations.delete(path);
+      }
+    }
+
     const operations = this.queue.filter(op => op.path === path && op.status === 'pending');
     for (const op of operations) {
       op.status = 'processing';

@@ -57,10 +57,12 @@ export class FileCache {
   set(path: string, file: Partial<CachedFile> & FileData): void {
     const existing = this.files.get(path);
     const cachedFile: CachedFile = {
+      ...existing,
       ...file,
-      isDirty: existing?.isDirty ?? false,
-      syncStatus: existing?.syncStatus ?? 'idle',
-      lastSync: existing?.lastSync ?? Date.now(),
+      // Prefer explicit values provided in `file`, then fall back to existing, then defaults
+      isDirty: (file as Partial<CachedFile>).isDirty ?? existing?.isDirty ?? false,
+      syncStatus: (file as Partial<CachedFile>).syncStatus ?? existing?.syncStatus ?? 'idle',
+      lastSync: (file as Partial<CachedFile>).lastSync ?? existing?.lastSync ?? Date.now(),
       lastAccess: Date.now(),
     };
     

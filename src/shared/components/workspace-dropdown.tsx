@@ -263,9 +263,9 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
           if (workspace) {
             const manager = getFileManager(workspace);
             await manager.createFile('verve.md', '# Verve');
-            // Force sync to ensure file is created
-            await manager.forceSync('verve.md');
-            // Refresh file tree to show the new file
+              // Kick off background sync; don't block UI
+              manager.forceSync('verve.md').catch(err => console.warn('Background sync failed:', err));
+              // Refresh file tree to show the new file immediately from cache
             try {
               await refreshFileTree();
             } catch (e) {

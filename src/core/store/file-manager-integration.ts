@@ -92,13 +92,15 @@ export function getFileManager(workspace?: Workspace): FileManager {
 /**
  * Switch file manager to a different workspace
  */
-export async function switchFileManager(workspace: Workspace): Promise<FileManager> {
-  console.log(`[FileManagerIntegration] Explicitly switching to workspace: ${workspace.id}`);
+export async function switchFileManager(workspace: Workspace, flushQueue: boolean = false): Promise<FileManager> {
+  console.log(`[FileManagerIntegration] Explicitly switching to workspace: ${workspace.id} (flushQueue=${flushQueue})`);
 
   const adapter = createAdapterForWorkspace(workspace);
   
   if (globalFileManager) {
-    await globalFileManager.switchAdapter(adapter, true);
+    // By default do a non-blocking adapter switch so UI doesn't hang waiting for background sync.
+    // Pass `flushQueue = true` when an immediate flush is required.
+    await globalFileManager.switchAdapter(adapter, flushQueue);
   } else {
     globalFileManager = new FileManager(adapter);
   }

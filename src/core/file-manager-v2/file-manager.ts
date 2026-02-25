@@ -99,7 +99,25 @@ export class FileManager {
 
     // Invalidate directory index so file tree refreshes
     const directory = this.getDirectoryFromPath(path);
-    this.cache.invalidateDirectoryIndex(directory);
+    // Also optimistically add the file to the directory index so UI shows it immediately
+    const existingIndex = this.cache.getDirectoryIndex(directory) || [];
+    const metadata = {
+      id: path,
+      path,
+      name: this.getFileName(path),
+      category: this.getCategoryFromPath(path),
+      size: content.length,
+      lastModified: new Date(),
+    };
+
+    // Prepend new file if not already present
+    const exists = existingIndex.some(f => f.path === path);
+    if (!exists) {
+      this.cache.setDirectoryIndex(directory, [metadata, ...existingIndex]);
+    } else {
+    // If already present, invalidate parent directories to refresh ordering
+      this.cache.invalidateDirectoryIndex(directory);
+    }
 
     this.syncQueue.enqueue({
       type: 'create',
@@ -194,10 +212,11 @@ export class FileManager {
   /**
    * Switch to a different workspace adapter
    */
-  async switchAdapter(newAdapter: WorkspaceAdapter, flushQueue = true): Promise<void> {
-    console.log(`[FileManager] Switching from ${this.adapter.type} to ${newAdapter.type}`);
-    
+  async switchAdapter(newAdapter: WorkspaceAdapter, flushQueue = false): Promise<void> {
+    console.log(`[FileManager] Switching from ${this.adapter.type} to ${newAdapter.type} (flushQueue=${flushQueue})`);
+
     if (flushQueue) {
+      // Only wait for queue to drain when an explicit flush is requested.
       await this.syncQueue.waitForIdle();
     }
 
