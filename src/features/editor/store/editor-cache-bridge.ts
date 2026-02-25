@@ -51,7 +51,11 @@ export function useEditorCache() {
  * Hook to open a file for editing with Yjs CRDT document
  * Returns the Y.Doc instance and file metadata
  */
-export function useOpenFileForEditing(fileId: string | null, filePath?: string) {
+export function useOpenFileForEditing(
+  fileId: string | null,
+  filePath?: string,
+  workspaceType: 'browser' | 'local' | 'gdrive' | 's3' = 'browser'
+) {
   const [ydoc, setYdoc] = useState<Y.Doc | null>(null);
   const [fileMetadata, setFileMetadata] = useState<CachedFile | null>(null);
   const [isDirty, setIsDirty] = useState(false);
@@ -75,6 +79,7 @@ export function useOpenFileForEditing(fileId: string | null, filePath?: string) 
             name: filePath?.split('/').pop() || 'Untitled',
             path: filePath || fileId,
             type: 'file',
+            workspaceType,
             dirty: false
           };
           await upsertCachedFile(cachedFile);
@@ -105,7 +110,7 @@ export function useOpenFileForEditing(fileId: string | null, filePath?: string) 
     };
 
     loadFile();
-  }, [fileId, filePath]);
+  }, [fileId, filePath, workspaceType]);
 
   return { ydoc, fileMetadata, isDirty, error };
 }

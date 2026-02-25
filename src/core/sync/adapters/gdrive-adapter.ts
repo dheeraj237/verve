@@ -1,67 +1,272 @@
-import { Observable } from 'rxjs';
+import { Observable, Subject, timer } from 'rxjs';
 import { ISyncAdapter } from '../sync-manager';
 import type { CachedFile } from '../../cache/types';
 
 /**
  * Google Drive adapter
  * Syncs files with Google Drive using the Google Drive API
+ * Requires Google API client authorization
  */
 export class GDriveAdapter implements ISyncAdapter {
   name = 'gdrive';
+  private eTagCache = new Map<string, string>(); // Track ETags for change detection
+  private changeNotifier = new Subject<string>();
 
-  constructor(private driveClient?: any) {} // Inject Google Drive client
+  constructor(private driveClient?: any) {
+    if (!driveClient) {
+      console.warn('GDriveAdapter: No drive client provided. Initialize with authenticated client.');
+    }
+  }
 
+  /**
+   * Push local changes to Google Drive
+   */
   async push(file: CachedFile, yjsState: Uint8Array): Promise<boolean> {
+    const context = `${this.name}::push(${file.id})`;
     try {
-      // TODO: Implement Google Drive file update
-      // Use file.metadata.driveId to identify the remote file
-      // Convert yjsState to a blob and upload
-      console.log(`GDriveAdapter push: ${file.id}`);
-      return true;
+      if (!this.driveClient) {
+        console.error(`${context}: Drive client not initialized`);
+        return false;
+      }
+
+      const driveId = file.metadata?.driveId;
+      if (!driveId) {
+        console.error(`${context}: No driveId in file metadata`);
+        return false;
+      }
+
+      try {
+        // Create blob from Yjs state
+        const blob = new Blob([Buffer.from(yjsState)], { type: 'application/octet-stream' });
+
+        // TODO: Implement actual Google Drive API call
+        // const response = await this.driveClient.files.update({
+        //   fileId: driveId,
+        //   media: { body: blob },
+        //   fields: 'id, etag, modifiedTime'
+        // });
+        //
+        // if (response.status === 200) {
+        //   this.eTagCache.set(driveId, response.result.etag);
+        //   console.log(`${context}: Successfully synced to Drive`);
+        //   return true;
+        // }
+
+        console.log(`${context}: Would upload ${yjsState.length} bytes to driveId ${driveId}`);
+        return true;
+      } catch (apiError) {
+        const err = apiError instanceof Error ? apiError : new Error(String(apiError));
+        console.error(`${context}: API error - ${err.message}`);
+
+        // Check if it's a rate limit or auth error
+        if ((apiError as any).status === 403) {
+          console.error(`${context}: Permission denied. Check Google Drive access.`);
+        } else if ((apiError as any).status === 401) {
+          console.error(`${context}: Unauthorized. Token may have expired.`);
+        } else if ((apiError as any).status === 429) {
+          console.warn(`${context}: Rate limited by Google Drive API. Will retry.`);
+        }
+
+        throw err;
+      }
     } catch (error) {
-      console.error('GDriveAdapter push error:', error);
+      const err = error instanceof Error ? error : new Error(String(error));
+      console.error(`${context}: ${err.message}`);
       return false;
     }
   }
 
+  /**
+   * Pull remote changes from Google Drive
+   */
   async pull(fileId: string, localVersion?: number): Promise<Uint8Array | null> {
+    const context = `${this.name}::pull(${fileId})`;
     try {
-      // TODO: Implement Google Drive file download
-      // Check ETag or modifiedTime to see if remote has changes
-      // Return file contents as Uint8Array
-      console.log(`GDriveAdapter pull: ${fileId}`);
-      return null; // Return null if no changes or not found
+      if (!this.driveClient) {
+        console.warn(`${context}: Drive client not initialized, skipping pull`);
+        return null;
+      }
+
+      try {
+        // TODO: Implement actual Google Drive API call
+        // const response = await this.driveClient.files.get({
+        //   fileId: driveId,
+        //   alt: 'media',
+        //   fields: 'etag, modifiedTime'
+        // });
+        //
+        // const currentETag = this.eTagCache.get(driveId);
+        // if (currentETag && response.result.etag === currentETag) {
+        //   return null; // No changes
+        // }
+        //
+        // this.eTagCache.set(driveId, response.result.etag);
+        // return new Uint8Array(response.body);
+
+        console.log(`${context}: Would download from Google Drive`);
+        return null; // No changes for now
+      } catch (apiError) {
+        const err = apiError instanceof Error ? apiError : new Error(String(apiError));
+
+        if ((apiError as any).status === 404) {
+          console.warn(`${context}: File not found on Google Drive`);
+          return null;
+        } else if ((apiError as any).status === 401) {
+          console.error(`${context}: Unauthorized. Token may have expired.`);
+        } else if ((apiError as any).status === 403) {
+          console.error(`${context}: Permission denied.`);
+        }
+
+        console.warn(`${context}: ${err.message}`);
+        return null;
+      }
     } catch (error) {
-      console.error('GDriveAdapter pull error:', error);
+      const err = error instanceof Error ? error : new Error(String(error));
+      console.error(`${context}: ${err.message}`);
       return null;
     }
   }
 
+  /**
+   * Check if file exists on Google Drive
+   */
   async exists(fileId: string): Promise<boolean> {
+    const context = `${this.name}::exists(${fileId})`;
     try {
-      // TODO: Implement file existence check on Google Drive
-      return false;
+      if (!this.driveClient) {
+        return false;
+      }
+
+      try {
+        // TODO: Implement Google Drive files.get with minimal fields
+        // const response = await this.driveClient.files.get({
+        //   fileId: driveId,
+        //   fields: 'id'
+        // });
+        //
+        // return !!response.result.id;
+
+        return false;
+      } catch (apiError) {
+        const err = apiError instanceof Error ? apiError : new Error(String(apiError));
+        if ((apiError as any).status === 404) {
+          return false; // Not found
+        }
+        console.warn(`${context}: ${err.message}`);
+        return false;
+      }
     } catch (error) {
-      console.error('GDriveAdapter exists error:', error);
+      const err = error instanceof Error ? error : new Error(String(error));
+      console.error(`${context}: ${err.message}`);
       return false;
     }
   }
 
+  /**
+   * Delete file from Google Drive
+   */
   async delete(fileId: string): Promise<boolean> {
+    const context = `${this.name}::delete(${fileId})`;
     try {
-      // TODO: Implement file deletion on Google Drive
-      return true;
+      if (!this.driveClient) {
+        console.error(`${context}: Drive client not initialized`);
+        return false;
+      }
+
+      try {
+        // TODO: Implement Google Drive files.delete
+        // await this.driveClient.files.delete({
+        //   fileId: driveId
+        // });
+        //
+        // this.eTagCache.delete(driveId);
+
+        console.log(`${context}: Would delete from Google Drive`);
+        return true;
+      } catch (apiError) {
+        const err = apiError instanceof Error ? apiError : new Error(String(apiError));
+
+        if ((apiError as any).status === 404) {
+          console.warn(`${context}: File not found, treating as deleted`);
+          this.eTagCache.delete(fileId);
+          return true;
+        } else if ((apiError as any).status === 401) {
+          console.error(`${context}: Unauthorized.`);
+        } else if ((apiError as any).status === 403) {
+          console.error(`${context}: Permission denied.`);
+        }
+
+        console.error(`${context}: ${err.message}`);
+        return false;
+      }
     } catch (error) {
-      console.error('GDriveAdapter delete error:', error);
+      const err = error instanceof Error ? error : new Error(String(error));
+      console.error(`${context}: ${err.message}`);
       return false;
     }
   }
 
+  /**
+   * Watch Google Drive for changes
+   * Implements long-polling since Google Drive API doesn't support real-time webhooks well
+   */
   watch?(): Observable<string> {
-    // TODO: Implement change notifications via Google Drive API
-    // Use watch() or long-polling for real-time updates
-    return new Observable((subscriber) => {
-      // Watch for changes and emit fileIds
+    return new Observable<string>((subscriber) => {
+      const context = 'GDriveAdapter::watch()';
+      let pollSubscription: any = null;
+
+      try {
+        if (!this.driveClient) {
+          console.info(`${context}: Drive client not initialized, skipping watch`);
+          subscriber.complete();
+          return;
+        }
+
+        // Start polling every 30 seconds
+        const pollInterval = 30000;
+        const lastChanges = new Map<string, number>();
+
+        pollSubscription = timer(0, pollInterval).subscribe(async () => {
+          try {
+            // TODO: Implement Google Drive changes.list API
+            // const response = await this.driveClient.changes.list({
+            //   pageToken: this.changePageToken,
+            //   spaces: 'drive',
+            //   fields: 'changes(fileId, removed), nextPageToken'
+            // });
+            //
+            // if (response.result.changes) {
+            //   response.result.changes.forEach((change: any) => {
+            //     if (!change.removed) {
+            //       subscriber.next(change.fileId);
+            //     }
+            //   });
+            // }
+            //
+            // if (response.result.nextPageToken) {
+            //   this.changePageToken = response.result.nextPageToken;
+            // }
+          } catch (error) {
+            const err = error instanceof Error ? error : new Error(String(error));
+            console.error(`${context}: Polling error - ${err.message}`);
+            // Don't unsubscribe on error, continue polling
+          }
+        });
+
+        console.log(`${context}: Polling started (interval: ${pollInterval}ms)`);
+      } catch (error) {
+        const err = error instanceof Error ? error : new Error(String(error));
+        console.error(`${context}: Setup error - ${err.message}`);
+        subscriber.error(err);
+      }
+
+      // Cleanup function
+      return () => {
+        if (pollSubscription) {
+          pollSubscription.unsubscribe();
+        }
+        console.log(`${context}: Polling stopped`);
+      };
     });
   }
 }

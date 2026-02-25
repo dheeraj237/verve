@@ -2,7 +2,13 @@
 
 ## What Was Built
 
-A complete **offline-first cache layer** using RxDB + Yjs CRDT with SyncManager for seamless multi-adapter syncing (local, GDrive, browser).
+A complete **offline-first cache layer** using RxDB + Yjs CRDT with **workspace-aware SyncManager** for seamless multi-adapter syncing.
+
+**Workspace Types:**
+- **Browser**: Purely local (IndexedDB), no sync
+- **Local**: Desktop/electron filesystem, synced via LocalAdapter
+- **GDrive**: Google Drive, synced via GDriveAdapter
+- **S3** (future): S3-compatible storage, synced via S3Adapter
 
 **Status:** ✅ Phase 1 Complete — Core infrastructure ready for integration
 
@@ -95,16 +101,18 @@ function FileTree() {
 ```typescript
 // In app initialization
 import { initializeSyncManager } from '@/core/sync';
-import { LocalAdapter, GDriveAdapter, BrowserAdapter } from '@/core/sync/adapters';
+import { LocalAdapter, GDriveAdapter, S3Adapter } from '@/core/sync/adapters';
 
 async function initializeSync() {
   const syncMgr = await initializeSyncManager([
     new LocalAdapter(),
     new GDriveAdapter(googleDriveClient),
-    new BrowserAdapter('https://api.example.com/files')
+    // new S3Adapter(bucket, region, credentials) // Future
   ]);
   
   // Display sync status in UI
+  // Only files with workspaceType: 'local', 'gdrive', or 's3' are synced
+  // Files with workspaceType: 'browser' are never synced (local-only)
   syncMgr.status$().subscribe(status => {
     console.log('Sync status:', status); // IDLE, SYNCING, ONLINE, OFFLINE, ERROR
   });
@@ -143,41 +151,100 @@ function SyncStatusBar() {
 
 ---
 
+## Workspace Types Explained
+
+When creating/opening a file, specify its `workspaceType`:
+
+```typescript
+// Browser workspace (NO sync)
+const file = {
+  id: 'file-1',
+  name: 'notes.md',
+  path: '/notes.md',
+  type: 'file',
+  workspaceType: 'browser',  // ← Purely local, stays in IndexedDB
+  crdtId: 'crdt_file-1'
+};
+
+// Local workspace (synced to filesystem)
+const file = {
+  id: 'file-2',
+  name: 'document.md',
+  path: '/documents/document.md',
+  type: 'file',
+  workspaceType: 'local',    // ← Synced via LocalAdapter
+  crdtId: 'crdt_file-2'
+};
+
+// GDrive workspace (synced to Google Drive)
+const file = {
+  id: 'file-3',
+  name: 'sheet.md',
+  path: '/shared/sheet.md',
+  type: 'file',
+  workspaceType: 'gdrive',   // ← Synced via GDriveAdapter
+  metadata: { driveId: 'abc123' },
+  crdtId: 'crdt_file-3'
+};
+```
+
+**Key Differences:**
+- **browser**: `dirty` flag ignored, no sync, changes stay local
+- **local/gdrive/s3**: `dirty` flag tracks unsync'd changes, synced periodically
+
+---
+
 ## Architecture
 
+Workspace-aware sync flow:
+
 ```
-React Component (Editor)
-    ↓ (useOpenFileForEditing, useEditorSync)
-    ↓
-┌─────────────────────┐
-│   Yjs Y.Doc         │ ← Collaborative text editing
-│ (auto-persists)     │
-└─────────────────────┘
-    ↓ (updates)
-┌─────────────────────────┐
-│   RxDB (IndexedDB)      │ ← Offline-first cache
-│  ✓ cached_files         │
-│  ✓ crdt_docs           │
-└─────────────────────────┘
-    ↓ (watches dirty files)
-┌─────────────────────────┐
-│   SyncManager           │ ← Orchestrates multi-adapter sync
-│  ✓ Push to adapters     │
-│  ✓ Pull & merge         │
-│  ✓ Retry on failure     │
-└──────┬────┬────┬────────┘
-   ┌───┴───┐ │    └─────────────┐
-   ▼       ▼ ▼                  ▼
-┌─────┐ ┌──────┐ ┌────────────────┐
-│Local│ │GDrive│ │Browser (HTTP)  │
-└─────┘ └──────┘ └────────────────┘
-   ↓       ↓           ↓
- Local FS  Google Drive  Remote API
+┌──────────────────┐
+│  React Editor    │
+└────────┬─────────┘
+         │ useEditorSync
+         ▼
+   ┌─────────────┐
+   │ Yjs Y.Doc   │
+   └────┬────────┘
+        │ auto-persist
+        ▼
+┌──────────────────────────┐
+│ RxDB (IndexedDB)         │
+│ ├─ cached_files         │
+│ └─ crdt_docs            │
+└────────┬─────────────────┘
+         │ (check workspaceType)
+         │
+    ┌────┴─────────────────────────┐
+    ▼                              ▼
+[browser]                    [local/gdrive/s3]
+(stays local)                    │
+(no sync)                        ▼
+                          ┌──────────────┐
+                          │ SyncManager  │
+                          └──────┬───────┘
+                                 │
+                        ┌────────┼────────┐
+                        ▼        ▼        ▼
+                      Local   GDrive    S3
 ```
 
 ---
 
+
+
+---
+
 ## Key Concepts
+
+### Workspace Types
+- **browser** — Local IndexedDB storage, no sync, no remote copy
+- **local** — File system storage (desktop/electron), synced via LocalAdapter
+- **gdrive** — Google Drive storage, synced via GDriveAdapter
+- **s3** — S3-compatible storage (future), synced via S3Adapter
+
+Only specify `workspaceType: 'local' | 'gdrive' | 's3'` for files that need sync.
 
 ### CRDT (Conflict-free Replicated Data Type)
 - **What:** Yjs + text data type handles concurrent edits automatically
@@ -191,9 +258,11 @@ React Component (Editor)
 - No data loss if browser closes
 
 ### Adapters
-- **LocalAdapter:** Electron file system (TODO)
-- **GDriveAdapter:** Google Drive API (TODO)
-- **BrowserAdapter:** HTTP backend / WebSocket (TODO)
+- **LocalAdapter:** File system (electron/desktop) for `workspaceType: 'local'`
+- **GDriveAdapter:** Google Drive API for `workspaceType: 'gdrive'`
+- **S3Adapter:** S3/S3-compatible storage for `workspaceType: 's3'` (future implementation)
+
+**Note:** Browser workspaces (`workspaceType: 'browser'`) have NO adapter — changes stay local in IndexedDB.
 
 ### SyncManager
 - Polls dirty files every 5 seconds (configurable)

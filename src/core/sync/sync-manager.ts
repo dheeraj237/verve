@@ -14,7 +14,10 @@ import type { CachedFile, CrdtDoc } from '../cache/types';
 
 /**
  * Sync adapter interface for pushing/pulling changes from remote sources
- * Implementations: LocalAdapter, GDriveAdapter, BrowserAdapter
+ * Adapters are only used for non-browser workspaces (local, gdrive, s3, etc.)
+ * Browser workspaces have no sync adapter (purely local IndexedDB)
+ * 
+ * Implementations: LocalAdapter, GDriveAdapter, (future) S3Adapter
  */
 export interface ISyncAdapter {
   name: string;
@@ -200,9 +203,16 @@ export class SyncManager {
         return; // Nothing to sync
       }
 
+      // Filter out browser-only workspaces (they don't need sync)
+      const filesToSync = dirtyFiles.filter((file) => file.workspaceType !== 'browser');
+
+      if (filesToSync.length === 0) {
+        return; // Only browser files, nothing to sync
+      }
+
       // Process in batches
-      for (let i = 0; i < dirtyFiles.length; i += this.batchSize) {
-        const batch = dirtyFiles.slice(i, i + this.batchSize);
+      for (let i = 0; i < filesToSync.length; i += this.batchSize) {
+        const batch = filesToSync.slice(i, i + this.batchSize);
         await Promise.allSettled(batch.map((file) => this.syncFile(file)));
       }
 

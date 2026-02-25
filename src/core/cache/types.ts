@@ -1,12 +1,15 @@
+export type WorkspaceType = 'browser' | 'local' | 'gdrive' | 's3';
+
 export type CachedFile = {
   id: string;
   name: string;
   path: string;
   type: 'file' | 'dir';
+  workspaceType: WorkspaceType; // Determines which adapters to use
   crdtId?: string;
   metadata?: Record<string, any>;
   lastModified?: number;
-  dirty?: boolean;
+  dirty?: boolean; // Only relevant for 'local' and 'gdrive', not 'browser'
 };
 
 export type CrdtDoc = {

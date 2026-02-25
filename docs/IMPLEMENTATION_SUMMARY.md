@@ -107,6 +107,7 @@ interface ISyncAdapter {
 
 1. **LocalAdapter** (`local-adapter.ts`)
    - For electron/desktop file system access
+   - Syncs files to local filesystem
    - TODO: implement actual file I/O
 
 2. **GDriveAdapter** (`gdrive-adapter.ts`)
@@ -114,10 +115,12 @@ interface ISyncAdapter {
    - TODO: integrate with Google Drive API
    - Supports ETag-based change detection
 
-3. **BrowserAdapter** (`browser-adapter.ts`)
-   - For HTTP/fetch-based backend sync
-   - Includes basic HTTP fetch example
-   - TODO: add WebSocket/SSE for real-time updates
+3. **S3Adapter** (`s3-adapter.ts`) **[Future]**
+   - For S3-compatible storage (S3, MinIO, DigitalOcean Spaces, etc.)
+   - TODO: implement AWS SDK or presigned URL uploads
+   - TODO: implement change polling/notifications
+
+**Note:** Browser workspaces have `workspaceType: 'browser'` and require **NO adapter** — all data stays local in IndexedDB with no syncing.
 
 ### 6. Package Dependencies Added
 ```json
@@ -150,25 +153,34 @@ interface ISyncAdapter {
    │  - crdt_docs (Yjs state)       │
    │  - sync_queue (optional)       │
    └──────┬────────────────────────┘
-          │ (observe dirty files)
-          ▼
-   ┌──────────────────────┐
-   │   SyncManager        │
-   │  - Polls periodically│
-   │  - Retries on fail   │
-   │  - Merges CRDT       │
-   └──────┬───────────────┘
+          │ Check workspaceType
           │
-    ┌─────┼─────┬──────────────┐
-    ▼     ▼     ▼              ▼
-┌──────┐ ┌─────────┐ ┌────────────────┐
-│Local │ │ GDrive  │ │ Browser        │
-│      │ │ Adapter │ │ (HTTP/WS)      │
-└──────┘ └─────────┘ └────────────────┘
-    │         │           │
-    ▼         ▼           ▼
- Local FS  Google Drive  Remote API
+    ┌─────┴──────────────────────────┐
+    │                                │
+    ▼                                ▼
+Browser Workspace             Local/GDrive/S3 Workspace
+(workspaceType: 'browser')    (workspaceType: 'local'|'gdrive'|'s3')
+    │                                │
+    ▼                                ▼
+[STAYS LOCAL]              ┌──────────────────────┐
+[No sync, No dirty flag]   │   SyncManager        │
+  (Permanent in            │  - Polls periodically│
+   IndexedDB)              │  - Retries on fail   │
+                           │  - Merges CRDT       │
+                           └──────┬───────────────┘
+                                  │
+                          ┌───────┼───────┐
+                          ▼       ▼       ▼
+                      ┌──────┐ ┌─────────┐ ┌──────────┐
+                      │Local │ │ GDrive  │ │    S3    │
+                      │      │ │ Adapter │ │ Adapter  │
+                      └──────┘ └─────────┘ └──────────┘
+                          │         │           │
+                          ▼         ▼           ▼
+                       Local FS  Google Drive   S3 API
 ```
+
+**Key:** Browser workspace files never enter the SyncManager; they remain local to IndexedDB.
 
 ---
 

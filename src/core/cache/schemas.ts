@@ -28,6 +28,11 @@ export const cachedFileSchema: RxJsonSchema<CachedFile> = {
       enum: ['file', 'dir'],
       description: 'Whether this is a file or directory'
     },
+    workspaceType: {
+      type: 'string',
+      enum: ['browser', 'local', 'gdrive', 's3'],
+      description: 'Workspace storage type (determines sync adapters)'
+    },
     crdtId: {
       type: ['string', 'null'],
       description: 'Optional link to CRDT doc ID for text files'
@@ -43,11 +48,11 @@ export const cachedFileSchema: RxJsonSchema<CachedFile> = {
     dirty: {
       type: 'boolean',
       default: false,
-      description: 'Flag indicating local unsynced changes'
+      description: 'Flag indicating local unsynced changes (not used for browser workspace)'
     }
   },
-  required: ['id', 'name', 'path', 'type'],
-  indexes: ['path', 'dirty']
+  required: ['id', 'name', 'path', 'type', 'workspaceType'],
+  indexes: ['path', 'dirty', 'workspaceType']
 };
 
 /**

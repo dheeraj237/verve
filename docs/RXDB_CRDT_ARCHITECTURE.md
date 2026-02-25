@@ -1,12 +1,19 @@
 # RxDB + Yjs CRDT Architecture for Offline-First Editing
 
 ## Goal
-Provide an offline-first cache layer using RxDB and Yjs (CRDT) so UI edits flow:
+Provide an offline-first cache layer using RxDB and Yjs (CRDT) with **workspace-aware sync**:
 
-- UI -> RxDB (cached file + CRDT doc) -> SyncManager -> adapters (local / GDrive / browser)
-- Adapters (poll/notify) -> SyncManager -> RxDB -> UI
+- **Browser workspace**: Purely local, no sync needed (IndexedDB only)
+- **Local workspace**: Sync to file system (LocalAdapter)
+- **GDrive workspace**: Sync to Google Drive (GDriveAdapter)
+- **S3 workspace** (future): Sync to S3/compatible storage (S3Adapter)
 
-This separates UI responsiveness from sync, enables automatic CRDT merges, and provides persistence across reloads/offline.
+**Data flow:**
+```
+UI → RxDB (cached file + CRDT doc) → SyncManager → Adapters → Remote Storage
+```
+
+For **browser workspace**, sync is skipped entirely since data stays local.
 
 ## High-level flow
 
@@ -17,15 +24,24 @@ This separates UI responsiveness from sync, enables automatic CRDT merges, and p
 
 ## Collections & Data Model
 
+### Workspace Types
+- `browser` — Local IndexedDB only (no sync, no dirty flag)
+- `local` — Desktop/electron filesystem (synced via LocalAdapter)
+- `gdrive` — Google Drive (synced via GDriveAdapter)
+- `s3` — S3-compatible storage (synced via S3Adapter, future)
+
+### Collections
+
 - `cached_files` (RxDB collection)
   - id: string (UUID or path-based)
   - name: string
   - path: string
   - type: 'file' | 'dir'
+  - **workspaceType**: 'browser' | 'local' | 'gdrive' | 's3' (determines sync adapters)
   - crdtId?: string (FK to `crdt_docs`)
   - metadata: object (size, mime, driveId, remoteETag)
   - lastModified: number (ms)
-  - dirty: boolean (local unsynced changes)
+  - dirty: boolean (local unsynced changes, only for non-browser workspaces)
 
 - `crdt_docs` (RxDB collection)
   - id: string (crdtId)
@@ -37,17 +53,23 @@ This separates UI responsiveness from sync, enables automatic CRDT merges, and p
   - records representing operations to push: { op: 'put'|'delete', target: 'file'|'crdt', id, payload }
 
 Notes:
-- Store Yjs state as RxDB attachments (binary) or as a base64 string in `crdt_docs` depending on platform constraints.
-- Keep metadata in `cached_files` for quick UI rendering.
+- Store Yjs state as base64 string in `crdt_docs` for easy serialization
+- Keep metadata in `cached_files` for quick UI rendering
+- `dirty` flag not used for browser workspace (always stays in IndexedDB)
 
 ## Key Components
 
-- `src/core/cache/rxdb.ts` — RxDB setup and collection registration (IDB adapter for browser, memory for tests).
-- `src/core/cache/schemas.ts` — JSON schemas for RxDB collections.
-- `src/core/cache/yjs-adapter.ts` — helpers to load/save Yjs state into `crdt_docs` and create `Y.Doc` instances wired to RxDB.
-- `src/core/sync/sync-manager.ts` — central sync orchestrator. Watches RxDB and adapters, coordinates push/pull, handles retries and backoff.
-- `src/core/sync/adapters/*` — implementations for `local` (filesystem in electron/desktop), `gdrive`, and `browser` (FileSystem Access API or other remote stores).
-- `src/features/editor/store/editor-cache-bridge.ts` — UI glue to open a file: returns a Yjs `Doc` instance and subscribes to RxDB changes.
+- `src/core/cache/rxdb.ts` — RxDB setup and collection registration (Dexie/IndexedDB adapter for browser)
+- `src/core/cache/schemas.ts` — JSON schemas for RxDB collections
+- `src/core/cache/yjs-adapter.ts` — helpers to load/save Yjs state into `crdt_docs` and create `Y.Doc` instances wired to RxDB
+- `src/core/sync/sync-manager.ts` — central sync orchestrator. Watches RxDB for dirty files, coordinates with adapters based on workspace type, handles retries
+- `src/core/sync/adapters/*` — implementations for:
+  - `local-adapter.ts` — File system sync (electron/desktop)
+  - `gdrive-adapter.ts` — Google Drive sync
+  - `s3-adapter.ts` — S3/compatible storage sync (future)
+- `src/features/editor/store/editor-cache-bridge.ts` — UI glue to open a file: returns a Yjs `Doc` instance and subscribes to RxDB changes
+
+**Note:** Browser workspace files have `workspaceType: 'browser'` and are never synced — they remain local to IndexedDB.
 
 ## Conflicts & Resolution
 
@@ -56,8 +78,10 @@ Notes:
 
 ## Offline & Persistence
 
-- Use RxDB with the IndexedDB adapter for browser persistence.
-- When offline, UI continues to edit Yjs docs; the `dirty` flag marks files to sync once online.
+- Use RxDB with the Dexie (IndexedDB) adapter for browser persistence.
+- When offline, UI continues to edit Yjs docs; the `dirty` flag marks files to sync once online (for non-browser workspaces).
+- **Browser workspaces**: No syncing occurs — all changes are permanently stored in IndexedDB and never leave the browser.
+- **Local/GDrive/S3 workspaces**: Changes synced to remote adapters when online; dirty flag allows retry on reconnection.
 
 ## Required packages (initial)
 
