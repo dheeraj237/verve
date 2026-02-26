@@ -11,6 +11,9 @@ import {
   loadFile,
   saveFile,
 } from '../cache';
+import { enqueueSyncEntry, processPendingQueueOnce } from './sync-queue-processor';
+import { defaultRetryPolicy } from './retry-policy';
+import { v4 as uuidv4 } from 'uuid';
 import { useWorkspaceStore } from '@/core/store/workspace-store';
 import type { CachedFile } from '../cache/types';
 
@@ -106,11 +109,39 @@ export class SyncManager {
   private pollInterval: ReturnType<typeof setInterval> | null = null;
   private maxRetries = 3;
   private retryDelays = [1000, 3000, 5000]; // exponential backoff
+  private usePersistentQueue = false;
   private cachedFilesSub: any = null;
   private pullInterval: ReturnType<typeof setInterval> | null = null;
   private periodicPullIntervalMs = 60000; // 1 minute
+  private queueProcessInterval: ReturnType<typeof setInterval> | null = null;
 
   constructor(private batchSize = 5) {}
+
+  /**
+   * Enable persistent queue processing. When enabled, dirty files are enqueued
+   * into the durable `sync_queue` and processed by the queue processor.
+   */
+  enablePersistentQueue(processIntervalMs: number = 5000) {
+    this.usePersistentQueue = true;
+    // Start periodic queue processing
+    if (!this.queueProcessInterval) {
+      this.queueProcessInterval = setInterval(() => {
+        try {
+          processPendingQueueOnce(this.adapters).catch((err) => console.error('Queue processing failed:', err));
+        } catch (err) {
+          console.error('Queue processing scheduling failed:', err);
+        }
+      }, processIntervalMs);
+    }
+  }
+
+  disablePersistentQueue() {
+    this.usePersistentQueue = false;
+    if (this.queueProcessInterval) {
+      clearInterval(this.queueProcessInterval);
+      this.queueProcessInterval = null;
+    }
+  }
 
   /**
    * Register a sync adapter (e.g., local, GDrive, browser storage)
@@ -290,6 +321,16 @@ export class SyncManager {
       const fileData = await loadFile(file.path, file.workspaceType as any, file.workspaceId);
       const content = fileData?.content ?? '';
 
+      // If persistent queue is enabled, enqueue durable work and return
+      if (this.usePersistentQueue) {
+        try {
+          await enqueueSyncEntry({ op: 'put', target: 'file', targetId: fileId, payload: { path: file.path, workspaceType: file.workspaceType, workspaceId: file.workspaceId } });
+        } catch (e) {
+          console.error('Failed to enqueue sync entry for', fileId, e);
+        }
+        return;
+      }
+
       // Try to push to each adapter
       let pushed = false;
       for (const adapter of this.adapters.values()) {
@@ -350,7 +391,7 @@ export class SyncManager {
         console.warn(`Push attempt ${attempt + 1} failed:`, error);
 
         if (attempt < this.maxRetries - 1) {
-          const delay = this.retryDelays[attempt] || 5000;
+          const delay = this.retryDelays[attempt] || defaultRetryPolicy.getDelay(attempt + 1);
           await new Promise((resolve) => setTimeout(resolve, delay));
         }
       }
@@ -523,10 +564,13 @@ export function getSyncManager(): SyncManager {
 /**
  * Initialize and start the SyncManager
  */
-export async function initializeSyncManager(adapters: ISyncAdapter[]): Promise<SyncManager> {
+export async function initializeSyncManager(adapters: ISyncAdapter[], options?: { usePersistentQueue?: boolean; queueProcessIntervalMs?: number }): Promise<SyncManager> {
   const manager = getSyncManager();
   for (const adapter of adapters) {
     manager.registerAdapter(adapter);
+  }
+  if (options?.usePersistentQueue) {
+    manager.enablePersistentQueue(options.queueProcessIntervalMs);
   }
   manager.start();
   return manager;

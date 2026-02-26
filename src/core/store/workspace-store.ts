@@ -114,7 +114,7 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
               }
 
               const { saveFile } = await import('@/core/cache/file-operations');
-              await saveFile('verve.md', '# Verve', type, undefined, workspaceId);
+              await saveFile('verve.md', '# Verve🚀', type, undefined, workspaceId);
             } catch (err) {
               console.warn('Failed to create default verve.md file in new workspace:', err);
             }

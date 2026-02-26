@@ -41,8 +41,9 @@ export async function createFile(parentPath: string, fileName: string): Promise<
     let defaultContent = '';
     const lowerName = fileName.toLowerCase();
 
+    // Keep default content empty for new files, even for sample names
     if (lowerName === 'verve.md') {
-      defaultContent = '# Verve 🚀';
+      defaultContent = '';
     }
 
     // Persist to RxDB cache first (single source of truth).

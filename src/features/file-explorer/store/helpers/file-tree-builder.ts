@@ -127,10 +127,18 @@ function buildTreeFromFlatPaths(files: FileMetadata[], idPrefix: string = ''): F
       }
 
       const folderEntry = currentLevel.get(part);
+      // If an entry exists but is a file, we have a path conflict like '/verve.md' vs '/verve.md/nested.md'
+      if (folderEntry && folderEntry.isFolder === false) {
+        console.warn('Path conflict: expected folder but found file at:', `/${currentPath}`);
+        // Skip adding this nested path (don't create a directory under a file)
+        return;
+      }
+
       if (!folderEntry || !folderEntry.children) {
         console.error('Invalid folder structure for part:', part);
         return;
       }
+
       currentLevel = folderEntry.children;
     }
 
@@ -142,6 +150,18 @@ function buildTreeFromFlatPaths(files: FileMetadata[], idPrefix: string = ''): F
     }
 
     currentPath = currentPath ? `${currentPath}/${fileName}` : fileName;
+
+    const existingEntry = currentLevel.get(fileName);
+    if (existingEntry) {
+      if (existingEntry.isFolder) {
+        console.warn('Path conflict: expected file but found folder at:', `/${currentPath}`, 'Skipping file:', file.path);
+        return;
+      } else {
+        // Duplicate file entry — skip
+        return;
+      }
+    }
+
     currentLevel.set(fileName, {
       isFolder: false,
       path: file.path,

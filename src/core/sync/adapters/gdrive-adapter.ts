@@ -1,13 +1,14 @@
 import { Observable, Subject, timer } from 'rxjs';
-import { ISyncAdapter } from '../sync-manager';
-import type { CachedFile } from '../../cache/types';
+import type { CachedFile } from '@/core/cache/types';
+import type { AdapterFileDescriptor, IPushAdapter, IPullAdapter } from '@/core/sync/adapter-types';
+import { toAdapterDescriptor } from '@/core/sync/adapter-types';
 
 /**
  * Google Drive adapter
  * Syncs files with Google Drive using the Google Drive API
  * Requires Google API client authorization
  */
-export class GDriveAdapter implements ISyncAdapter {
+export class GDriveAdapter implements IPushAdapter, IPullAdapter {
   name = 'gdrive';
   private eTagCache = new Map<string, string>(); // Track ETags for change detection
   private changeNotifier = new Subject<string>();
@@ -21,15 +22,17 @@ export class GDriveAdapter implements ISyncAdapter {
   /**
    * Push local changes to Google Drive
    */
-  async push(file: CachedFile, content: string): Promise<boolean> {
-    const context = `${this.name}::push(${file.id})`;
+  async push(file: AdapterFileDescriptor | CachedFile, content: string): Promise<boolean> {
+    // Accept both the new AdapterFileDescriptor and legacy CachedFile for compatibility
+    const descriptor: AdapterFileDescriptor = (('path' in file && 'id' in file) ? (file as AdapterFileDescriptor) : toAdapterDescriptor(file as CachedFile));
+    const context = `${this.name}::push(${descriptor.id})`;
     try {
       if (!this.driveClient) {
         console.error(`${context}: Drive client not initialized`);
         return false;
       }
 
-      const driveId = file.metadata?.driveId;
+      const driveId = descriptor.metadata?.driveId;
       if (!driveId) {
         console.error(`${context}: No driveId in file metadata`);
         return false;
