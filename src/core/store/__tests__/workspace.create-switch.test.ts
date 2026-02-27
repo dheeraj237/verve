@@ -11,6 +11,7 @@ describe('workspace create & switch integration', () => {
   it('creating workspaces and switching restores workspace-specific tabs and hierarchy', async () => {
     const { useWorkspaceStore } = require('@/core/store/workspace-store');
     const { useEditorStore } = require('@/features/editor/store/editor-store');
+    const { WorkspaceType } = require('@/core/cache/types');
     const fileOps = await import('@/core/cache/file-operations');
 
     await fileOps.initializeFileOperations();

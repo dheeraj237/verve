@@ -220,8 +220,20 @@ export async function deleteFile(path: string, workspaceId?: string): Promise<vo
   const cached = await getCachedFile(path, workspaceId);
   
   if (cached) {
-    // Delete cached file by id
-    await db.cached_files.findByIds([cached.id]).remove();
+    // Delete cached file by id (use findOne/remove for RxDB compatibility)
+    try {
+      const doc = await db.cached_files.findOne(cached.id).exec();
+      if (doc && typeof doc.remove === 'function') {
+        await doc.remove();
+      } else {
+        // Fallback: query by id and remove
+        await db.cached_files.find().where('id').eq(cached.id).remove();
+      }
+    } catch (err) {
+      // As a last resort, attempt to upsert an empty document to clear
+      console.warn('deleteFile fallback remove failed:', err);
+      await db.cached_files.find().where('id').eq(cached.id).remove().catch(() => { });
+    }
     // Attempt to delete from local filesystem if this is a local workspace
     // NOTE: Local filesystem deletes are handled by SyncManager/adapters.
     // `file-operations` will only update RxDB collections.

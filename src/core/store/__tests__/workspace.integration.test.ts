@@ -11,6 +11,7 @@ describe('workspace integration tests', () => {
   it('switching workspaces reloads files with same hierarchy', async () => {
     const { useWorkspaceStore } = require('@/core/store/workspace-store');
     const { useEditorStore } = require('@/features/editor/store/editor-store');
+    const { WorkspaceType } = require('@/core/cache/types');
     const fileOps = await import('@/core/cache/file-operations');
 
     await fileOps.initializeFileOperations();
@@ -63,6 +64,7 @@ describe('workspace integration tests', () => {
 
   it('create, read, delete workspaces', async () => {
     const { useWorkspaceStore } = require('@/core/store/workspace-store');
+    const { WorkspaceType } = require('@/core/cache/types');
     const fileOps = await import('@/core/cache/file-operations');
 
     await fileOps.initializeFileOperations();
@@ -82,6 +84,7 @@ describe('workspace integration tests', () => {
 
   it('new workspace creates verve.md with default content and is visible', async () => {
     const { useWorkspaceStore } = require('@/core/store/workspace-store');
+    const { WorkspaceType } = require('@/core/cache/types');
     const fileOps = await import('@/core/cache/file-operations');
 
     await fileOps.initializeFileOperations();
@@ -105,6 +108,7 @@ describe('workspace integration tests', () => {
 
   it('workspace types: gdrive adapter pull populates RxDB and push is invoked on enqueue', async () => {
     const { useWorkspaceStore } = require('@/core/store/workspace-store');
+    const { WorkspaceType } = require('@/core/cache/types');
     const { getSyncManager, stopSyncManager } = await import('@/core/sync/sync-manager');
     const fileOps = await import('@/core/cache/file-operations');
 

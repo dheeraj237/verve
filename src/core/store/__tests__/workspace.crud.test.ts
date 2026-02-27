@@ -10,6 +10,7 @@ describe('workspace CRUD integration', () => {
 
   it('creates, lists, reads and deletes a workspace', async () => {
     const { useWorkspaceStore } = require('@/core/store/workspace-store');
+    const { WorkspaceType } = require('@/core/cache/types');
     const fileOps = await import('@/core/cache/file-operations');
 
     await fileOps.initializeFileOperations();
