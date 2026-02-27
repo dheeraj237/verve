@@ -17,11 +17,17 @@ import {
 import { Search, File, FolderOpen, Hash } from "lucide-react";
 import { useEditorStore } from "@/features/editor/store/editor-store";
 import { useFileExplorerStore } from "@/features/file-explorer/store/file-explorer-store";
-import { FileNode } from "@/shared/types";
+import { FileNode, FileNodeType } from "@/shared/types";
 import { cn } from "@/shared/utils/cn";
 
+enum SearchResultType {
+  File = 'file',
+  Content = 'content',
+  Command = 'command',
+}
+
 interface SearchResult {
-  type: 'file' | 'content' | 'command';
+  type: SearchResultType;
   title: string;
   description?: string;
   action: () => void;
@@ -77,14 +83,14 @@ export function SearchBar({ className }: SearchBarProps) {
       nodes.forEach(node => {
         if (node.name.toLowerCase().includes(query)) {
           newResults.push({
-            type: 'file',
+            type: SearchResultType.File,
             title: node.name,
             description: node.path,
-            icon: node.type === 'folder' ? 
+            icon: node.type === FileNodeType.Folder ? 
               <FolderOpen className="h-4 w-4" /> : 
               <File className="h-4 w-4" />,
             action: () => {
-              if (node.type === 'file') {
+                if (node.type === FileNodeType.File) {
                 // This would need to be implemented to open the file
                 console.log('Opening file:', node.path);
               }
@@ -107,7 +113,7 @@ export function SearchBar({ className }: SearchBarProps) {
       if (tab.name.toLowerCase().includes(query) && 
           !newResults.some(r => r.title === tab.name)) {
         newResults.push({
-          type: 'file',
+          type: SearchResultType.File,
           title: tab.name,
           description: 'Open tab • ' + tab.path,
           icon: <File className="h-4 w-4" />,
@@ -138,7 +144,7 @@ export function SearchBar({ className }: SearchBarProps) {
       if (cmd.title.toLowerCase().includes(query) || 
           cmd.description.toLowerCase().includes(query)) {
         newResults.push({
-          type: 'command',
+          type: SearchResultType.Command,
           ...cmd
         });
       }
@@ -212,7 +218,7 @@ export function SearchBar({ className }: SearchBarProps) {
                             </div>
                           )}
                         </div>
-                        {result.type === 'command' && (
+                        {result.type === SearchResultType.Command && (
                           <Hash className="h-3 w-3 text-muted-foreground" />
                         )}
                       </div>

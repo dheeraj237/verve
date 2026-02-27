@@ -8,6 +8,7 @@ jest.mock('@/core/cache/rxdb', () => ({
 
 import { getCacheDB, getCachedFile, markCachedFileAsSynced } from '@/core/cache/rxdb';
 import type { ISyncAdapter } from '@/core/sync/adapter-types';
+import { SyncOp } from '@/core/cache/types';
 
 describe('sync-queue-processor', () => {
   afterEach(() => {
@@ -17,7 +18,7 @@ describe('sync-queue-processor', () => {
   test('processes put entry successfully and removes it', async () => {
     const entry = {
       id: 'e1',
-      op: 'put',
+      op: SyncOp.Put,
       target: 'file',
       targetId: 'file-1',
       attempts: 0,
@@ -51,11 +52,11 @@ describe('sync-queue-processor', () => {
         return true;
       },
       pull: async () => null,
-    } as any;
+    };
 
     const adapters = new Map<string, ISyncAdapter>([[mockAdapter.name, mockAdapter]]);
 
-    await processPendingQueueOnce(adapters as any, 3);
+    await processPendingQueueOnce(adapters, 3);
 
     expect(calls.length).toBe(1);
     expect(remove).toHaveBeenCalled();
@@ -65,7 +66,7 @@ describe('sync-queue-processor', () => {
   test('increments attempts on failure', async () => {
     const entry = {
       id: 'e2',
-      op: 'put',
+      op: SyncOp.Put,
       target: 'file',
       targetId: 'file-2',
       attempts: 0,
@@ -93,11 +94,11 @@ describe('sync-queue-processor', () => {
       name: 'mock',
       push: async () => false, // fails
       pull: async () => null,
-    } as any;
+    };
 
     const adapters = new Map<string, ISyncAdapter>([[mockAdapter.name, mockAdapter]]);
 
-    await processPendingQueueOnce(adapters as any, 3);
+    await processPendingQueueOnce(adapters, 3);
 
     expect(patch).toHaveBeenCalled();
     expect(remove).not.toHaveBeenCalled();
@@ -106,7 +107,7 @@ describe('sync-queue-processor', () => {
   test('handles delete operation', async () => {
     const entry = {
       id: 'e3',
-      op: 'delete',
+      op: SyncOp.Delete,
       target: 'file',
       targetId: 'file-3',
       attempts: 0,
@@ -133,11 +134,11 @@ describe('sync-queue-processor', () => {
       push: async () => false,
       pull: async () => null,
       delete: async (_id: string) => true,
-    } as any;
+    };
 
     const adapters = new Map<string, ISyncAdapter>([[mockAdapter.name, mockAdapter]]);
 
-    await processPendingQueueOnce(adapters as any, 3);
+    await processPendingQueueOnce(adapters, 3);
 
     expect(remove).toHaveBeenCalled();
   });

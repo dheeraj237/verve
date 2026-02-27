@@ -3,7 +3,7 @@
  * Loads sample files from RxDB cache into the file explorer
  */
 
-import { FileNode } from '@/shared/types';
+import { FileNode, FileNodeType } from '@/shared/types';
 import { getAllFiles } from '@/core/cache/file-operations';
 
 /**
@@ -50,7 +50,7 @@ export async function buildSamplesFileTree(): Promise<FileNode[]> {
           id: `samples-${path}`,
           name: key,
           path: `/${path}`,
-          type: 'file',
+          type: FileNodeType.File,
         });
       } else if (value && typeof value === 'object') {
         // It's a folder
@@ -60,7 +60,7 @@ export async function buildSamplesFileTree(): Promise<FileNode[]> {
             id: `samples-folder-${path}`,
             name: key,
             path: `/${path}`,
-            type: 'folder',
+            type: FileNodeType.Folder,
             children,
           });
         }
@@ -70,8 +70,8 @@ export async function buildSamplesFileTree(): Promise<FileNode[]> {
     // Sort nodes: directories first, then files, alphabetically within each type
     nodes.sort((a, b) => {
       // Directories before files
-      if (a.type === 'folder' && b.type === 'file') return -1;
-      if (a.type === 'file' && b.type === 'folder') return 1;
+      if (a.type === FileNodeType.Folder && b.type === FileNodeType.File) return -1;
+      if (a.type === FileNodeType.File && b.type === FileNodeType.Folder) return 1;
       
       // Alphabetically within same type
       return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });

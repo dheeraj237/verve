@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { WorkspaceType } from "@/core/cache/types";
 import { useUserStore } from "@/core/store/user-store";
 import { Button } from "@/shared/components/ui/button";
 import { 
@@ -14,7 +15,7 @@ import { cn } from "@/shared/utils/cn";
 interface WorkspaceTypePickerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSelectType: (type: 'browser' | 'local' | 'drive') => void;
+  onSelectType: (type: WorkspaceType) => void;
 }
 
 export function WorkspaceTypePicker({ 
@@ -22,7 +23,7 @@ export function WorkspaceTypePicker({
   onOpenChange, 
   onSelectType 
 }: WorkspaceTypePickerProps) {
-  const [selectedType, setSelectedType] = useState<'browser' | 'local' | 'drive'>('browser');
+  const [selectedType, setSelectedType] = useState<WorkspaceType>(WorkspaceType.Browser);
   const isLoggedIn = useUserStore((s) => s.isLoggedIn);
 
   const handleNext = () => {
@@ -45,11 +46,11 @@ export function WorkspaceTypePicker({
             {/* Browser option */}
             <button
               type="button"
-              onClick={() => setSelectedType('browser')}
+              onClick={() => setSelectedType(WorkspaceType.Browser)}
               className={cn(
                 "w-full text-left p-4 rounded-lg border-2 transition-colors",
                 "hover:border-primary/50 focus:outline-none focus:border-primary",
-                selectedType === 'browser' 
+                selectedType === WorkspaceType.Browser 
                   ? "border-primary bg-primary/5" 
                   : "border-border"
               )}
@@ -57,11 +58,11 @@ export function WorkspaceTypePicker({
               <div className="flex items-center space-x-3">
                 <div className={cn(
                   "w-4 h-4 rounded-full border-2 flex items-center justify-center",
-                  selectedType === 'browser' 
+                  selectedType === WorkspaceType.Browser 
                     ? "border-primary" 
                     : "border-muted-foreground"
                 )}>
-                  {selectedType === 'browser' && (
+                  {selectedType === WorkspaceType.Browser && (
                     <div className="w-2 h-2 rounded-full bg-primary" />
                   )}
                 </div>
@@ -77,11 +78,11 @@ export function WorkspaceTypePicker({
             {/* Native File System option */}
             <button
               type="button"
-              onClick={() => setSelectedType('local')}
+              onClick={() => setSelectedType(WorkspaceType.Local)}
               className={cn(
                 "w-full text-left p-4 rounded-lg border-2 transition-colors",
                 "hover:border-primary/50 focus:outline-none focus:border-primary",
-                selectedType === 'local' 
+                selectedType === WorkspaceType.Local 
                   ? "border-primary bg-primary/5" 
                   : "border-border"
               )}
@@ -89,11 +90,11 @@ export function WorkspaceTypePicker({
               <div className="flex items-center space-x-3">
                 <div className={cn(
                   "w-4 h-4 rounded-full border-2 flex items-center justify-center",
-                  selectedType === 'local' 
+                  selectedType === WorkspaceType.Local 
                     ? "border-primary" 
                     : "border-muted-foreground"
                 )}>
-                  {selectedType === 'local' && (
+                  {selectedType === WorkspaceType.Local && (
                     <div className="w-2 h-2 rounded-full bg-primary" />
                   )}
                 </div>
@@ -109,12 +110,12 @@ export function WorkspaceTypePicker({
             {/* Google Drive option (only available when logged in) */}
             <button
               type="button"
-              onClick={() => isLoggedIn && setSelectedType('drive')}
+              onClick={() => isLoggedIn && setSelectedType(WorkspaceType.Drive)}
               disabled={!isLoggedIn}
               className={cn(
                 "w-full text-left p-4 rounded-lg border-2 transition-colors",
                 "hover:border-primary/50 focus:outline-none focus:border-primary",
-                selectedType === 'drive'
+                selectedType === WorkspaceType.Drive
                   ? "border-primary bg-primary/5"
                   : "border-border",
                 !isLoggedIn && "opacity-60 cursor-not-allowed"
@@ -123,11 +124,11 @@ export function WorkspaceTypePicker({
               <div className="flex items-center space-x-3">
                 <div className={cn(
                   "w-4 h-4 rounded-full border-2 flex items-center justify-center",
-                  selectedType === 'drive'
+                  selectedType === WorkspaceType.Drive
                     ? "border-primary"
                     : "border-muted-foreground"
                 )}>
-                  {selectedType === 'drive' && (
+                  {selectedType === WorkspaceType.Drive && (
                     <div className="w-2 h-2 rounded-full bg-primary" />
                   )}
                 </div>

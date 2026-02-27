@@ -1,5 +1,6 @@
 import { initializeRxDB, getCacheDB } from '@/core/cache/rxdb';
 import { enqueueSyncEntry, processPendingQueueOnce } from '@/core/sync/sync-queue-processor';
+import { SyncOp, FileType, WorkspaceType } from '@/core/cache/types';
 import type { ISyncAdapter } from '@/core/sync/adapter-types';
 
 async function run() {
@@ -12,8 +13,8 @@ async function run() {
     id: 'smoke-file-1',
     name: 'smoke.md',
     path: '/smoke/smoke.md',
-    type: 'file',
-    workspaceType: 'gdrive',
+    type: FileType.File,
+    workspaceType: WorkspaceType.GDrive,
     content: 'hello',
     metadata: { driveId: 'drive-smoke' },
     lastModified: Date.now(),
@@ -23,7 +24,7 @@ async function run() {
   await db.cached_files.upsert(file);
 
   // Enqueue a sync entry
-  await enqueueSyncEntry({ op: 'put', target: 'file', targetId: file.id });
+  await enqueueSyncEntry({ op: SyncOp.Put, target: 'file', targetId: file.id });
 
   // Create a mock adapter that records pushes
   const calls: any[] = [];
@@ -36,12 +37,12 @@ async function run() {
     pull: async () => null,
     exists: async () => true,
     delete: async () => true,
-  } as any;
+  };
 
   const adapters = new Map<string, ISyncAdapter>([[mockAdapter.name, mockAdapter]]);
 
   // Process queue
-  await processPendingQueueOnce(adapters as any, 3);
+  await processPendingQueueOnce(adapters, 3);
 
   console.log('Mock adapter calls:', calls.length);
   if (calls.length === 0) throw new Error('Queue processor did not call adapter');

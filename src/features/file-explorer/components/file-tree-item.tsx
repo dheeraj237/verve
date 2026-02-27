@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { ChevronRight, File, Folder, FolderOpen, FilePlus, FolderPlus } from "lucide-react";
-import { FileNode } from "@/shared/types";
+import { FileNode, FileCategory, FileNodeType } from "@/shared/types";
 import { useFileExplorerStore } from "../store/file-explorer-store";
 import { cn } from "@/shared/utils/cn";
 import { useEditorStore } from "@/features/editor/store/editor-store";
@@ -10,6 +10,7 @@ import { toast } from "@/shared/utils/toast";
 import { Button } from "@/shared/components/ui/button";
 import { useWorkspaceStore } from "@/core/store/workspace-store";
 import { loadFile as loadFileData } from "@/core/cache";
+import { WorkspaceType } from '@/core/cache/types';
 
 interface FileTreeItemProps {
   node: FileNode;
@@ -51,7 +52,7 @@ export function FileTreeItem({ node, level, parentNode }: FileTreeItemProps) {
     e.stopPropagation();
 
     // Single click behavior - VSCode style
-    if (node.type === "folder") {
+    if (node.type === FileNodeType.Folder) {
       toggleFolder(node.id);
     } else {
       setSelectedFile(node.id);
@@ -63,7 +64,7 @@ export function FileTreeItem({ node, level, parentNode }: FileTreeItemProps) {
     e.stopPropagation();
 
     // Single tap behavior - same as click for mobile
-    if (node.type === "folder") {
+    if (node.type === FileNodeType.Folder) {
       toggleFolder(node.id);
     } else {
       setSelectedFile(node.id);
@@ -103,46 +104,46 @@ export function FileTreeItem({ node, level, parentNode }: FileTreeItemProps) {
           path: node.path,
           name: node.name,
           content,
-          category: 'local',
+          category: FileCategory.Local,
           fileHandle,
           isLocal: true,
         });
       } else if (node.id.startsWith('gdrive-')) {
         // Google Drive file - load from RxDB cache
-        if (!activeWorkspace || activeWorkspace.type !== 'drive') {
+        if (!activeWorkspace || activeWorkspace.type !== WorkspaceType.Drive) {
           throw new Error('No Google Drive workspace active');
         }
 
-        const fileData = await loadFileData(node.path, 'gdrive');
+        const fileData = await loadFileData(node.path, WorkspaceType.GDrive);
 
         openFile({
           id: node.id,
           path: node.path,
           name: node.name,
           content: fileData.content,
-          category: 'gdrive',
+          category: FileCategory.GDrive,
         });
       } else if (node.id.startsWith('samples-') && activeWorkspace?.id === 'verve-samples') {
         // Load from verve-samples workspace from RxDB cache
-        const fileData = await loadFileData(node.path, 'browser');
+        const fileData = await loadFileData(node.path, WorkspaceType.Browser);
 
         openFile({
           id: node.id,
           path: node.path,
           name: node.name,
           content: fileData.content,
-          category: 'browser',
+          category: FileCategory.Browser,
         });
       } else if (activeWorkspace?.type === 'browser' && activeWorkspace.id !== 'verve-samples') {
         // Browser workspace (non-samples) - load from RxDB cache
-        const fileData = await loadFileData(node.path, 'browser');
+        const fileData = await loadFileData(node.path, WorkspaceType.Browser);
 
         openFile({
           id: node.id,
           path: node.path,
           name: node.name,
           content: fileData.content,
-          category: 'browser',
+          category: FileCategory.Browser,
         });
       } else {
         // Fallback: attempt to load from public directory (relative path for Vite)
@@ -157,7 +158,7 @@ export function FileTreeItem({ node, level, parentNode }: FileTreeItemProps) {
           path: node.path,
           name: node.name,
           content,
-          category: node.path.split("/")[1] || 'samples',
+          category: (node.path.split("/")[1] as FileCategory) || FileCategory.Browser,
         });
       }
     } catch (error) {

@@ -10,6 +10,7 @@ import { LocalAdapter } from '@/core/sync/adapters/local-adapter';
 import { GDriveAdapter } from '@/core/sync/adapters/gdrive-adapter';
 import { S3Adapter } from '@/core/sync/adapters/s3-adapter';
 import { useWorkspaceStore } from '@/core/store/workspace-store';
+import { WorkspaceType } from '@/core/cache/types';
 
 // Exported for testing: performs app initialization and pulls active workspace
 export async function initializeApp(adapters?: any[]) {
@@ -19,7 +20,7 @@ export async function initializeApp(adapters?: any[]) {
   // Create default workspace only when there are no existing workspaces
   const verveStore = useWorkspaceStore.getState();
   if (!verveStore.workspaces || verveStore.workspaces.length === 0) {
-    verveStore.createWorkspace('Verve Samples', 'browser', { id: 'verve-samples' });
+    verveStore.createWorkspace('Verve Samples', WorkspaceType.Browser, { id: 'verve-samples' });
     await loadSampleFilesFromFolder();
   }
 
@@ -39,7 +40,7 @@ export async function initializeApp(adapters?: any[]) {
   // After sync manager initialized, pull the active workspace to populate cache
   try {
     const active = useWorkspaceStore.getState().activeWorkspace?.();
-    if (active && active.type !== 'browser') {
+    if (active && active.type !== WorkspaceType.Browser) {
       await (await import('@/core/sync/sync-manager')).getSyncManager().pullWorkspace(active);
     }
   } catch (err) {

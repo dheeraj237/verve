@@ -10,6 +10,8 @@ jest.mock('@/core/cache/file-operations', () => ({
 
 import { upsertCachedFile } from '@/core/cache/rxdb';
 import { saveFile } from '@/core/cache/file-operations';
+import { WorkspaceType } from '@/core/cache/types';
+import type { ISyncAdapter } from '@/core/sync/sync-manager';
 
 describe('SyncManager.pullWorkspace', () => {
   beforeEach(() => {
@@ -19,7 +21,7 @@ describe('SyncManager.pullWorkspace', () => {
   it('uses adapter.pullWorkspace when available and saves files', async () => {
     const manager = new SyncManager();
 
-    const adapter = {
+    const adapter: ISyncAdapter = {
       name: 'gdrive',
       pullWorkspace: async (workspaceId: string) => {
         return [
@@ -27,11 +29,11 @@ describe('SyncManager.pullWorkspace', () => {
           { fileId: 'f2', content: 'two' },
         ];
     },
-    } as any;
+    };
 
     manager.registerAdapter(adapter);
 
-    const workspace = { id: 'ws-1', type: 'gdrive', path: '/' } as any;
+    const workspace = { id: 'ws-1', type: WorkspaceType.GDrive, path: '/', createdAt: new Date().toISOString(), lastAccessed: new Date().toISOString() };
 
     await manager.pullWorkspace(workspace);
 
@@ -44,7 +46,7 @@ describe('SyncManager.pullWorkspace', () => {
   it('falls back to listWorkspaceFiles + pull when pullWorkspace missing', async () => {
     const manager = new SyncManager();
 
-    const adapter = {
+    const adapter: ISyncAdapter = {
       name: 'gdrive',
       listWorkspaceFiles: async (workspaceId: string) => {
         return [ { id: 'a1', path: '/a1.md' } ];
@@ -53,11 +55,11 @@ describe('SyncManager.pullWorkspace', () => {
         if (fileId === 'a1') return 'alpha';
         return null;
       }
-    } as any;
+    };
 
     manager.registerAdapter(adapter);
 
-    const workspace = { id: 'ws-2', type: 'gdrive', path: '/' } as any;
+    const workspace = { id: 'ws-2', type: WorkspaceType.GDrive, path: '/', createdAt: new Date().toISOString(), lastAccessed: new Date().toISOString() };
 
     await manager.pullWorkspace(workspace);
 

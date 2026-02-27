@@ -15,7 +15,7 @@ import { enqueueSyncEntry, processPendingQueueOnce } from './sync-queue-processo
 import { defaultRetryPolicy } from './retry-policy';
 import { v4 as uuidv4 } from 'uuid';
 import { useWorkspaceStore } from '@/core/store/workspace-store';
-import type { CachedFile } from '../cache/types';
+import { CachedFile, FileType, SyncOp, WorkspaceType } from '@/core/cache/types';
 
 // CRDT/Yjs handling removed from SyncManager. SyncManager now operates
 // on plain file content strings. Adapters should accept/return string
@@ -153,7 +153,7 @@ export class SyncManager {
     try {
       if (this.usePersistentQueue) {
         try {
-          await enqueueSyncEntry({ op: 'put', target: 'file', targetId: fileId, payload: { path, workspaceType, workspaceId } });
+          await enqueueSyncEntry({ op: SyncOp.Put, target: 'file', targetId: fileId, payload: { path, workspaceType, workspaceId } });
         } catch (e) {
           console.error('Failed to enqueue sync entry for saved file:', fileId, e);
         }
@@ -216,7 +216,7 @@ export class SyncManager {
       this.cachedFilesSub = observeCachedFiles((files) => {
         for (const f of files) {
           try {
-            if (f.dirty && f.workspaceType !== 'browser') {
+            if (f.dirty && String(f.workspaceType) !== WorkspaceType.Browser) {
               // Fire-and-forget an async sync for this specific file
               this.syncFile(f as CachedFile).catch((err) => {
                 console.warn('Realtime sync failed for', f.id, err);
@@ -327,7 +327,7 @@ export class SyncManager {
       }
 
       // Filter out browser-only workspaces (they don't need sync)
-      const filesToSync = dirtyFiles.filter((file) => file.workspaceType !== 'browser');
+      const filesToSync = dirtyFiles.filter((file) => String(file.workspaceType) !== WorkspaceType.Browser);
 
       if (filesToSync.length === 0) {
         return; // Only browser files, nothing to sync
@@ -361,7 +361,7 @@ export class SyncManager {
       // If persistent queue is enabled, enqueue durable work and return
       if (this.usePersistentQueue) {
         try {
-          await enqueueSyncEntry({ op: 'put', target: 'file', targetId: fileId, payload: { path: file.path, workspaceType: file.workspaceType, workspaceId: file.workspaceId } });
+          await enqueueSyncEntry({ op: SyncOp.Put, target: 'file', targetId: fileId, payload: { path: file.path, workspaceType: file.workspaceType, workspaceId: file.workspaceId } });
         } catch (e) {
           console.error('Failed to enqueue sync entry for', fileId, e);
         }
@@ -477,10 +477,9 @@ export class SyncManager {
    * This is used during blocking workspace switches to ensure RxDB contains
    * the latest remote files before the UI renders the workspace.
    */
-  async pullWorkspace(workspace: { id: string; type: string; path?: string }): Promise<void> {
+  async pullWorkspace(workspace: { id: string; type: WorkspaceType | string; path?: string }): Promise<void> {
     if (!workspace) return;
-
-    const adapterName = workspace.type === 'drive' ? 'gdrive' : workspace.type;
+    const adapterName = (workspace.type === WorkspaceType.Drive || workspace.type === 'drive') ? 'gdrive' : String(workspace.type);
     const adapter = this.adapters.get(adapterName);
     if (!adapter) {
       console.warn(`No adapter registered for workspace type: ${workspace.type}`);
@@ -499,7 +498,7 @@ export class SyncManager {
             const content = (item as any).content ?? '';
 
             // Upsert cached file metadata and store content via saveFile
-            await upsertCachedFile({ id: item.fileId, name: item.fileId.split('/').pop() || item.fileId, path: item.fileId, type: 'file', workspaceType: workspace.type as any, workspaceId: workspace.id, lastModified: Date.now(), dirty: false });
+            await upsertCachedFile({ id: item.fileId, name: item.fileId.split('/').pop() || item.fileId, path: item.fileId, type: FileType.File, workspaceType: workspace.type as any, workspaceId: workspace.id, lastModified: Date.now(), dirty: false });
             await saveFile(item.fileId, content, workspace.type as any, undefined, workspace.id);
           } catch (err) {
             console.warn('Failed to upsert remote item during pullWorkspace:', err);
@@ -512,7 +511,7 @@ export class SyncManager {
           try {
             const remoteContent = await adapter.pull(entry.id);
             if (remoteContent) {
-              await upsertCachedFile({ id: entry.id, name: entry.path.split('/').pop() || entry.id, path: entry.path, type: 'file', workspaceType: workspace.type as any, workspaceId: workspace.id, lastModified: Date.now(), dirty: false });
+              await upsertCachedFile({ id: entry.id, name: entry.path.split('/').pop() || entry.id, path: entry.path, type: FileType.File, workspaceType: workspace.type as any, workspaceId: workspace.id, lastModified: Date.now(), dirty: false });
               await saveFile(entry.path, remoteContent, workspace.type as any, undefined, workspace.id);
             }
           } catch (err) {

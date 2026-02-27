@@ -18,9 +18,9 @@ export function EditorModeToggle({ mode, onModeChange }: EditorModeToggleProps) 
               size="icon"
               className={cn(
                   "h-8 w-8 cursor-pointer",
-                  mode === "code" && "bg-background shadow-sm"
+                  mode === ViewMode.Code && "bg-background shadow-sm"
               )}
-              onClick={() => onModeChange("code")}
+              onClick={() => onModeChange(ViewMode.Code)}
               title="Code Editor"
           >
               <Code2 className={cn("h-4 w-4", mode !== "code" && "text-muted-foreground")} />
@@ -30,9 +30,9 @@ export function EditorModeToggle({ mode, onModeChange }: EditorModeToggleProps) 
               size="icon"
               className={cn(
                   "h-8 w-8 cursor-pointer",
-                  mode === "live" && "bg-background shadow-sm"
+                  mode === ViewMode.Live && "bg-background shadow-sm"
               )}
-              onClick={() => onModeChange("live")}
+              onClick={() => onModeChange(ViewMode.Live)}
               title="Live Preview Editor (Obsidian-like)"
           >
               <Sparkles className={cn("h-4 w-4", mode !== "live" && "text-muted-foreground")} />
@@ -42,9 +42,9 @@ export function EditorModeToggle({ mode, onModeChange }: EditorModeToggleProps) 
               size="icon"
               className={cn(
                   "h-8 w-8 cursor-pointer",
-                  mode === "preview" && "bg-background shadow-sm"
+                  mode === ViewMode.Preview && "bg-background shadow-sm"
               )}
-              onClick={() => onModeChange("preview")}
+              onClick={() => onModeChange(ViewMode.Preview)}
               title="Preview Mode"
           >
               <Eye className={cn("h-4 w-4", mode !== "preview" && "text-muted-foreground")} />

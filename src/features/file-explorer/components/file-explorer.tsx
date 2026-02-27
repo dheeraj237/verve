@@ -9,6 +9,7 @@ import { toast } from "@/shared/utils/toast";
 import { cn } from "@/shared/utils/cn";
 import { initializeSamplesFileTree } from "@/utils/demo-file-tree";
 import { useWorkspaceStore } from "@/core/store/workspace-store";
+import { WorkspaceType } from '@/core/cache/types';
 import { FileTreeFilter } from "./file-tree-filter";
 
 export function FileExplorer() {
@@ -40,7 +41,7 @@ export function FileExplorer() {
         const currentWorkspace = activeWorkspace();
 
         // Only load Verve Samples files for the samples workspace
-        if (currentWorkspace?.type === 'browser' && currentWorkspace.id === 'verve-samples') {
+        if (currentWorkspace?.type === WorkspaceType.Browser && currentWorkspace.id === 'verve-samples') {
           // Load sample files from browser adapter/localStorage
           const demoFileTree = await initializeSamplesFileTree();
 
@@ -108,7 +109,7 @@ export function FileExplorer() {
       if (fileTree.length > 0) {
         // If there are files, use the first node's parent path
         rootPath = fileTree[0]?.path || '';
-      } else if (currentWorkspace?.type === 'drive' && currentWorkspace.driveFolder) {
+      } else if (currentWorkspace?.type === WorkspaceType.Drive && currentWorkspace.driveFolder) {
         // For empty Drive workspace, use the drive folder ID
         rootPath = currentWorkspace.driveFolder;
       }

@@ -19,16 +19,17 @@ import {
   upsertCachedFile,
   observeCachedFiles,
 } from './index';
-import type { CachedFile, WorkspaceType } from './types';
+import { CachedFile, WorkspaceType, FileType } from './types';
 
 // Store plain UTF-8 `content` on `cached_files` as the single source of truth.
 
 /**
  * Convert workspace store type to cache WorkspaceType
  */
-function toCacheWorkspaceType(wsType: 'browser' | 'local' | 'drive' | 'gdrive' | 's3'): WorkspaceType {
-  if (wsType === 'drive') return 'gdrive';
-  if (wsType === 'gdrive') return 'gdrive';
+function toCacheWorkspaceType(wsType: WorkspaceType | string): WorkspaceType {
+  // Accept either enum values or legacy string values
+  if (wsType === 'drive' || wsType === 'gdrive') return 'gdrive' as WorkspaceType;
+  if (typeof wsType === 'string') return wsType as WorkspaceType;
   return wsType as WorkspaceType;
 }
 
@@ -52,7 +53,7 @@ export interface FileMetadata {
   id: string;
   name: string;
   path: string;
-  type: 'file' | 'dir';
+  type: FileType;
   size?: number;
   mimeType?: string;
   lastModified?: number;
@@ -93,14 +94,14 @@ export async function initializeFileOperations(): Promise<void> {
  */
 export async function loadFile(
   path: string,
-  workspaceType: WorkspaceType | 'browser' | 'local' | 'drive' | 'gdrive' | 's3' = 'browser',
+  workspaceType: WorkspaceType | string = WorkspaceType.Browser,
   workspaceId?: string
 ): Promise<FileData> {
   const cacheType = toCacheWorkspaceType(workspaceType as any);
   return loadFileSync(path, cacheType, workspaceId);
 }
 
-async function loadFileSync(path: string, workspaceType: WorkspaceType = 'browser', workspaceId?: string): Promise<FileData> {
+async function loadFileSync(path: string, workspaceType: WorkspaceType = WorkspaceType.Browser, workspaceId?: string): Promise<FileData> {
   const db = await getCacheDB();
   
   // Try to find existing file
@@ -155,7 +156,7 @@ async function loadFileSync(path: string, workspaceType: WorkspaceType = 'browse
 export function saveFile(
   path: string,
   content: string,
-  workspaceType: WorkspaceType | 'browser' | 'local' | 'drive' | 'gdrive' | 's3' = 'browser',
+  workspaceType: WorkspaceType | string = 'browser',
   metadata?: Record<string, any>,
   workspaceId?: string
 ): Promise<FileData> {
@@ -166,7 +167,7 @@ export function saveFile(
 async function saveSyncFile(
   path: string,
   content: string,
-  workspaceType: WorkspaceType = 'browser',
+  workspaceType: WorkspaceType = 'browser' as WorkspaceType,
   metadata?: Record<string, any>,
   workspaceId?: string
 ): Promise<FileData> {
@@ -187,13 +188,13 @@ async function saveSyncFile(
     id: fileId,
     name: path.split('/').pop() || 'untitled',
     path,
-    type: 'file',
-    workspaceType,
+      type: FileType.File,
+      workspaceType,
     workspaceId: workspaceId,
     content,
     metadata: metadata || { mimeType: 'text/markdown' },
     lastModified: Date.now(),
-    dirty: workspaceType !== 'browser', // Mark dirty for sync-requiring workspaces
+      dirty: String(workspaceType) !== WorkspaceType.Browser, // Mark dirty for sync-requiring workspaces
   };
   
   await upsertCachedFile(cachedFile);
@@ -244,7 +245,7 @@ export async function renameFile(oldPath: string, newPath: string, workspaceId?:
     ...cached,
     path: newPath,
     name: newName,
-    dirty: cached.dirty || cached.workspaceType !== 'browser',
+    dirty: cached.dirty || String(cached.workspaceType) !== WorkspaceType.Browser,
   });
   // NOTE: Local filesystem rename is handled by SyncManager/adapters.
   // `file-operations` only updates RxDB metadata.
@@ -255,14 +256,14 @@ export async function renameFile(oldPath: string, newPath: string, workspaceId?:
  */
 export async function createDirectory(
   path: string,
-  workspaceType: WorkspaceType | 'browser' | 'local' | 'drive' | 'gdrive' | 's3' = 'browser',
+  workspaceType: WorkspaceType | 'browser' | 'local' | 'drive' | 'gdrive' | 's3' = WorkspaceType.Browser,
   workspaceId?: string
 ): Promise<FileMetadata> {
   const cacheType = toCacheWorkspaceType(workspaceType as any);
   return createDirectorySync(path, cacheType, workspaceId);
 }
 
-async function createDirectorySync(path: string, workspaceType: WorkspaceType = 'browser', workspaceId?: string): Promise<FileMetadata> {
+async function createDirectorySync(path: string, workspaceType: WorkspaceType = WorkspaceType.Browser, workspaceId?: string): Promise<FileMetadata> {
   const dirName = path.split('/').pop() || 'untitled';
   const dirId = uuidv4();
   
@@ -270,11 +271,11 @@ async function createDirectorySync(path: string, workspaceType: WorkspaceType = 
     id: dirId,
     name: dirName,
     path,
-    type: 'dir',
+    type: FileType.Dir,
     workspaceType,
     workspaceId: workspaceId,
     lastModified: Date.now(),
-    dirty: workspaceType !== 'browser',
+    dirty: String(workspaceType) !== WorkspaceType.Browser,
   };
   
   await upsertCachedFile(dir);
@@ -285,7 +286,7 @@ async function createDirectorySync(path: string, workspaceType: WorkspaceType = 
     id: dirId,
     name: dirName,
     path,
-    type: 'dir',
+    type: FileType.Dir,
     workspaceType,
     lastModified: dir.lastModified,
   };
@@ -451,7 +452,7 @@ export async function switchWorkspaceType(newType: WorkspaceType): Promise<void>
     await db.cached_files.upsert({
       ...jsonFile,
       workspaceType: newType,
-      dirty: newType !== 'browser', // Mark dirty for non-browser workspaces
+      dirty: String(newType) !== WorkspaceType.Browser, // Mark dirty for non-browser workspaces
     });
   }
 }
@@ -494,8 +495,8 @@ export async function loadSampleFilesFromFolder(): Promise<void> {
           id: fileId,
           name: sample.name,
           path: sample.path,
-          type: 'file',
-          workspaceType: 'browser',
+          type: FileType.File,
+          workspaceType: WorkspaceType.Browser,
           workspaceId: 'verve-samples',
           content,
           lastModified: Date.now(),

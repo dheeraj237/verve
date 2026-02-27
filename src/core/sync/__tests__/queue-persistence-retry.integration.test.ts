@@ -14,6 +14,7 @@ import { RxDBMigrationPlugin } from 'rxdb/plugins/migration';
 import { RxDBQueryBuilderPlugin } from 'rxdb/plugins/query-builder';
 
 import { cachedFileSchema, syncQueueSchema } from '@/core/cache/schemas';
+import { FileType, WorkspaceType, SyncOp } from '@/core/cache/types';
 
 // Ensure plugins similar to runtime
 addRxPlugin(RxDBLeaderElectionPlugin);
@@ -50,8 +51,8 @@ describe('sync queue persistence and retry integration', () => {
       id: 'retry-file-1',
       name: 'retry.md',
       path: '/retry/retry.md',
-      type: 'file',
-      workspaceType: 'gdrive',
+      type: FileType.File,
+      workspaceType: WorkspaceType.GDrive,
       content: 'initial',
       metadata: { driveId: 'drive-retry' },
       lastModified: Date.now(),
@@ -61,7 +62,7 @@ describe('sync queue persistence and retry integration', () => {
     await db.cached_files.upsert(file);
 
     // Initial queue entry
-    await db.sync_queue.upsert({ id: 'qretry-1', op: 'put', target: 'file', targetId: file.id, attempts: 0, createdAt: Date.now() });
+    await db.sync_queue.upsert({ id: 'qretry-1', op: SyncOp.Put, target: 'file', targetId: file.id, attempts: 0, createdAt: Date.now() });
 
     // Mock cache/rxdb helpers to point to our test db
     jest.doMock('@/core/cache/rxdb', () => ({
@@ -84,12 +85,12 @@ describe('sync queue persistence and retry integration', () => {
       name: 'fail-adapter',
       push: async () => false,
       pull: async () => null,
-    } as any;
+    };
 
     const adaptersFail = new Map<string, ISyncAdapter>([[failingAdapter.name, failingAdapter]]);
 
     // First run: should increment attempts to 1
-    await processPendingQueueOnce(adaptersFail as any, 3);
+    await processPendingQueueOnce(adaptersFail, 3);
 
     const docAfterFail = await db.sync_queue.findOne({ selector: { id: 'qretry-1' } }).exec();
     expect(docAfterFail).toBeTruthy();
@@ -100,12 +101,12 @@ describe('sync queue persistence and retry integration', () => {
       name: 'success-adapter',
       push: async (_f: any, _content: string) => true,
       pull: async () => null,
-    } as any;
+    };
 
     const adaptersSuccess = new Map<string, ISyncAdapter>([[successAdapter.name, successAdapter]]);
 
     // Second run: should process and remove the queue entry and mark file synced
-    await processPendingQueueOnce(adaptersSuccess as any, 3);
+    await processPendingQueueOnce(adaptersSuccess, 3);
 
     const remaining = await db.sync_queue.find().exec();
     expect(remaining.length).toBe(0);

@@ -10,8 +10,9 @@
  * - Local and cloud file support
  */
 import { create } from "zustand";
-import { MarkdownFile } from "@/shared/types";
+import { MarkdownFile, FileCategory } from "@/shared/types";
 import { useWorkspaceStore } from "@/core/store/workspace-store";
+import { WorkspaceType } from '@/core/cache/types';
 import {
   initializeFileOperations,
   loadFile,
@@ -33,7 +34,7 @@ const DEBOUNCE_CONFIG = {
  */
 function getActiveWorkspaceType() {
   const workspace = useWorkspaceStore.getState().activeWorkspace();
-  return workspace?.type || 'browser';
+  return workspace?.type || WorkspaceType.Browser;
 }
 
 /** Editor Store State Interface */
@@ -215,7 +216,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
             // If this save originated from the active workspace, trigger authoritative push
             if (
               isFeatureEnabled('authoritativePush' as any) &&
-              workspaceType !== 'browser' &&
+              workspaceType !== WorkspaceType.Browser &&
               workspaceId === useWorkspaceStore.getState().activeWorkspace?.()?.id
             ) {
               // fileData.id is the cached file id
@@ -254,7 +255,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
         path: fileData.path,
         name: fileData.name,
         content: fileData.content,
-        category: isLocal ? 'local' : 'browser',
+        category: isLocal ? FileCategory.Local : FileCategory.Browser,
         isLocal,
       };
 
@@ -300,7 +301,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
         path: file.name,
         name: file.name,
         content,
-        category: 'local',
+        category: FileCategory.Local,
         fileHandle,
         isLocal: true,
       };
@@ -372,7 +373,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
           path: fileNode.path,
           name: fileNode.name,
           content,
-          category: 'local',
+          category: FileCategory.Local,
           fileHandle,
           isLocal: true,
         });
@@ -388,7 +389,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
           path: fileData.path,
           name: fileData.name,
           content: fileData.content,
-          category: 'browser',
+          category: FileCategory.Browser,
         });
       }
 

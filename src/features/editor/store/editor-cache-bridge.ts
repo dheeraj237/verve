@@ -8,7 +8,7 @@ import {
   loadFile,
 } from '../../../core/cache';
 import { useWorkspaceStore } from '@/core/store/workspace-store';
-import type { CachedFile } from '../../../core/cache/types';
+import { CachedFile, WorkspaceType, FileType } from '../../../core/cache/types';
 
 // CRDT/Yjs-specific state handling removed here. Use `loadFile`/`saveFile`
 // as the single source of truth (RxDB) and keep future CRDT conversion as a
@@ -55,7 +55,7 @@ export function useEditorCache() {
 export function useOpenFileForEditing(
   fileId: string | null,
   filePath?: string,
-  workspaceType: 'browser' | 'local' | 'gdrive' | 's3' = 'browser'
+  workspaceType: WorkspaceType = WorkspaceType.Browser
 ) {
   const [content, setContent] = useState<string>('');
   const [fileMetadata, setFileMetadata] = useState<CachedFile | null>(null);
@@ -82,7 +82,7 @@ export function useOpenFileForEditing(
             id: fileId,
             name: filePath?.split('/').pop() || 'Untitled',
             path: filePath || fileId,
-            type: 'file',
+            type: FileType.File,
             workspaceType,
             dirty: false,
             workspaceId: workspaceId

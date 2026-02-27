@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { FileNode } from "@/shared/types";
+import { WorkspaceType } from '@/core/cache/types';
 import { buildSamplesFileTree } from "@/utils/demo-file-tree";
 import { getAllFolderIds, buildFileTreeFromAdapter } from "./helpers/file-tree-builder";
 import {
@@ -303,7 +304,7 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
         }
 
         // For browser workspaces, load from RxDB
-        if (activeWorkspace.type === 'browser') {
+        if (activeWorkspace.type === WorkspaceType.Browser) {
           if (activeWorkspace.id === 'verve-samples') {
             // Special case: Load sample files for samples workspace
             try {
@@ -339,7 +340,7 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
         // For local workspace, try to use an active directory handle, else attempt
         // a non-prompt restore from IndexedDB. We must NOT call requestPermission
         // during app reload (no user gesture) to avoid SecurityError.
-        if (activeWorkspace.type === 'local') {
+        if (activeWorkspace.type === WorkspaceType.Local) {
           // If an in-memory handle exists, refresh it
           if (hasLocalDirectory()) {
             const fileTree = await refreshLocalDirectory();
@@ -364,7 +365,7 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
         }
 
         // For Google Drive workspace: fetch and display all files from RxDB
-        if (activeWorkspace.type === 'drive' && activeWorkspace.driveFolder) {
+        if (activeWorkspace.type === WorkspaceType.Drive && activeWorkspace.driveFolder) {
           set({ isSyncingDrive: true });
           try {
             const fileTree = await buildFileTreeFromAdapter(

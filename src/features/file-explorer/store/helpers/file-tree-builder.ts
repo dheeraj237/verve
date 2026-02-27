@@ -1,7 +1,8 @@
-import { FileNode } from "@/shared/types";
+import { FileNode, FileNodeType } from "@/shared/types";
 import { MARKDOWN_EXTENSIONS, CODE_EXTENSIONS, TEXT_EXTENSIONS } from "@/shared/utils/file-type-detector";
 import { getAllFiles } from "@/core/cache/file-operations";
 import type { FileMetadata } from "@/core/cache";
+import { WorkspaceType, FileType } from '@/core/cache/types';
 
 /**
  * Builds a file tree from RxDB cache
@@ -16,7 +17,7 @@ export async function buildFileTreeFromAdapter(
   _fileManager: any,  // Kept for backwards compatibility but unused
   directory: string = '',
   idPrefix: string = '',
-  workspaceType: string = 'browser',
+  workspaceType: WorkspaceType | string = WorkspaceType.Browser,
   workspaceId?: string
 ): Promise<FileNode[]> {
   try {
@@ -24,7 +25,7 @@ export async function buildFileTreeFromAdapter(
     const files = await getAllFiles(workspaceId);
 
     // Normalize workspace type for cache comparison (map 'drive' -> 'gdrive')
-    const normalizedWsType = workspaceType === 'drive' ? 'gdrive' : workspaceType;
+    const normalizedWsType = (workspaceType === WorkspaceType.Drive || workspaceType === 'drive') ? WorkspaceType.GDrive : (workspaceType as WorkspaceType);
 
     // Filter files belonging to the requested workspace type so multiple
     // workspaces (or sample files) don't mix together in the tree.
@@ -51,13 +52,13 @@ export async function buildFileTreeFromAdapter(
 
     // Otherwise, use the simple flat mapping for adapters that return explicit folders
     const nodes: FileNode[] = filteredFiles.map((file: FileMetadata) => {
-      const isFolder = file.type === 'dir';
+      const isFolder = file.type === (FileType.Dir as any) || file.type === 'dir';
 
       return {
         id: `${idPrefix}${file.id}`,
         name: file.name,
         path: file.path,
-        type: isFolder ? 'folder' : 'file',
+        type: isFolder ? FileNodeType.Folder : FileNodeType.File,
         // For folders, we'll lazy load children when expanded
         children: isFolder ? [] : undefined,
       };
@@ -180,7 +181,7 @@ function buildTreeFromFlatPaths(files: FileMetadata[], idPrefix: string = ''): F
           id: `${idPrefix}folder-${value.path}`,
           name,
           path: value.path,
-          type: 'folder',
+          type: FileNodeType.Folder,
           children,
         });
       } else {
@@ -188,7 +189,7 @@ function buildTreeFromFlatPaths(files: FileMetadata[], idPrefix: string = ''): F
           id: `${idPrefix}${value.metadata.id || value.path}`,
           name,
           path: value.path,
-          type: 'file',
+          type: FileNodeType.File,
         });
       }
     }
@@ -228,7 +229,7 @@ export async function buildFileTreeFromDirectory(
           id: `local-file-${entryPath}`,
           name: entry.name,
           path: entryPath,
-          type: 'file',
+          type: FileNodeType.File,
         });
       }
     } else if (entry.kind === 'directory') {
@@ -238,7 +239,7 @@ export async function buildFileTreeFromDirectory(
           id: `local-dir-${entryPath}`,
           name: entry.name,
           path: entryPath,
-          type: 'folder',
+          type: FileNodeType.Folder,
           children,
         });
       }
@@ -257,7 +258,7 @@ export async function buildFileTreeFromDirectory(
 export function sortFileNodes(nodes: FileNode[]): FileNode[] {
   return nodes.sort((a, b) => {
     if (a.type !== b.type) {
-      return a.type === 'folder' ? -1 : 1;
+      return a.type === FileNodeType.Folder ? -1 : 1;
     }
     return a.name.localeCompare(b.name);
   });

@@ -13,6 +13,7 @@ import { RxDBQueryBuilderPlugin } from 'rxdb/plugins/query-builder';
 
 import { cachedFileSchema, syncQueueSchema } from '@/core/cache/schemas';
 import { enqueueSyncEntry, processPendingQueueOnce } from '@/core/sync/sync-queue-processor';
+import { FileType, WorkspaceType, SyncOp } from '@/core/cache/types';
 
 // Ensure plugins registered similar to runtime
 addRxPlugin(RxDBLeaderElectionPlugin);
@@ -50,8 +51,8 @@ describe('queue processor integration', () => {
       id: 'int-file-1',
       name: 'int.md',
       path: '/int/int.md',
-      type: 'file',
-      workspaceType: 'gdrive',
+      type: FileType.File,
+      workspaceType: WorkspaceType.GDrive,
       content: 'hello',
       metadata: { driveId: 'drive-int' },
       lastModified: Date.now(),
@@ -61,7 +62,7 @@ describe('queue processor integration', () => {
     await db.cached_files.upsert(file);
 
     // Enqueue a sync entry
-    await db.sync_queue.upsert({ id: 'qe-1', op: 'put', target: 'file', targetId: file.id, attempts: 0, createdAt: Date.now() });
+    await db.sync_queue.upsert({ id: 'qe-1', op: SyncOp.Put, target: 'file', targetId: file.id, attempts: 0, createdAt: Date.now() });
 
     // Mock the cache/rxdb module functions used by the processor to point at our db
     jest.doMock('@/core/cache/rxdb', () => ({
@@ -87,12 +88,12 @@ describe('queue processor integration', () => {
         return true;
       },
       pull: async () => null,
-    } as any;
+    };
 
     const adapters = new Map<string, ISyncAdapter>([[mockAdapter.name, mockAdapter]]);
 
     // Process pending entries
-    await proc(adapters as any, 3);
+    await proc(adapters, 3);
 
     // Adapter should have been called
     expect(calls.length).toBeGreaterThanOrEqual(1);

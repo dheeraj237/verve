@@ -5,6 +5,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { MarkdownFile } from "@/shared/types";
+import { WorkspaceType } from '@/core/cache/types';
 import { useEditorStore } from "@/features/editor/store/editor-store";
 import { initializeFileOperations } from '@/core/cache/file-operations';
 import { getSyncManager } from '@/core/sync/sync-manager';
@@ -16,7 +17,7 @@ import { getSyncManager } from '@/core/sync/sync-manager';
 export interface Workspace {
   id: string;
   name: string;
-  type: 'browser' | 'local' | 'drive';
+  type: WorkspaceType;
   path?: string;
   driveFolder?: string;
   createdAt: string;
@@ -103,7 +104,7 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
         }));
 
         // Create a default file for new browser workspaces (but skip the verve-samples placeholder)
-        if (type === 'browser' && workspaceId !== 'verve-samples') {
+        if (type === WorkspaceType.Browser && workspaceId !== 'verve-samples') {
           (async () => {
             try {
               // Ensure file operations are initialized before saving
@@ -229,21 +230,21 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
        * Filters and returns all browser-based workspaces
        */
       getBrowserWorkspaces: () => {
-        return get().workspaces.filter(w => w.type === 'browser');
+        return get().workspaces.filter(w => w.type === WorkspaceType.Browser);
       },
 
       /**
        * Filters and returns all local file system workspaces
        */
       getLocalWorkspaces: () => {
-        return get().workspaces.filter(w => w.type === 'local');
+        return get().workspaces.filter(w => w.type === WorkspaceType.Local);
       },
 
       /**
        * Filters and returns all Google Drive workspaces
        */
       getDriveWorkspaces: () => {
-        return get().workspaces.filter(w => w.type === 'drive');
+        return get().workspaces.filter(w => w.type === WorkspaceType.Drive);
       },
 
       /**

@@ -46,7 +46,7 @@ export function FileTabs() {
                 <span className="text-sm truncate flex-1 font-medium">{tab.name}</span>
                 {tab.isSaving ? (
                   <Loader2 className="h-3 w-3 animate-spin text-primary shrink-0" />
-                ) : tab.saveError ? (
+                ) : (tab as any).saveError ? (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div className="text-red-600 dark:text-red-400 rounded p-0.5 transition-all shrink-0 cursor-default">
@@ -56,7 +56,7 @@ export function FileTabs() {
                     <TooltipContent side="bottom" asChild={false}>
                       <div className="text-xs max-w-xs">
                         <div className="font-medium">Sync error</div>
-                        <div className="text-muted-foreground break-words">{tab.saveError}</div>
+                          <div className="text-muted-foreground break-words">{(tab as any).saveError}</div>
                       </div>
                     </TooltipContent>
                   </Tooltip>

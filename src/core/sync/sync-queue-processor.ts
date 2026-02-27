@@ -3,12 +3,13 @@ import { defaultRetryPolicy } from './retry-policy';
 import type { AdapterFileDescriptor, ISyncAdapter } from './adapter-types';
 import { toAdapterDescriptor } from './adapter-types';
 import { getCacheDB } from '@/core/cache/rxdb';
+import { SyncOp } from '@/core/cache/types';
 import { getCachedFile, markCachedFileAsSynced } from '@/core/cache/rxdb';
 import type { CachedFile } from '@/core/cache/types';
 
 export type SyncQueueEntry = {
   id: string;
-  op: 'put' | 'delete';
+  op: SyncOp;
   target: 'file';
   targetId: string;
   payload?: any;
@@ -19,13 +20,13 @@ export type SyncQueueEntry = {
 /**
  * Enqueue a sync operation into the durable `sync_queue` collection.
  */
-export async function enqueueSyncEntry(entry: Partial<SyncQueueEntry> & { op: 'put' | 'delete'; target: 'file'; targetId: string; payload?: any }): Promise<string> {
+export async function enqueueSyncEntry(entry: Partial<SyncQueueEntry> & { op: SyncOp; target: 'file'; targetId: string; payload?: any }): Promise<string> {
   const db = getCacheDB();
   const id = (entry && (entry as any).id) || uuidv4();
   const now = Date.now();
   const doc: SyncQueueEntry = {
     id,
-    op: entry.op,
+    op: entry.op as SyncOp,
     target: 'file',
     targetId: entry.targetId,
     payload: entry.payload || null,
@@ -68,10 +69,10 @@ export async function processPendingQueueOnce(adapters: Map<string, ISyncAdapter
         // Attempt adapters
         for (const adapter of adapters.values()) {
           try {
-            if (entry.op === 'put') {
+            if (entry.op === SyncOp.Put) {
               if (!descriptor) break; // nothing to push
               success = await (adapter.push as any)(descriptor, cached?.content || '');
-            } else if (entry.op === 'delete') {
+            } else if (entry.op === SyncOp.Delete) {
               success = await (adapter.delete as any)(entry.targetId);
             }
             if (success) break;
@@ -83,7 +84,7 @@ export async function processPendingQueueOnce(adapters: Map<string, ISyncAdapter
 
         if (success) {
           // Mark synced and remove queue entry
-          if (entry.op === 'put') {
+          if (entry.op === SyncOp.Put) {
             try {
               await markCachedFileAsSynced(entry.targetId);
             } catch (e) {

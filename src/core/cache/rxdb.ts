@@ -7,7 +7,7 @@ import { RxDBMigrationPlugin } from 'rxdb/plugins/migration';
 import { RxDBQueryBuilderPlugin } from 'rxdb/plugins/query-builder';
 
 import { cachedFileSchema, syncQueueSchema, migrationStrategies } from './schemas';
-import type { CachedFile } from './types';
+import type { CachedFile, SyncOp } from './types';
 
 // Plugin registration for browser environment
 // Use NODE_ENV for runtime checks to remain compatible with Jest/Node tests
@@ -39,7 +39,7 @@ function safeErrorToString(error: any): string {
 
 export interface SyncQueueDoc {
   id: string;
-  op: 'put' | 'delete';
+  op: SyncOp;
   target: 'file';
   targetId: string;
   payload?: any;

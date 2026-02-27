@@ -3,6 +3,8 @@ import { initializeFileOperations } from '@/core/cache/file-operations';
 import { getCacheDB } from '@/core/cache/rxdb';
 import { initializeSyncManager, stopSyncManager } from '@/core/sync/sync-manager';
 import { useWorkspaceStore } from '@/core/store/workspace-store';
+import { WorkspaceType } from '@/core/cache/types';
+import type { ISyncAdapter } from '@/core/sync/adapter-types';
 
 describe('Startup pull integration (DB upsert)', () => {
   let manager: any;
@@ -13,7 +15,7 @@ describe('Startup pull integration (DB upsert)', () => {
     await initializeFileOperations();
 
     // set active workspace to a gdrive workspace
-    useWorkspaceStore.setState({ workspaces: [{ id: 'ws-int', name: 'WS', type: 'gdrive' }], activeWorkspaceId: 'ws-int' });
+    useWorkspaceStore.setState({ workspaces: [{ id: 'ws-int', name: 'WS', type: WorkspaceType.GDrive, createdAt: new Date().toISOString(), lastAccessed: new Date().toISOString() }], activeWorkspaceId: 'ws-int' });
   });
 
   afterAll(async () => {
@@ -30,7 +32,7 @@ describe('Startup pull integration (DB upsert)', () => {
   });
 
   it('pulls workspace files and upserts into RxDB', async () => {
-    const adapter = {
+    const adapter: ISyncAdapter = {
       name: 'gdrive',
       pullWorkspace: async (workspaceId: string) => {
         return [{ fileId: 's1', content: 'startup-content' }];
@@ -40,7 +42,7 @@ describe('Startup pull integration (DB upsert)', () => {
       pull: async (_id: string) => null,
       delete: async (_id: string) => true,
       exists: async (_id: string) => true,
-    } as any;
+    };
 
     manager = await initializeSyncManager([adapter]);
 

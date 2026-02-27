@@ -1,5 +1,6 @@
 import { fromCachedFile } from '@/core/sync/adapter-bridge';
 import type { CachedFile } from '@/core/cache/types';
+import { FileType, WorkspaceType } from '@/core/cache/types';
 
 describe('adapter-bridge', () => {
   test('maps CachedFile to AdapterFileDescriptor correctly', () => {
@@ -7,8 +8,8 @@ describe('adapter-bridge', () => {
       id: 'file-1',
       name: 'file.md',
       path: '/notes/file.md',
-      type: 'file',
-      workspaceType: 'gdrive',
+      type: FileType.File,
+      workspaceType: WorkspaceType.GDrive,
       metadata: { driveId: 'drive-123' },
       content: 'hello',
     };
