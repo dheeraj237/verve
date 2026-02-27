@@ -115,7 +115,7 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
               }
 
               const { saveFile } = await import('@/core/cache/file-operations');
-              await saveFile('verve.md', '# Verve🚀', type, undefined, workspaceId);
+              await saveFile('verve.md', '# Verve 🚀', type, undefined, workspaceId);
             } catch (err) {
               console.warn('Failed to create default verve.md file in new workspace:', err);
             }
@@ -149,10 +149,7 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
         // Set loading state
         set({ isWorkspaceSwitching: true });
 
-        // Clear editor content immediately to prevent showing stale content
-        useEditorStore.getState().closeAllTabs();
-
-        // Save current editor tabs for the previous workspace
+        // Save current editor tabs for the previous workspace BEFORE clearing them
         try {
           const prevId = get().activeWorkspaceId;
           if (prevId) {
@@ -161,6 +158,9 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
         } catch (err) {
           console.warn('Failed to save tabs for previous workspace:', err);
         }
+
+        // Clear editor content immediately to prevent showing stale content
+        useEditorStore.getState().closeAllTabs();
 
         // Update active workspace and timestamp first
         let targetWorkspace = null as any;
