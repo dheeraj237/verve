@@ -10,7 +10,8 @@ import { cachedFileSchema, syncQueueSchema, migrationStrategies } from './schema
 import type { CachedFile } from './types';
 
 // Plugin registration for browser environment
-if (import.meta.env.DEV) {
+// Use NODE_ENV for runtime checks to remain compatible with Jest/Node tests
+if (process.env.NODE_ENV === 'development') {
   addRxPlugin(RxDBDevModePlugin);
 }
 addRxPlugin(RxDBLeaderElectionPlugin);

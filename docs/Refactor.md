@@ -29,35 +29,6 @@ Prompt 3 — "Do not overwrite local content on pull — add MergeStrategy abstr
   - Simulate scenario: local content differs, remote content differs -> verify `remote_versions` created and local content unchanged.
 - Safety: Default behavior remains non-destructive (no overwrite) unless admin flips a well-tested flag.
 
-Prompt 4 — "Optimize DB queries and indexes"
-- Goal: Replace JS filters with RxDB queries and add indexes.
-- Tasks:
-  - Update schemas.ts to add indexes on `path`, `workspaceId`, `dirty`.
-  - Refactor `listFiles` and `getAllFiles` to use `.find({ selector: ... })` with $or/$and queries and limit/skip for pagination.
-- Tests:
-  - Add performance test that inserts 10k small files into in-memory RxDB and verifies `listFiles` returns first-page within threshold.
-- Safety: Keep API shape of `listFiles` unchanged; add optional pagination params.
-
-Prompt 5 — "Decouple editor store from persistence"
-- Goal: Add `IFileRepository` and inject into editor store.
-- Tasks:
-  - Create `src/core/cache/file-repo.ts` exporting interface and default implementation delegating to `file-operations`.
-  - Change `editor-store` to import repository from a single provider; keep existing `loadFileFromManager` and `applyEditorPatch` behavior.
-- Tests:
-  - Add unit tests that mock `IFileRepository` to validate editor store behavior (no DB required).
-- Safety: Expose a default provider that returns current implementation so runtime behavior is unchanged.
-
-Prompt 6 — "Add adapter mocks & integration tests"
-- Goal: Provide deterministic tests for sync flows.
-- Tasks:
-  - Add `tests/mocks/gdrive-mock.ts` implementing adapter interface but deterministic.
-  - Add integration test: saveFile -> queue -> run processor -> assert mock received push and RxDB cleaned dirty flag.
-- Safety: Tests only, no runtime changes.
-
-Each PR should:
-- Be small (1–3 files changed), include TypeScript types, and include unit tests that run in CI.
-- Include migration notes if schema changes are required (e.g., adding indexes).
-- Keep default behavior unchanged behind feature flags when possible.
 
 ---
 
@@ -113,6 +84,31 @@ Prompt D — "Tests for pull-on-switch semantics"
 - Safety:
   - Use isolated test DB instances; avoid touching real IndexedDB in CI.
 
+Prompt 4 — "Optimize DB queries and indexes"
+- Goal: Replace JS filters with RxDB queries and add indexes.
+- Tasks:
+  - Update schemas.ts to add indexes on `path`, `workspaceId`, `dirty`.
+  - Refactor `listFiles` and `getAllFiles` to use `.find({ selector: ... })` with $or/$and queries and limit/skip for pagination.
+- Tests:
+  - Add performance test that inserts 10k small files into in-memory RxDB and verifies `listFiles` returns first-page within threshold.
+- Safety: Keep API shape of `listFiles` unchanged; add optional pagination params.
+
+Prompt 5 — "Decouple editor store from persistence"
+- Goal: Add `IFileRepository` and inject into editor store.
+- Tasks:
+  - Create `src/core/cache/file-repo.ts` exporting interface and default implementation delegating to `file-operations`.
+  - Change `editor-store` to import repository from a single provider; keep existing `loadFileFromManager` and `applyEditorPatch` behavior.
+- Tests:
+  - Add unit tests that mock `IFileRepository` to validate editor store behavior (no DB required).
+- Safety: Expose a default provider that returns current implementation so runtime behavior is unchanged.
+
+Prompt 6 — "Add adapter mocks & integration tests"
+- Goal: Provide deterministic tests for sync flows.
+- Tasks:
+  - Add `tests/mocks/gdrive-mock.ts` implementing adapter interface but deterministic.
+  - Add integration test: saveFile -> queue -> run processor -> assert mock received push and RxDB cleaned dirty flag.
+- Safety: Tests only, no runtime changes.
+
 Prompt E — "Docs & migration notes"
 - Goal: Document the new simplified workflow and any schema/index changes.
 - Tasks:
@@ -122,9 +118,7 @@ Prompt E — "Docs & migration notes"
     - How to opt into watchers/pulls for advanced use cases.
   - Add migration note if schema updates are required (e.g., `sync_queue` indexes or `cached_files` indexes).
 
-Implementation guidance (safety-first)
-- Make each prompt a small PR (1–3 files) with tests and clear migration notes.
-- Keep feature flags and opt-in methods so teams can roll back if needed.
-- Prefer durable queue approach already added for push reliability; process the queue immediately for current workspace to minimize latency.
-
-Would you like me to implement Prompt A (push-overwrite) now? If yes, I will create the patch and tests as a small PR.
+Each PR should:
+- Be small (1–3 files changed), include TypeScript types, and include unit tests that run in CI.
+- Include migration notes if schema changes are required (e.g., adding indexes).
+- Keep default behavior unchanged behind feature flags when possible.

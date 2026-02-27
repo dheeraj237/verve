@@ -85,6 +85,14 @@ export const features: Record<string, Feature> = {
     experimental: true,
     description: "Load and sync a Google Drive folder into the file explorer",
   },
+  authoritativePush: {
+    id: "authoritative-push",
+    name: "Authoritative Push (Active Workspace)",
+    version: "0.1.0",
+    enabled: false,
+    experimental: true,
+    description: "When enabled, saves from the active workspace are treated as authoritative and pushed to remote immediately (or enqueued).",
+  },
 } as const;
 
 /**

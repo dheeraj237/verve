@@ -144,6 +144,43 @@ export class SyncManager {
   }
 
   /**
+   * Enqueue a saved file for durable processing (when persistent queue enabled)
+   * or attempt an immediate sync for the single file when queue is disabled.
+   * This is intended to be called for saves originating from the active workspace
+   * so that authorship is authoritative and pushes happen with minimal latency.
+   */
+  public async enqueueAndProcess(fileId: string, path: string, workspaceType: string, workspaceId?: string): Promise<void> {
+    try {
+      if (this.usePersistentQueue) {
+        try {
+          await enqueueSyncEntry({ op: 'put', target: 'file', targetId: fileId, payload: { path, workspaceType, workspaceId } });
+        } catch (e) {
+          console.error('Failed to enqueue sync entry for saved file:', fileId, e);
+        }
+
+        try {
+          await processPendingQueueOnce(this.adapters);
+        } catch (e) {
+          console.error('Failed to process sync queue immediately after enqueue:', e);
+        }
+      } else {
+        // Attempt immediate one-off sync for this specific file
+        try {
+          const cached = await getCachedFile(fileId, workspaceId);
+          if (cached) {
+            // call private syncFile to perform push/pull for this file
+            await this.syncFile(cached as CachedFile);
+          }
+        } catch (e) {
+          console.warn('Immediate sync for saved file failed:', e);
+        }
+      }
+    } catch (err) {
+      console.error('enqueueAndProcess error for', fileId, err);
+    }
+  }
+
+  /**
    * Register a sync adapter (e.g., local, GDrive, browser storage)
    */
   registerAdapter(adapter: ISyncAdapter): void {

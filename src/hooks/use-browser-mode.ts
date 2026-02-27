@@ -11,59 +11,52 @@ import { GDriveAdapter } from '@/core/sync/adapters/gdrive-adapter';
 import { S3Adapter } from '@/core/sync/adapters/s3-adapter';
 import { useWorkspaceStore } from '@/core/store/workspace-store';
 
+// Exported for testing: performs app initialization and pulls active workspace
+export async function initializeApp(adapters?: any[]) {
+  // Initialize RxDB cache as single source of truth
+  await initializeFileOperations();
+
+  // Create default workspace only when there are no existing workspaces
+  const verveStore = useWorkspaceStore.getState();
+  if (!verveStore.workspaces || verveStore.workspaces.length === 0) {
+    verveStore.createWorkspace('Verve Samples', 'browser', { id: 'verve-samples' });
+    await loadSampleFilesFromFolder();
+  }
+
+  // Initialize SyncManager with provided adapters or defaults
+  if (adapters && Array.isArray(adapters)) {
+    await initializeSyncManager(adapters);
+  } else {
+    const win: any = typeof window !== 'undefined' ? window : {};
+    const baseDir = win.__VERVE_LOCAL_BASE_DIR || (process.env.VITE_LOCAL_BASE_DIR as string) || './';
+    await initializeSyncManager([
+      new LocalAdapter(baseDir),
+      new GDriveAdapter(),
+      new S3Adapter('', ''),
+    ]);
+  }
+
+  // After sync manager initialized, pull the active workspace to populate cache
+  try {
+    const active = useWorkspaceStore.getState().activeWorkspace?.();
+    if (active && active.type !== 'browser') {
+      await (await import('@/core/sync/sync-manager')).getSyncManager().pullWorkspace(active);
+    }
+  } catch (err) {
+    console.warn('Failed to pull active workspace during initializeApp:', err);
+  }
+}
+
 export function useBrowserMode() {
   const [isInitialized, setIsInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { createWorkspace, workspaces } = useWorkspaceStore();
 
   useEffect(() => {
-    const initializeCache = async () => {
-      try {
-        // Initialize RxDB cache as single source of truth
-        await initializeFileOperations();
-
-        // Create default workspace if it doesn't exist
-        const verveStore = useWorkspaceStore.getState();
-        const hasVerveWorkspace = verveStore.workspaces.some(ws => ws.id === 'verve-samples');
-        
-        if (!hasVerveWorkspace) {
-          console.log('[BrowserMode] Creating default "Verve Samples" workspace...');
-          verveStore.createWorkspace('Verve Samples', 'browser', { id: 'verve-samples' });
-          
-          // Load sample files into the new workspace
-          console.log('[BrowserMode] Loading sample files...');
-          await loadSampleFilesFromFolder();
-          console.log('[BrowserMode] Sample files loaded');
-        }
-
-        // Initialize SyncManager with available adapters. Adapters are
-        // responsible for doing external I/O; they will be no-ops in
-        // environments where their APIs are not available (e.g., browser).
-        try {
-          // Determine a sensible baseDir for LocalAdapter. When running in
-          // Electron, the preload script or main process may expose a global
-          // `__VERVE_LOCAL_BASE_DIR`. Also allow Vite env var `VITE_LOCAL_BASE_DIR`.
-          const win: any = typeof window !== 'undefined' ? window : {};
-          const baseDir = win.__VERVE_LOCAL_BASE_DIR || (import.meta.env.VITE_LOCAL_BASE_DIR as string) || './';
-
-          await initializeSyncManager([
-            new LocalAdapter(baseDir),
-            new GDriveAdapter(),
-            new S3Adapter('', ''),
-          ]);
-          console.log('[BrowserMode] SyncManager initialized');
-        } catch (err) {
-          console.warn('Failed to initialize SyncManager:', err);
-        }
-
-        setIsInitialized(true);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to initialize file cache');
-        console.error('File cache initialization error:', err);
-      }
-    };
-
-    initializeCache();
+    initializeApp().then(() => setIsInitialized(true)).catch((err) => {
+      setError(err instanceof Error ? err.message : 'Failed to initialize file cache');
+      console.error('File cache initialization error:', err);
+    });
   }, []);
 
   return {

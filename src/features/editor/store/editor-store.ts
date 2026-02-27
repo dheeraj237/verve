@@ -18,6 +18,8 @@ import {
   saveFile,
   listFiles,
 } from "@/core/cache/file-operations";
+import { isFeatureEnabled } from '@/core/config/features';
+import { getSyncManager } from '@/core/sync/sync-manager';
 
 // Debounce config for auto-save
 const DEBOUNCE_CONFIG = {
@@ -204,10 +206,24 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       const workspaceId = workspace?.id;
 
       saveFile(tab.path, content, workspaceType, undefined, workspaceId)
-        .then(() => {
+        .then(async (fileData) => {
           get().setFileSaving(fileId, false);
           get().setFileLastSaved(fileId, new Date());
           get().setFileSaveError(fileId, undefined);
+
+          try {
+            // If this save originated from the active workspace, trigger authoritative push
+            if (
+              isFeatureEnabled('authoritativePush' as any) &&
+              workspaceType !== 'browser' &&
+              workspaceId === useWorkspaceStore.getState().activeWorkspace?.()?.id
+            ) {
+              // fileData.id is the cached file id
+              await getSyncManager().enqueueAndProcess(fileData.id, tab.path, workspaceType, workspaceId);
+            }
+          } catch (e) {
+            console.warn('Failed to enqueue/process sync for saved file:', e);
+          }
         })
         .catch((err) => {
           console.error('Background save failed:', err);
