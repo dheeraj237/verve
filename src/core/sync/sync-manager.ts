@@ -566,10 +566,12 @@ export class SyncManager {
           try {
             // Adapter should return content string in `content`.
             const content = (item as any).content ?? '';
+            const id = (item as any).fileId ?? (item as any).id ?? '';
 
-            // Upsert cached file metadata and overwrite content (pull-on-switch semantics)
-            await upsertCachedFile({ id: item.fileId, name: item.fileId.split('/').pop() || item.fileId, path: item.fileId, type: FileType.File, workspaceType: workspace.type as any, workspaceId: workspace.id, lastModified: Date.now(), dirty: false });
-            await saveFile(item.fileId, content, workspace.type as any, undefined, workspace.id);
+            // Normalize minimal info into canonical cached file and upsert
+            const normalized = require('./adapter-normalize').adapterEntryToCachedFile({ fileId: id }, workspace.type as any, workspace.id);
+            await upsertCachedFile({ ...normalized, dirty: false });
+            await saveFile(normalized.path || id, content, workspace.type as any, undefined, workspace.id);
           } catch (err) {
             console.warn('Failed to upsert remote item during pullWorkspace:', err);
           }
@@ -580,9 +582,10 @@ export class SyncManager {
         for (const entry of list || []) {
           try {
             const remoteContent = await adapter.pull(entry.id);
-            if (remoteContent) {
-              await upsertCachedFile({ id: entry.id, name: entry.path.split('/').pop() || entry.id, path: entry.path, type: FileType.File, workspaceType: workspace.type as any, workspaceId: workspace.id, lastModified: Date.now(), dirty: false });
-              await saveFile(entry.path, remoteContent, workspace.type as any, undefined, workspace.id);
+            const normalized = require('./adapter-normalize').adapterEntryToCachedFile(entry as any, workspace.type as any, workspace.id);
+            await upsertCachedFile({ ...normalized, dirty: false });
+            if (typeof remoteContent === 'string' && remoteContent.length > 0) {
+              await saveFile(normalized.path || entry.path || entry.id, remoteContent, workspace.type as any, undefined, workspace.id);
             }
           } catch (err) {
             console.warn('Failed to pull remote file during pullWorkspace:', err);
