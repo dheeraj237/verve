@@ -7,59 +7,28 @@ import type { CachedFile } from './types';
  */
 export const cachedFileSchema: RxJsonSchema<CachedFile> = {
   title: 'cached_files schema',
-  version: 2,
+  version: 3,
   type: 'object',
   primaryKey: 'id',
   additionalProperties: false,
   properties: {
-    id: {
-      type: 'string',
-      maxLength: 255,
-      description: 'Unique file/directory identifier (UUID or path-based)'
-    },
-    name: {
-      type: 'string',
-      maxLength: 255,
-      description: 'File or directory name'
-    },
-    path: {
-      type: 'string',
-      maxLength: 1024,
-      description: 'Full path in workspace'
-    },
-    type: {
-      type: 'string',
-      enum: ['file', 'dir'],
-      description: 'Whether this is a file or directory'
-    },
-    workspaceType: {
-      type: 'string',
-      maxLength: 50,
-      enum: ['browser', 'local', 'gdrive', 's3'],
-      description: 'Workspace storage type (determines sync adapters)'
-    },
-    workspaceId: {
-      type: 'string',
-      maxLength: 255,
-      description: 'Optional workspace instance id to scope files when multiple workspaces of same type exist'
-    },
-    content: {
-      type: ['string', 'null'],
-      description: 'File content stored as UTF-8 text for SSoT use'
-    },
-    metadata: {
-      type: ['object', 'null'],
-      description: 'Extended metadata (size, mime type, driveId, remoteETag, etc.)'
-    },
-    lastModified: {
-      type: ['number', 'null'],
-      description: 'Last modification time in milliseconds'
-    },
-    dirty: {
-      type: 'boolean',
-      default: false,
-      description: 'Flag indicating local unsynced changes (not used for browser workspace)'
-    }
+    id: { type: 'string', maxLength: 255 },
+    type: { type: 'string', enum: ['file', 'directory'] },
+    name: { type: 'string', maxLength: 255 },
+    path: { type: 'string', maxLength: 1024 },
+    parentId: { type: ['string', 'null'] },
+    children: { type: ['array', 'null'], items: { type: 'string' } },
+    size: { type: ['number', 'null'] },
+    modifiedAt: { type: ['string', 'null'] },
+    createdAt: { type: ['string', 'null'] },
+    dirty: { type: 'boolean', default: false },
+    synced: { type: 'boolean', default: true },
+    version: { type: ['number', 'null'] },
+    mimeType: { type: ['string', 'null'] },
+    workspaceType: { type: 'string', maxLength: 50, enum: ['browser', 'local', 'gdrive', 's3'] },
+    workspaceId: { type: ['string', 'null'], maxLength: 255 },
+    content: { type: ['string', 'null'] },
+    meta: { type: ['object', 'null'] }
   },
   required: ['id', 'name', 'path', 'type', 'workspaceType', 'dirty'],
   indexes: [['path'], ['workspaceType'], ['workspaceId']]
@@ -138,7 +107,48 @@ export const syncQueueSchema: RxJsonSchema<{
 export const migrationStrategies = {
   cachedFile: {
     1: (doc: any) => doc,  // No-op migration from v0 to v1
-    2: (doc: any) => doc   // No-op migration from v1 to v2
+    2: (doc: any) => doc,  // No-op migration from v1 to v2
+    3: (doc: any) => {
+      // Normalize older cached_file docs to canonical FileNode shape
+      const out: any = { ...doc };
+
+      // Map legacy type 'dir' -> 'directory'
+      if (out.type === 'dir') out.type = 'directory';
+
+      // Ensure timestamps are ISO strings
+      if (out.lastModified !== undefined && out.lastModified !== null) {
+        try {
+          out.modifiedAt = new Date(Number(out.lastModified)).toISOString();
+        } catch {
+          out.modifiedAt = new Date().toISOString();
+        }
+      }
+      if (!out.createdAt) out.createdAt = new Date().toISOString();
+
+      // Move arbitrary metadata into `meta` property
+      if (out.metadata && typeof out.metadata === 'object') {
+        out.meta = { ...(out.meta || {}), ...out.metadata };
+        delete out.metadata;
+      }
+
+      // Ensure children is array for directories
+      if (out.type === 'directory') {
+        out.children = Array.isArray(out.children) ? out.children : (out.children ? [out.children] : []);
+      } else {
+        delete out.children;
+      }
+
+      // Ensure synced flag exists
+      if (out.synced === undefined) out.synced = out.dirty ? false : true;
+
+      // Ensure workspaceId exists (nullable)
+      if (out.workspaceId === undefined) out.workspaceId = null;
+
+      // Clean up legacy fields
+      delete out.lastModified;
+
+      return out;
+    }
   },
   // crdtDoc migrations removed
   syncQueue: {
