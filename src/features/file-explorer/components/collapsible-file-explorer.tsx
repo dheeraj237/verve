@@ -20,6 +20,7 @@ export function CollapsibleFileExplorer() {
     currentDirectoryName,
     setCurrentDirectory,
   } = useFileExplorerStore();
+  const { currentDirectoryPath } = useFileExplorerStore();
   const { openLocalFile } = useEditorStore();
   const [newItemType, setNewItemType] = useState<'file' | 'folder' | null>(null);
 
@@ -55,8 +56,8 @@ export function CollapsibleFileExplorer() {
     const toastId = toast.loading(`Creating ${itemType.toLowerCase()}...`, name);
 
     try {
-      // Create at root level (use empty string or first node's parent path)
-      const rootPath = fileTree[0]?.path || '';
+      // Create at root level: use the currently opened directory path when available
+      const rootPath = currentDirectoryPath ?? '';
       if (newItemType === 'file') {
         await createFile(rootPath, name);
       } else if (newItemType === 'folder') {

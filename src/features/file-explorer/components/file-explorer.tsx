@@ -106,8 +106,11 @@ export function FileExplorer() {
       let rootPath = '';
       const currentWorkspace = activeWorkspace();
 
-      if (fileTree.length > 0) {
-        // If there are files, use the first node's parent path
+      if (currentDirectoryPath && currentDirectoryPath !== '/') {
+        // If there is an explicit opened directory path, use it
+        rootPath = currentDirectoryPath;
+      } else if (fileTree.length > 0) {
+      // Fallback: if there are files, use the first node's path
         rootPath = fileTree[0]?.path || '';
       } else if (currentWorkspace?.type === WorkspaceType.Drive && currentWorkspace.driveFolder) {
         // For empty Drive workspace, use the drive folder ID
