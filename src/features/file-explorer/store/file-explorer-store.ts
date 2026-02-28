@@ -15,6 +15,9 @@ interface FileExplorerStore {
   expandedFolders: Set<string>;
   selectedFileId: string | null;
   fileTree: FileNode[];
+  // New canonical map: id -> FileNode (children as ids for directories)
+  fileMap: Record<string, FileNode>;
+  rootIds: string[];
   isLoadingLocalFiles: boolean;
   isSyncingDrive: boolean;
   currentDirectoryName: string | null;
@@ -37,6 +40,10 @@ interface FileExplorerStore {
   _replaceChildrenInTree: (nodes: FileNode[], dirPath: string, newChildren: FileNode[]) => { tree: FileNode[]; replaced: boolean };
   _updateFileTreeForDirectory: (dirPath: string) => Promise<void>;
   _buildFileTreeFromCache: (workspaceId?: string) => Promise<FileNode[]>;
+  // Selectors for map-based API
+  getChildren: (id: string) => string[];
+  getPath: (id: string) => string | null;
+  isDirty: (id: string) => boolean;
   createFile: (parentPath: string, fileName: string) => Promise<void>;
   createFolder: (parentPath: string, folderName: string) => Promise<void>;
   renameNode: (nodePath: string, newName: string) => Promise<void>;
@@ -62,6 +69,8 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
       expandedFolders: new Set<string>(),
       selectedFileId: null,
       fileTree: [],
+      fileMap: {},
+      rootIds: [],
       isLoadingLocalFiles: false,
       isSyncingDrive: false,
       currentDirectoryName: null,
@@ -85,6 +94,22 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
 
       /** Updates the entire file tree */
       setFileTree: (tree) => set({ fileTree: tree }),
+      getChildren: (id: string) => {
+        const state = get();
+        const node = state.fileMap?.[id];
+        if (!node) return [];
+        return (node.children as any) || [];
+      },
+      getPath: (id: string) => {
+        const state = get();
+        const node = state.fileMap?.[id];
+        return node?.path ?? null;
+      },
+      isDirty: (id: string) => {
+        const state = get();
+        const node = state.fileMap?.[id];
+        return !!(node && (node as any).dirty);
+      },
 
       /** Sets the loading state for local files */
       setIsLoadingLocalFiles: (loading) => set({ isLoadingLocalFiles: loading }),
@@ -180,6 +205,7 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
           // Normalize and sort paths so directories come before children
           const map: Record<string, FileNode> = {};
           const roots: FileNode[] = [];
+          const rootIdsLocal: string[] = [];
 
           function ensureNode(pathSegments: string[], fullPath: string): FileNode {
             const nodePath = fullPath;
@@ -220,7 +246,10 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
               const dirPath = normalized;
               if (!map[dirPath]) {
                 const dirNode = ensureNode(parts.length ? parts : [''], dirPath);
-                if (!parent && dirNode && !roots.find(r => r.path === dirNode.path)) roots.push(dirNode);
+                if (!parent && dirNode && !roots.find(r => r.path === dirNode.path)) {
+                  roots.push(dirNode);
+                  rootIdsLocal.push(dirNode.id);
+                }
               }
               continue;
             }
@@ -235,7 +264,10 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
               if (!parent.children.find(c => c.path === fileNode.path)) parent.children.push(fileNode);
             } else {
               // file at root
-              if (!roots.find(r => r.path === fileNode.path)) roots.push(fileNode);
+              if (!roots.find(r => r.path === fileNode.path)) {
+                roots.push(fileNode);
+                rootIdsLocal.push(fileNode.id);
+              }
             }
           }
 
@@ -244,7 +276,30 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
             return list.map(n => ({ ...n, children: n.children && n.children.length ? tidy(n.children) : [] }));
           }
 
-          return tidy(roots);
+          // Build fileMap with children as id arrays
+          function buildMap(list: FileNode[]) {
+            for (const node of list) {
+              const copy = { ...node } as FileNode;
+              if (copy.children && copy.children.length) {
+                const childIds = copy.children.map(c => c.id);
+                (copy as any).children = childIds;
+                map[copy.id] = copy;
+                // recurse on original children objects
+                buildMap(node.children || []);
+              } else {
+                delete (copy as any).children;
+                map[copy.id] = copy;
+              }
+            }
+          }
+
+          const tidyRoots = tidy(roots);
+          buildMap(tidyRoots);
+
+          // Persist map and root ids into state
+          set({ fileMap: map, rootIds: rootIdsLocal });
+
+          return tidyRoots;
         } catch (e) {
           console.error('Failed to build file tree from cache', e);
           return [];
