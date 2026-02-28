@@ -1,24 +1,11 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { FileNode, FileNodeType } from "@/shared/types";
-import { WorkspaceType } from '@/core/cache/types';
+import { WorkspaceType, FileType } from '@/core/cache/types';
 import { buildSamplesFileTree } from "@/utils/demo-file-tree";
-import { getAllFolderIds, buildFileTreeFromAdapter } from "./helpers/file-tree-builder";
-import {
-  openLocalDirectory as openLocalDir,
-  restoreLocalDirectory as restoreLocalDir,
-  refreshLocalDirectory,
-  hasLocalDirectory,
-  clearLocalDirectory,
-} from "./helpers/directory-handler";
+import { getAllFiles, saveFile, createDirectory, renameFile, deleteFile } from "@/core/cache/file-operations";
+import { getAllFolderIds } from "./helpers/file-tree-builder";
 import { useWorkspaceStore } from "@/core/store/workspace-store";
-import {
-  createFile as createFileOp,
-  createFolder as createFolderOp,
-  renameNode as renameNodeOp,
-  deleteNode as deleteNodeOp,
-} from "./helpers/file-operations";
-import { getAllFiles } from "@/core/cache/file-operations";
 
 /**
  * File Explorer Store State
@@ -46,6 +33,10 @@ interface FileExplorerStore {
   restoreLocalDirectory: (workspaceId: string) => Promise<boolean>;
   requestPermissionForWorkspace: (workspaceId: string) => Promise<boolean>;
 
+  // Internal helpers (used by store methods)
+  _replaceChildrenInTree: (nodes: FileNode[], dirPath: string, newChildren: FileNode[]) => { tree: FileNode[]; replaced: boolean };
+  _updateFileTreeForDirectory: (dirPath: string) => Promise<void>;
+  _buildFileTreeFromCache: (workspaceId?: string) => Promise<FileNode[]>;
   createFile: (parentPath: string, fileName: string) => Promise<void>;
   createFolder: (parentPath: string, folderName: string) => Promise<void>;
   renameNode: (nodePath: string, newName: string) => Promise<void>;
@@ -156,29 +147,103 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
         const activeWs = useWorkspaceStore.getState().activeWorkspace();
         if (!activeWs) return;
         try {
-          const children = await buildFileTreeFromAdapter(null, dirPath || '', 'local-', activeWs.type, activeWs.id);
+          const tree = await (get() as any)._buildFileTreeFromCache(activeWs.id);
 
           // If dirPath is root, replace whole tree
           const normalized = dirPath ? dirPath.replace(/^\/*/, '').replace(/\/*$/, '') : '';
           if (!normalized) {
-            set({ fileTree: children, currentDirectoryName: activeWs.name, currentDirectoryPath: '/' });
+            set({ fileTree: tree, currentDirectoryName: activeWs.name, currentDirectoryPath: '/' });
             return;
           }
 
           const currentTree = get().fileTree || [];
-          const { tree: updatedTree, replaced } = get()._replaceChildrenInTree(currentTree, dirPath, children);
+          const { tree: updatedTree, replaced } = get()._replaceChildrenInTree(currentTree, dirPath, tree);
           if (replaced) {
             set({ fileTree: updatedTree });
             return;
           }
 
           // Parent folder not found in current tree — fall back to full rebuild
-          const full = await buildFileTreeFromAdapter(null, '', 'local-', activeWs.type, activeWs.id);
-          set({ fileTree: full, currentDirectoryName: activeWs.name, currentDirectoryPath: '/' });
+          set({ fileTree: tree, currentDirectoryName: activeWs.name, currentDirectoryPath: '/' });
         } catch (e) {
           console.error('Failed to update file tree for directory', dirPath, e);
           // fallback
           await get().refreshFileTree();
+        }
+      },
+
+      // Build a file tree from RxDB cache entries for a workspace
+      _buildFileTreeFromCache: async (workspaceId?: string): Promise<FileNode[]> => {
+        try {
+          const files = await getAllFiles(workspaceId);
+
+          // Normalize and sort paths so directories come before children
+          const map: Record<string, FileNode> = {};
+          const roots: FileNode[] = [];
+
+          function ensureNode(pathSegments: string[], fullPath: string): FileNode {
+            const nodePath = fullPath;
+            if (map[nodePath]) return map[nodePath];
+
+            const name = pathSegments[pathSegments.length - 1] || '';
+            const node: FileNode = { id: `node-${nodePath}`, name, path: nodePath, type: FileNodeType.Folder, children: [] };
+            map[nodePath] = node;
+            return node;
+          }
+
+          for (const f of files) {
+            const raw = f.path || '';
+            const normalized = raw.replace(/^\/*/, '').replace(/\/*$/, '');
+            const parts = normalized === '' ? [] : normalized.split('/');
+
+            // Build parent folders
+            let accum = '';
+            let parent: FileNode | null = null;
+            for (let i = 0; i < parts.length; i++) {
+              accum = parts.slice(0, i + 1).join('/');
+              const node = map[accum] || ensureNode(parts.slice(0, i + 1), accum);
+              if (i === 0) {
+                if (!roots.find(r => r.path === node.path)) roots.push(node);
+              }
+              if (parent && parent.children) {
+                if (!parent.children.find(c => c.path === node.path)) parent.children.push(node);
+              }
+              parent = node;
+            }
+
+            // If file is a directory, ensure it exists
+            if (f.type === FileType.Dir) {
+              const dirPath = normalized;
+              if (!map[dirPath]) {
+                const dirNode = ensureNode(parts.length ? parts : [''], dirPath);
+                if (!parent && dirNode && !roots.find(r => r.path === dirNode.path)) roots.push(dirNode);
+              }
+              continue;
+            }
+
+            // It's a file - create a file node under parent
+            const fileName = parts[parts.length - 1] || f.name;
+            const filePath = normalized;
+            const fileNode: FileNode = { id: f.id, name: fileName, path: filePath, type: FileNodeType.File };
+
+            if (parent) {
+              parent.children = parent.children || [];
+              if (!parent.children.find(c => c.path === fileNode.path)) parent.children.push(fileNode);
+            } else {
+              // file at root
+              if (!roots.find(r => r.path === fileNode.path)) roots.push(fileNode);
+            }
+          }
+
+          // Remove any duplicates and ensure children arrays exist
+          function tidy(list: FileNode[]): FileNode[] {
+            return list.map(n => ({ ...n, children: n.children && n.children.length ? tidy(n.children) : [] }));
+          }
+
+          return tidy(roots);
+        } catch (e) {
+          console.error('Failed to build file tree from cache', e);
+          return [];
         }
       },
 
@@ -189,20 +254,12 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
       openLocalDirectory: async (workspaceId?: string) => {
         try {
           set({ isLoadingLocalFiles: true });
-
-          const result = await openLocalDir(workspaceId);
-
-          set({
-            fileTree: result.fileTree,
-            expandedFolders: new Set(),
-            currentDirectoryName: result.name,
-            currentDirectoryPath: result.path,
-          });
+          // Local FS access is intentionally disabled for UI — use RxDB cache only
+          await get().refreshFileTree();
+          const activeWs = useWorkspaceStore.getState().activeWorkspace?.();
+          set({ expandedFolders: new Set(), currentDirectoryName: activeWs?.name ?? null, currentDirectoryPath: '/' });
         } catch (error) {
-          if ((error as Error).name !== 'AbortError') {
-            console.error('Error opening directory:', error);
-            alert('Failed to open directory: ' + (error as Error).message);
-          }
+          console.error('Error opening directory (cache-only):', error);
         } finally {
           set({ isLoadingLocalFiles: false });
         }
@@ -216,23 +273,11 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
       restoreLocalDirectory: async (workspaceId: string): Promise<boolean> => {
         try {
           set({ isLoadingLocalFiles: true });
-
-          const result = await restoreLocalDir(workspaceId);
-
-          if (!result) {
-            return false;
-          }
-
-          set({
-            fileTree: result.fileTree,
-            expandedFolders: new Set(),
-            currentDirectoryName: result.name,
-            currentDirectoryPath: result.path,
-          });
-
+          // Restoration via FS API is disabled; fall back to cache
+          await get().refreshFileTree();
           return true;
         } catch (error) {
-          console.error('Error restoring directory:', error);
+          console.error('Error restoring directory (cache-only):', error);
           return false;
         } finally {
           set({ isLoadingLocalFiles: false });
@@ -246,22 +291,11 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
       requestPermissionForWorkspace: async (workspaceId: string): Promise<boolean> => {
         try {
           set({ isLoadingLocalFiles: true });
-
-          const { promptPermissionAndRestore } = await import('./helpers/directory-handler');
-
-          const result = await promptPermissionAndRestore(workspaceId);
-          if (!result) return false;
-
-          set({
-            fileTree: result.fileTree,
-            expandedFolders: new Set(),
-            currentDirectoryName: result.name,
-            currentDirectoryPath: result.path,
-          });
-
+          // Permissions for FS API are intentionally not used; use cache instead
+          await get().refreshFileTree();
           return true;
         } catch (error) {
-          console.error('Error requesting permission for workspace:', error);
+          console.error('Error requesting permission (cache-only):', error);
           return false;
         } finally {
           set({ isLoadingLocalFiles: false });
@@ -276,16 +310,11 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
       createFile: async (parentPath: string, fileName: string) => {
         try {
           const filePath = parentPath ? `${parentPath}/${fileName}` : fileName;
-          await createFileOp(parentPath, fileName);
-
-          const activeWs = useWorkspaceStore.getState().activeWorkspace();
-          if (activeWs && activeWs.type === WorkspaceType.Local) {
-            await get()._updateFileTreeForDirectory(parentPath || '');
-          } else {
-            await get().refreshFileTree();
-          }
+          const activeWs = useWorkspaceStore.getState().activeWorkspace?.();
+          await saveFile(filePath, '', activeWs?.type ?? WorkspaceType.Browser, { mimeType: 'text/markdown' }, activeWs?.id);
+          await get()._updateFileTreeForDirectory(parentPath || '');
         } catch (error) {
-          console.error('Error creating file:', error);
+          console.error('Error creating file (cache-only):', error);
           throw error;
         }
       },
@@ -298,16 +327,11 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
       createFolder: async (parentPath: string, folderName: string) => {
         try {
           const folderPath = parentPath ? `${parentPath}/${folderName}` : folderName;
-          await createFolderOp(parentPath, folderName);
-
-          const activeWs = useWorkspaceStore.getState().activeWorkspace();
-          if (activeWs && activeWs.type === WorkspaceType.Local) {
-            await get()._updateFileTreeForDirectory(parentPath || '');
-          } else {
-            await get().refreshFileTree();
-          }
+          const activeWs = useWorkspaceStore.getState().activeWorkspace?.();
+          await createDirectory(folderPath, activeWs?.type ?? WorkspaceType.Browser, activeWs?.id);
+          await get()._updateFileTreeForDirectory(parentPath || '');
         } catch (error) {
-          console.error('Error creating folder:', error);
+          console.error('Error creating folder (cache-only):', error);
           throw error;
         }
       },
@@ -315,17 +339,13 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
       /** Renames a file or folder */
       renameNode: async (nodePath: string, newName: string) => {
         try {
-          await renameNodeOp(nodePath, newName);
-
           const parentPath = nodePath.includes('/') ? nodePath.replace(/\/[^\/]+$/, '') : '';
-          const activeWs = useWorkspaceStore.getState().activeWorkspace();
-          if (activeWs && activeWs.type === WorkspaceType.Local) {
-            await get()._updateFileTreeForDirectory(parentPath || '');
-          } else {
-            await get().refreshFileTree();
-          }
+          const newPath = parentPath ? `${parentPath}/${newName}` : newName;
+          const activeWs = useWorkspaceStore.getState().activeWorkspace?.();
+          await renameFile(nodePath, newPath, activeWs?.id);
+          await get()._updateFileTreeForDirectory(parentPath || '');
         } catch (error) {
-          console.error('Error renaming:', error);
+          console.error('Error renaming (cache-only):', error);
           throw error;
         }
       },
@@ -337,17 +357,12 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
        */
       deleteNode: async (nodePath: string, isFolder: boolean) => {
         try {
-          await deleteNodeOp(nodePath, isFolder);
-
+          const activeWs = useWorkspaceStore.getState().activeWorkspace?.();
+          await deleteFile(nodePath, activeWs?.id);
           const parentPath = nodePath.includes('/') ? nodePath.replace(/\/[^\/]+$/, '') : '';
-          const activeWs = useWorkspaceStore.getState().activeWorkspace();
-          if (activeWs && activeWs.type === WorkspaceType.Local) {
-            await get()._updateFileTreeForDirectory(parentPath || '');
-          } else {
-            await get().refreshFileTree();
-          }
+          await get()._updateFileTreeForDirectory(parentPath || '');
         } catch (error) {
-          console.error('Error deleting:', error);
+          console.error('Error deleting (cache-only):', error);
           throw error;
         }
       },
@@ -387,102 +402,30 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
           return;
         }
 
-        // For browser workspaces, load from RxDB
-        if (activeWorkspace.type === WorkspaceType.Browser) {
-          if (activeWorkspace.id === 'verve-samples') {
-            // Special case: Load sample files for samples workspace
-            try {
-              const fileTree = await buildSamplesFileTree();
-              set({ fileTree, currentDirectoryName: 'Verve Samples', currentDirectoryPath: '/samples' });
-            } catch (e) {
-              console.error('Failed to load verve-samples workspace files', e);
-              set({ fileTree: [], currentDirectoryName: 'Verve Samples', currentDirectoryPath: '/samples' });
-            }
-          } else {
-            // Other browser workspaces: Load from RxDB cache
-            try {
-              const fileTree = await buildFileTreeFromAdapter(
-                null,  // No FileManager needed, uses RxDB
-                '',
-                '',
-                activeWorkspace.type,
-                activeWorkspace.id
-              );
-              set({
-                fileTree,
-                currentDirectoryName: activeWorkspace.name,
-                currentDirectoryPath: '/'
-              });
-            } catch (e) {
-              console.error('Failed to load browser workspace files', e);
-              set({ fileTree: [], currentDirectoryName: activeWorkspace.name, currentDirectoryPath: '/' });
-            }
+        // For all workspace types use RxDB cache as the single source of truth
+        if (activeWorkspace.type === WorkspaceType.Browser && activeWorkspace.id === 'verve-samples') {
+          try {
+            const fileTree = await buildSamplesFileTree();
+            set({ fileTree, currentDirectoryName: 'Verve Samples', currentDirectoryPath: '/samples' });
+          } catch (e) {
+            console.error('Failed to load verve-samples workspace files', e);
+            set({ fileTree: [], currentDirectoryName: 'Verve Samples', currentDirectoryPath: '/samples' });
           }
           return;
         }
 
-        // For local workspace, try to use an active directory handle, else attempt
-        // a non-prompt restore from IndexedDB. We must NOT call requestPermission
-        // during app reload (no user gesture) to avoid SecurityError.
-        if (activeWorkspace.type === WorkspaceType.Local) {
-          // If an in-memory handle exists, refresh it
-          if (hasLocalDirectory()) {
-            const fileTree = await refreshLocalDirectory();
-            if (fileTree) {
-              set({ fileTree, currentDirectoryName: activeWorkspace.name, currentDirectoryPath: '/' });
-              return;
-            }
-          }
-
-          // Attempt to restore a previously stored handle without prompting the user.
-          // This will only succeed if the permission was already granted in a prior session.
-          try {
-            const restored = await get().restoreLocalDirectory(activeWorkspace.id);
-            if (restored) return;
-          } catch (e) {
-            console.error('Error attempting non-prompt restore for local workspace', e);
-          }
-
-          // No available handle or permission - show empty tree and allow UI to prompt user
+        try {
+          const fileTree = await (get() as any)._buildFileTreeFromCache(activeWorkspace.id);
+          set({ fileTree, currentDirectoryName: activeWorkspace.name, currentDirectoryPath: '/' });
+        } catch (e) {
+          console.error('Failed to load workspace files from cache', e);
           set({ fileTree: [], currentDirectoryName: activeWorkspace.name, currentDirectoryPath: '/' });
-          return;
         }
-
-        // For Google Drive workspace: fetch and display all files from RxDB
-        if (activeWorkspace.type === WorkspaceType.Drive && activeWorkspace.driveFolder) {
-          set({ isSyncingDrive: true });
-          try {
-            const fileTree = await buildFileTreeFromAdapter(
-              null,  // No FileManager needed, uses RxDB
-              activeWorkspace.driveFolder,
-              'gdrive-',
-              activeWorkspace.type,
-              activeWorkspace.id
-            );
-
-            const rootName = activeWorkspace.name || 'Google Drive';
-            set({
-              fileTree,
-              currentDirectoryName: rootName,
-              currentDirectoryPath: activeWorkspace.driveFolder
-            });
-            return;
-          } catch (e) {
-            console.error('Failed to load Google Drive folder', e);
-            set({ fileTree: [] });
-            return;
-          } finally {
-            set({ isSyncingDrive: false });
-          }
-        }
-
-        // No matching workspace type - show empty
-        set({ fileTree: [], currentDirectoryName: null, currentDirectoryPath: null });
       },
 
       /** Clears the currently open local directory */
       clearLocalDirectory: () => {
-        clearLocalDirectory();
+        set({ fileTree: [], currentDirectoryName: null, currentDirectoryPath: null, expandedFolders: new Set() });
       },
     }),
     {

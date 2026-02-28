@@ -9,7 +9,7 @@ import { InlineInput } from "./inline-input";
 import { toast } from "@/shared/utils/toast";
 import { Button } from "@/shared/components/ui/button";
 import { useWorkspaceStore } from "@/core/store/workspace-store";
-import { loadFile as loadFileData } from "@/core/cache";
+import { loadFile as loadFileData, subscribeToFileChanges, getCachedFile, getDirtyFiles } from "@/core/cache";
 import { WorkspaceType } from '@/core/cache/types';
 
 interface FileTreeItemProps {
@@ -26,9 +26,55 @@ export function FileTreeItem({ node, level, parentNode }: FileTreeItemProps) {
   const [isRenaming, setIsRenaming] = useState(false);
   const [newItemType, setNewItemType] = useState<'file' | 'folder' | null>(null);
   const [isHovered, setIsHovered] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
 
   const isExpanded = expandedFolders.has(node.id);
   const isSelected = selectedFileId === node.id;
+
+  useEffect(() => {
+    let mounted = true;
+
+    const activeWs = useWorkspaceStore.getState().activeWorkspace?.();
+
+    // Initial check
+    (async () => {
+      try {
+        if (node.type === FileNodeType.File) {
+          const cached = await getCachedFile(node.id, activeWs?.id);
+          if (mounted) setIsDirty(!!(cached && (cached as any).dirty));
+        } else {
+          const dirty = await getDirtyFiles(activeWs?.id);
+          const any = dirty.some((f) => (f.path || '').replace(/^\/*/, '').startsWith((node.path || '').replace(/^\/*/, '')));
+          if (mounted) setIsDirty(any);
+        }
+      } catch (err) {
+        // ignore
+      }
+    })();
+
+    const unsub = subscribeToFileChanges((files: any[]) => {
+      try {
+        if (node.type === FileNodeType.File) {
+          const found = files.find((f) => String(f.id) === String(node.id) || f.path === node.path);
+          setIsDirty(!!(found && found.dirty));
+        } else {
+          const any = files.some((f) => (f.path || '').replace(/^\/*/, '').startsWith((node.path || '').replace(/^\/*/, '')) && f.dirty);
+          setIsDirty(any);
+        }
+      } catch (err) {
+        // ignore
+      }
+    });
+
+    return () => {
+      try {
+        if (typeof unsub === 'function') unsub();
+      } catch (e) {
+        // ignore
+      }
+      mounted = false;
+    };
+  }, [node.id, node.path, node.type]);
 
   // Get sibling names for duplicate checking
   const getSiblingNames = (): string[] => {
@@ -344,6 +390,11 @@ export function FileTreeItem({ node, level, parentNode }: FileTreeItemProps) {
             </>
           )}
           <span className="text-sm truncate flex-1">{node.name}</span>
+
+          {/* Dirty indicator: small yellow dot for active-workspace dirty files/folders */}
+          {isDirty && (
+            <span className="ml-2 mr-1 h-2 w-2 rounded-full bg-yellow-400 inline-block" aria-label="unsynced" />
+          )}
 
           {/* Folder hover actions - VSCode style */}
           {node.type === "folder" && isHovered && (

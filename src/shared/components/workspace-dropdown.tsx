@@ -35,7 +35,7 @@ import { useFileExplorerStore } from "@/features/file-explorer/store/file-explor
 import { cn } from "@/shared/utils/cn";
 import { toast } from "@/shared/utils/toast";
 import { WorkspaceTypePicker } from "@/shared/components/workspace-type-picker";
-import { requestDriveAccessToken } from "@/core/auth/google";
+// UI uses RxDB cache only; do not call external adapters or auth flows here
 
 interface WorkspaceDropdownProps {
   className?: string;
@@ -84,24 +84,7 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
       try {
         // Clear any previously selected file so selection doesn't point to another workspace's file
         setSelectedFile(null);
-
-        // Clear any stale local directory handle first
-        clearLocalDirectory();
-
-        if (currentWorkspace.type === WorkspaceType.Local) {
-          const restored = await restoreLocalDirectory(currentWorkspace.id);
-          if (!restored) {
-            console.warn('Failed to restore local directory on mount');
-            // Don't show error toast on mount, user will see empty tree
-          }
-          } else if (currentWorkspace.type === WorkspaceType.Drive && currentWorkspace.driveFolder) {
-          // Set the Google Drive folder for this workspace
-          if (setGoogleFolder) {
-            setGoogleFolder(currentWorkspace.driveFolder);
-          }
-        }
-
-        // Always refresh file tree to ensure it reflects the current workspace
+        // Refresh file tree from RxDB cache (UI no longer uses direct adapter access)
         await refreshFileTree();
       } catch (error) {
         console.error('Error restoring workspace on mount:', error);
@@ -149,99 +132,18 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
 
     try {
       if (selectedWorkspaceType === WorkspaceType.Local) {
-        // For local workspace, open directory picker first and create workspace using same id
+        // Create a local workspace entry — UI does not perform filesystem access
         const newWorkspaceId = `local-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        await openLocalDirectory(newWorkspaceId);
-        // Create workspace with the selected directory using the same id so stored directory handle matches
         createWorkspace(newWorkspaceName, WorkspaceType.Local, { id: newWorkspaceId });
-        toast.success("Local workspace created successfully!");
+        toast.success("Local workspace created (cache-only)");
       } else if (selectedWorkspaceType === WorkspaceType.Drive) {
-        // For Google Drive workspace, authenticate and create folder
-        try {
-          const token = await requestDriveAccessToken(true);
-          if (!token) {
-            toast.error("Failed to authenticate with Google Drive");
-            return;
-          }
-
-          // Create a folder in Google Drive for this workspace
-          const metadata = {
-            name: `Verve - ${newWorkspaceName}`,
-            mimeType: 'application/vnd.google-apps.folder'
-          };
-
-          const response = await fetch('https://www.googleapis.com/drive/v3/files', {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(metadata)
-          });
-
-          if (!response.ok) {
-            throw new Error('Failed to create Google Drive folder');
-          }
-
-          const folder = await response.json();
-
-          // Create workspace with the Google Drive folder ID
-          createWorkspace(newWorkspaceName, WorkspaceType.Drive, { driveFolder: folder.id });
-
-          // Set the folder in file explorer
-          if (setGoogleFolder) {
-            setGoogleFolder(folder.id);
-          }
-          // Refresh file tree so the newly created (empty) Drive workspace is shown
-          try {
-            await refreshFileTree();
-          } catch (e) {
-            console.warn('Failed to refresh file tree after creating Drive workspace', e);
-          }
-
-          // Create default verve.md file in the Drive folder
-          try {
-            const fileMetadata = {
-              name: 'verve.md',
-              parents: [folder.id],
-              mimeType: 'text/markdown'
-            };
-            const fileContent = '# Verve';
-            const form = new FormData();
-            form.append('metadata', new Blob([JSON.stringify(fileMetadata)], { type: 'application/json' }));
-            form.append('file', new Blob([fileContent], { type: 'text/markdown' }));
-
-            await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-              method: 'POST',
-              headers: { Authorization: `Bearer ${token}` },
-              body: form
-            });
-
-            // Refresh file tree to show the new file
-            try {
-              await refreshFileTree();
-            } catch (e) {
-              console.warn('Failed to refresh file tree after creating default file', e);
-            }
-
-            // Pre-cache files - they're already in RxDB so no need for explicit pre-caching
-          } catch (err) {
-            console.warn('Failed to create default verve.md file:', err);
-          }
-
-          toast.success("Google Drive workspace created successfully!");
-        } catch (error) {
-          console.error('Error creating Google Drive workspace:', error);
-          toast.error("Failed to create Google Drive workspace", (error as Error).message);
-          return;
-        }
+        // Create a Drive workspace entry — do not call Google APIs from UI
+        createWorkspace(newWorkspaceName, WorkspaceType.Drive, {});
+        toast.success("Drive workspace created (cache-only)");
       } else {
         // Browser workspace
         const workspaceId = `${WorkspaceType.Browser}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         createWorkspace(newWorkspaceName, WorkspaceType.Browser, { id: workspaceId });
-
-        // Default file creation handled by workspace store for browser workspaces
-        // Refresh file tree so the new file appears when ready
         try {
           await refreshFileTree();
         } catch (e) {
@@ -272,52 +174,23 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
     setIsSwitching(true);
 
     // Wrap the entire switching flow with runWithLoading so the global AppLoader
-    // remains visible until refresh and pre-caching complete.
+    // remains visible until refresh completes.
     await runWithLoading(async () => {
       try {
         // Clear selection immediately so it doesn't point to a file from the previous workspace
         setSelectedFile(null);
-
-        // Always clear local directory handle before switching workspaces
-        // This ensures we start fresh with the new workspace
-        clearLocalDirectory();
-
-        // Switch the active workspace in the store first (this will reload tabs with fresh content)
+        // Switch the active workspace in the store
         await switchWorkspace(workspace.id);
 
-        // If switching to a local workspace, try to restore the directory handle
-        if (workspace.type === WorkspaceType.Local) {
-          const restored = await restoreLocalDirectory(workspace.id);
-          if (!restored) {
-            // Try prompting the user (this is a user-initiated click) to re-grant permission
-            try {
-              const granted = await requestPermissionForWorkspace(workspace.id);
-              if (!granted) {
-                toast.error("Failed to restore local directory. Please select the directory again.");
-              }
-            } catch (err) {
-              console.error('Permission prompt failed:', err);
-              toast.error("Failed to restore local directory. Please select the directory again.");
-            }
-            // Still continue with workspace switch, refresh will show empty tree if not granted
-          }
-        } else if (workspace.type === WorkspaceType.Drive && workspace.driveFolder) {
-          // Try to obtain a non-interactive Drive token so switching doesn't require re-auth
-          try {
-            await requestDriveAccessToken(false);
-          } catch (err) {
-            // Non-interactive token request may fail if no prior grant exists; ignore here
-            console.warn('Non-interactive Drive token request failed (no prior grant?):', err);
-          }
-
-          // Set the Google Drive folder for this workspace
-          if (setGoogleFolder) {
-            setGoogleFolder(workspace.driveFolder);
-          }
-        }
-
-        // Refresh file tree for the newly active workspace
+        // Refresh file tree for the newly active workspace from RxDB cache
         await refreshFileTree();
+
+        // Inform user that adapter integrations are disabled in the UI
+        if (workspace.type === WorkspaceType.Local) {
+          toast.info('Local workspace opened (cache-only). Direct filesystem access is disabled in the UI.');
+        } else if (workspace.type === WorkspaceType.Drive) {
+          toast.info('Drive workspace opened (cache-only). Direct Google Drive sync is disabled in the UI.');
+        }
 
         // Files are already in RxDB cache, no need for explicit pre-caching
 
@@ -354,15 +227,7 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
       return;
     }
     
-    // Remove directory handle from IndexedDB if it's a local workspace
-    if (workspaceToDelete.type === WorkspaceType.Local) {
-      import('@/shared/utils/idb-storage').then(({ removeDirectoryHandle }) => {
-        removeDirectoryHandle(workspaceToDelete.id).catch((error) => {
-          console.error('Failed to remove directory handle:', error);
-        });
-      });
-    }
-
+    // Delete workspace entry; do not remove external storage from UI code
     deleteWorkspace(workspaceToDelete.id);
 
     // Refresh file tree to reflect the active workspace
@@ -496,7 +361,7 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
               Give your {selectedWorkspaceType === WorkspaceType.Browser ? 'browser' : selectedWorkspaceType === WorkspaceType.Local ? 'local' : 'Google Drive'} workspace a name.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+            <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="workspace-name">Workspace Name</Label>
               <Input
@@ -515,8 +380,8 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
               {selectedWorkspaceType === WorkspaceType.Browser
                 ? 'Your workspace will be saved in browser storage and available on this device.'
                 : selectedWorkspaceType === WorkspaceType.Local
-                  ? 'Your workspace will connect to a folder on your computer for file access.'
-                  : 'Your workspace will sync files with a Google Drive folder.'
+                  ? 'Your workspace will be created as a local workspace (UI uses RxDB cache only; direct local filesystem access is disabled).'
+                  : 'Your workspace will be created as a Drive workspace (UI uses RxDB cache only; direct Google Drive sync is disabled).'
               }
             </div>
           </div>

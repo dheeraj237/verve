@@ -133,6 +133,15 @@ export function SearchBar({ className }: SearchBarProps) {
         description: 'Browse and open a local folder',
         icon: <FolderOpen className="h-4 w-4" />,
         action: () => {
+          // Local folder picker is disabled in the UI; inform the user
+          // and refresh the file tree from the RxDB cache instead.
+          import('@/shared/utils/toast').then(({ toast }) => {
+            toast.info('Local folder access is disabled. Use Import or add files to the workspace.');
+          }).catch(() => {
+            // Fallback if dynamic import fails
+            // @ts-ignore
+            window.alert('Local folder access is disabled. Use Import or add files to the workspace.');
+          });
           openLocalDirectory();
           setIsOpen(false);
           setSearchQuery("");
