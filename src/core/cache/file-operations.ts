@@ -231,7 +231,14 @@ async function saveSyncFile(
     lastModified: Date.now(),
       dirty: String(workspaceType) !== WorkspaceType.Browser, // Mark dirty for sync-requiring workspaces
   };
-  
+  // Log save operation for observability (path + small content preview)
+  try {
+    const preview = typeof content === 'string' ? content.slice(0, 200) : '';
+    console.info(`[RxDB] saveFile path='${path}' workspaceType='${workspaceType}' workspaceId='${workspaceId}' contentPreview='${preview.replace(/\n/g, '\\n')}'`);
+  } catch (e) {
+    console.warn('[RxDB] saveFile logging failed', e);
+  }
+
   await upsertCachedFile(cachedFile);
   // NOTE: External I/O (File System Access API, adapter writes) is handled
   // centrally by SyncManager/adapters. `file-operations` is RxDB-only and
@@ -338,7 +345,14 @@ async function createDirectorySync(path: string, workspaceType: WorkspaceType = 
     lastModified: Date.now(),
     dirty: String(workspaceType) !== WorkspaceType.Browser,
   };
-  
+
+  // Log directory creation
+  try {
+    console.info(`[RxDB] createDirectory path='${path}' workspaceType='${workspaceType}' workspaceId='${workspaceId}'`);
+  } catch (e) {
+    console.warn('[RxDB] createDirectory logging failed', e);
+  }
+
   await upsertCachedFile(dir);
   // NOTE: Local filesystem directory creation is handled by SyncManager/adapters.
   // `file-operations` only updates RxDB collections.

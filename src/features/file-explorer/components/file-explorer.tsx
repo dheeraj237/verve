@@ -106,17 +106,29 @@ export function FileExplorer() {
       let rootPath = '';
       const currentWorkspace = activeWorkspace();
 
-      if (currentDirectoryPath && currentDirectoryPath !== '/') {
-        // If there is an explicit opened directory path, use it
-        rootPath = currentDirectoryPath;
-      } else if (fileTree.length > 0) {
-      // Fallback: if there are files, use the first node's path
-        rootPath = fileTree[0]?.path || '';
-      } else if (currentWorkspace?.type === WorkspaceType.Drive && currentWorkspace.driveFolder) {
-        // For empty Drive workspace, use the drive folder ID
+      // Top-level create from the explorer header should always create at
+      // the workspace root. For Drive workspaces, use the configured
+      // `driveFolder` as the root; otherwise use empty string.
+      if (currentWorkspace?.type === WorkspaceType.Drive && currentWorkspace.driveFolder) {
         rootPath = currentWorkspace.driveFolder;
+      } else {
+        rootPath = '';
       }
       // For browser and local, empty string is fine
+
+      // Defensive: if the computed rootPath points to a file node (e.g. tree contains
+      // a top-level file like 'verve.md'), treat header creates as root (empty '')
+      // to avoid creating under that file (e.g. 'verve.md/newfile.md').
+      const isFileAtRoot = fileTree.some(n => n.type === 'file' && (n.path === rootPath || n.path === `/${rootPath}`));
+      if (isFileAtRoot) {
+        rootPath = '';
+      }
+
+      // Log selected parent path and expected path for debugging
+      const expected = rootPath ? `${rootPath}/${name}` : name;
+      console.info(`[FileExplorer] Creating ${itemType} - parent: '${rootPath}', name: '${name}', expectedPath: '${expected}'`);
+
+      // (No DOM event emitted here — console.info above is sufficient for debugging)
 
       if (newItemType === 'file') {
         await createFile(rootPath, name);

@@ -130,9 +130,28 @@ function buildTreeFromFlatPaths(files: FileMetadata[], idPrefix: string = ''): F
       const folderEntry = currentLevel.get(part);
       // If an entry exists but is a file, we have a path conflict like '/verve.md' vs '/verve.md/nested.md'
       if (folderEntry && folderEntry.isFolder === false) {
-        console.warn('Path conflict: expected folder but found file at:', `/${currentPath}`);
-        // Skip adding this nested path (don't create a directory under a file)
-        return;
+        // Convert the existing file entry into a folder so nested paths can be represented.
+        // Preserve the original file as a child entry inside the newly-created folder.
+        const existingFile = folderEntry;
+        const childrenMap = new Map();
+        // Move the original file into the new folder's children
+        const originalFileName = existingFile.metadata?.name || part;
+        childrenMap.set(originalFileName, {
+          isFolder: false,
+          path: existingFile.path,
+          metadata: existingFile.metadata,
+        });
+
+        // Replace the file entry with a folder entry that contains the moved file
+        currentLevel.set(part, {
+          isFolder: true,
+          path: `/${currentPath}`,
+          children: childrenMap,
+        });
+
+        // Continue traversal into the newly-created folder
+        currentLevel = childrenMap;
+        continue;
       }
 
       if (!folderEntry || !folderEntry.children) {

@@ -260,10 +260,15 @@ export function FileTreeItem({ node, level, parentNode }: FileTreeItemProps) {
     const toastId = toast.loading(`Creating ${itemType.toLowerCase()}...`, name);
 
     try {
+      // Log the selected parent path and expected final path for debugging
+      const parentPath = node.path || '';
+      const expectedPath = parentPath ? `${parentPath}/${name}` : name;
+      console.info(`[FileExplorer] Creating ${itemType} - parent: '${parentPath}', name: '${name}', expectedPath: '${expectedPath}'`);
+
       if (newItemType === 'file') {
-        await createFile(node.path, name);
+        await createFile(parentPath, name);
       } else if (newItemType === 'folder') {
-        await createFolder(node.path, name);
+        await createFolder(parentPath, name);
       }
       toast.dismiss(toastId);
     } catch (error) {
