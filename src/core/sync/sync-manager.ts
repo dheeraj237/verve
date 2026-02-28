@@ -75,6 +75,10 @@ export class SyncManager {
   private pullInterval: ReturnType<typeof setInterval> | null = null;
   private periodicPullIntervalMs = 60000; // 1 minute
   private queueProcessInterval: ReturnType<typeof setInterval> | null = null;
+  // Temporary safety switch: when false, skip pulling remote content after a successful push.
+  // This hard-coded flag addresses the immediate issue where any file update triggered pulls
+  // across all adapters/workspaces. Set to `true` to re-enable pull-after-push behavior.
+  private pullAfterPush = false;
 
   constructor(private batchSize = 5) {}
 
@@ -336,18 +340,19 @@ export class SyncManager {
         return;
       }
 
-      // Try to push to each adapter
+      // Try to push to the adapter matching the file's workspace type only.
+      // Adapter naming convention: WorkspaceType.Drive -> 'gdrive', otherwise string(workspaceType)
       let pushed = false;
-      for (const adapter of this.adapters.values()) {
-        try {
-          const success = await this.pushWithRetry(adapter, file, content);
-          if (success) {
-            pushed = true;
-            break; // Success, don't try other adapters
-          }
-        } catch (error) {
-          console.warn(`Failed to push to ${adapter.name}:`, error);
+      try {
+        const adapterName = (file.workspaceType === WorkspaceType.Drive || String(file.workspaceType) === 'drive') ? 'gdrive' : String(file.workspaceType);
+        const targetAdapter = this.adapters.get(adapterName);
+        if (targetAdapter) {
+          pushed = await this.pushWithRetry(targetAdapter, file, content);
+        } else {
+          console.warn(`No adapter registered for file workspace type: ${file.workspaceType}`);
         }
+      } catch (err) {
+        console.warn('Error while attempting push to matching adapter:', err);
       }
 
       if (pushed) {
@@ -360,15 +365,28 @@ export class SyncManager {
       }
 
       // Try to pull from each adapter (overwrite local content for now)
-      for (const adapter of this.adapters.values()) {
+      // Controlled by `pullAfterPush` flag: when false, skip pulls to avoid
+      // indiscriminately pulling workspaces/adapters on every file update.
+      if (this.pullAfterPush) {
         try {
-          const remoteContent = await adapter.pull(fileId);
-          if (remoteContent) {
-            // Delegate to merge strategy instead of blind overwrite
-            await this.mergeStrategy.handlePull(file, remoteContent);
+          const activeWorkspace = useWorkspaceStore.getState().activeWorkspace?.();
+          // Only pull if the file belongs to the active workspace
+          if (activeWorkspace && String(activeWorkspace.id) === String(file.workspaceId)) {
+            const adapterName = (activeWorkspace.type === WorkspaceType.Drive || String(activeWorkspace.type) === 'drive') ? 'gdrive' : String(activeWorkspace.type);
+            const targetAdapter = this.adapters.get(adapterName);
+            if (targetAdapter && typeof targetAdapter.pull === 'function') {
+              try {
+                const remoteContent = await targetAdapter.pull(fileId);
+                if (remoteContent) {
+                  await this.mergeStrategy.handlePull(file, remoteContent);
+                }
+              } catch (error) {
+                console.warn(`Failed to pull from ${targetAdapter.name}:`, error);
+              }
+            }
           }
-        } catch (error) {
-          console.warn(`Failed to pull from ${adapter.name}:`, error);
+        } catch (err) {
+          console.warn('Error during conditional pull-after-push:', err);
         }
       }
     } catch (error) {
