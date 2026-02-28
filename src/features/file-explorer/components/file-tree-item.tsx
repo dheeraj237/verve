@@ -23,6 +23,10 @@ export function FileTreeItem({ node, level, parentNode }: FileTreeItemProps) {
     useFileExplorerStore();
   const { openFile, setIsLoading } = useEditorStore();
 
+  // Selectors used during render - keep at top-level to avoid conditional hooks
+  const getChildrenSelector = useFileExplorerStore(state => state.getChildren);
+  const fileMapSelector = useFileExplorerStore(state => state.fileMap);
+
   const [isRenaming, setIsRenaming] = useState(false);
   const [newItemType, setNewItemType] = useState<'file' | 'folder' | null>(null);
   const [isHovered, setIsHovered] = useState(false);
@@ -40,7 +44,7 @@ export function FileTreeItem({ node, level, parentNode }: FileTreeItemProps) {
     (async () => {
       try {
         if (node.type === FileNodeType.File) {
-          const cached = await getCachedFile(node.id, activeWs?.id);
+          const cached = await getCachedFile(node.path || node.id, activeWs?.id);
           if (mounted) setIsDirty(!!(cached && (cached as any).dirty));
         } else {
           const dirty = await getDirtyFiles(activeWs?.id);
@@ -55,7 +59,7 @@ export function FileTreeItem({ node, level, parentNode }: FileTreeItemProps) {
     const unsub = subscribeToFileChanges((files: any[]) => {
       try {
         if (node.type === FileNodeType.File) {
-          const found = files.find((f) => String(f.id) === String(node.id) || f.path === node.path);
+          const found = files.find((f) => String(f.path) === String(node.path) || String(f.id) === String(node.id));
           setIsDirty(!!(found && found.dirty));
         } else {
           const any = files.some((f) => (f.path || '').replace(/^\/*/, '').startsWith((node.path || '').replace(/^\/*/, '')) && f.dirty);
@@ -178,10 +182,10 @@ export function FileTreeItem({ node, level, parentNode }: FileTreeItemProps) {
           throw new Error('No Google Drive workspace active');
         }
 
-        const fileData = await loadFileData(node.path, WorkspaceType.GDrive);
+        const fileData = await loadFileData(node.path, WorkspaceType.GDrive, activeWorkspace?.id);
 
         openFile({
-          id: node.id,
+          id: fileData?.id || node.id,
           path: node.path,
           name: node.name,
           content: fileData.content,
@@ -189,10 +193,10 @@ export function FileTreeItem({ node, level, parentNode }: FileTreeItemProps) {
         });
       } else if (node.id.startsWith('samples-') && activeWorkspace?.id === 'verve-samples') {
         // Load from verve-samples workspace from RxDB cache
-        const fileData = await loadFileData(node.path, WorkspaceType.Browser);
+        const fileData = await loadFileData(node.path, WorkspaceType.Browser, activeWorkspace?.id);
 
         openFile({
-          id: node.id,
+          id: fileData?.id || node.id,
           path: node.path,
           name: node.name,
           content: fileData.content,
@@ -200,10 +204,10 @@ export function FileTreeItem({ node, level, parentNode }: FileTreeItemProps) {
         });
       } else if (activeWorkspace?.type === WorkspaceType.Browser && activeWorkspace.id !== 'verve-samples') {
         // Browser workspace (non-samples) - load from RxDB cache
-        const fileData = await loadFileData(node.path, WorkspaceType.Browser);
+        const fileData = await loadFileData(node.path, WorkspaceType.Browser, activeWorkspace?.id);
 
         openFile({
-          id: node.id,
+          id: fileData?.id || node.id,
           path: node.path,
           name: node.name,
           content: fileData.content,
@@ -458,8 +462,8 @@ export function FileTreeItem({ node, level, parentNode }: FileTreeItemProps) {
 
           {/* Render children */}
           {(() => {
-            const childrenIds = useFileExplorerStore(state => state.getChildren(node.id));
-            const map = useFileExplorerStore(state => state.fileMap);
+            const childrenIds = getChildrenSelector(node.id);
+            const map = fileMapSelector;
             return childrenIds.map((cid) => {
               const childNode = map?.[cid];
               if (!childNode) return null;

@@ -377,9 +377,9 @@ async function createDirectorySync(path: string, workspaceType: WorkspaceType = 
 export async function listFiles(dirPath: string = '', workspaceId?: string): Promise<FileMetadata[]> {
   const db = await getCacheDB();
   
-  // Normalize path
-  const normalizedPath = dirPath === '/' || dirPath === '' ? '' : dirPath.replace(/\/$/, '');
-  
+  // Normalize requested directory path: strip trailing and leading slashes
+  const normalizedPath = (dirPath === '/' || dirPath === '') ? '' : dirPath.replace(/\/$/, '').replace(/^\//, '');
+
   // Query cached_files where path starts with dirPath
   const pattern = normalizedPath ? `${normalizedPath}/` : '';
   
@@ -391,12 +391,15 @@ export async function listFiles(dirPath: string = '', workspaceId?: string): Pro
   
   // Filter files that are direct children of the directory
   const children = allFiles.filter(file => {
-    if (!file.path.startsWith(pattern)) {
+    // Normalize stored file path to compare without leading slash
+    const storedPath = file.path ? (file.path.startsWith('/') ? file.path.slice(1) : file.path) : '';
+
+    if (!storedPath.startsWith(pattern)) {
       return false;
     }
-    
-    const relativePath = file.path.slice(pattern.length);
-    
+
+    const relativePath = storedPath.slice(pattern.length);
+
     // Only return direct children (no nested paths with /)
     return !relativePath.includes('/');
   });
@@ -472,9 +475,9 @@ export async function markFileSynced(fileId: string): Promise<void> {
   const file = await db.cached_files.findOne(fileId).exec();
   if (file) {
     await db.cached_files.upsert({
-      ...file.toJSON(),
+      ...(file.toJSON() as any),
       dirty: false,
-    });
+    } as any);
   }
 }
 
@@ -526,12 +529,12 @@ export async function switchWorkspaceType(newType: WorkspaceType): Promise<void>
   const allFiles = await db.cached_files.find().exec();
   
   for (const file of allFiles) {
-    const jsonFile = file.toJSON();
+    const jsonFile = file.toJSON() as any;
     await db.cached_files.upsert({
-      ...jsonFile,
+      ...(jsonFile as any),
       workspaceType: newType,
       dirty: String(newType) !== WorkspaceType.Browser, // Mark dirty for non-browser workspaces
-    });
+    } as any);
   }
 }
 

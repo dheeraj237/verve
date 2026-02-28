@@ -415,7 +415,7 @@ export async function getAllCachedFiles(pathPrefix?: string): Promise<CachedFile
       ? db.cached_files.find({ selector: { path: { $regex: `^${pathPrefix}` } } })
       : db.cached_files.find({});
     const docs = await query.exec();
-    return docs.map((doc) => doc.toJSON());
+    return docs.map((doc) => doc.toJSON() as unknown as CachedFile);
   } catch (error) {
     console.error('Failed to get cached files:', error);
     return [];
@@ -427,7 +427,7 @@ export async function getAllCachedFiles(pathPrefix?: string): Promise<CachedFile
 export function observeCachedFiles(callback: (docs: CachedFile[]) => void) {
   const db = getCacheDB();
   return db.cached_files.find().$.subscribe((docs) => {
-    callback(docs.map((doc) => doc.toJSON()));
+    callback(docs.map((doc) => doc.toJSON() as unknown as CachedFile));
   });
 }
 
@@ -442,7 +442,7 @@ export async function getDirtyCachedFiles(): Promise<CachedFile[]> {
   const db = getCacheDB();
   try {
     const docs = await db.cached_files.find({ selector: { dirty: true } }).exec();
-    return docs.map((doc) => doc.toJSON());
+    return docs.map((doc) => doc.toJSON() as unknown as CachedFile);
   } catch (error) {
     console.error('Failed to get dirty cached files:', error);
     return [];

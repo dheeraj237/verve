@@ -48,12 +48,39 @@ export function FileExplorer() {
           const demoFileTree = await initializeSamplesFileTree();
 
           if (demoFileTree && demoFileTree.length > 0) {
-            setFileTree(demoFileTree);
-            // Set default directory name for samples
-            if (!currentDirectoryName) {
-              setCurrentDirectory('Verve Samples', '/samples');
+              // Build a map (id -> node) and rootIds from the demo nodes so
+              // the UI can render roots using `rootIds` and `fileMap` similar
+              // to how `_buildFileTreeFromCache` populates them.
+              const map: Record<string, any> = {};
+              const rootIdsLocal: string[] = [];
+
+              function recurse(nodes: any[]) {
+                for (const node of nodes) {
+                  const copy = { ...node } as any;
+                  if (copy.children && copy.children.length) {
+                    const childIds = copy.children.map((c: any) => c.id);
+                    copy.children = childIds;
+                    map[copy.id] = copy;
+                    recurse(node.children || []);
+                  } else {
+                    delete copy.children;
+                    map[copy.id] = copy;
+                  }
+                }
+              }
+
+              recurse(demoFileTree);
+              demoFileTree.forEach(n => rootIdsLocal.push(n.id));
+
+              // Persist into store so roots/rendering works as expected
+              // Use the zustand setter exposed on the hook to set multiple fields
+              (useFileExplorerStore as any).setState({ fileTree: demoFileTree, fileMap: map, rootIds: rootIdsLocal });
+
+              // Set default directory name for samples
+              if (!currentDirectoryName) {
+                setCurrentDirectory('Verve Samples', '/samples');
+              }
             }
-          }
         }
         // For all other workspaces (including other browser workspaces),
         // the WorkspaceDropdown component will handle restoration via its useEffect
@@ -233,7 +260,7 @@ export function FileExplorer() {
             variant="ghost"
             size="icon"
             onClick={handleToggleCollapseExpand}
-            disabled={fileTree.length === 0}
+            disabled={rootsToRender.length === 0}
             className="h-5 w-5 hover:bg-sidebar-hover cursor-pointer"
             title={expandedFolders.size > 0 ? "Collapse All" : "Expand All"}
           >

@@ -52,7 +52,7 @@ export async function buildFileTreeFromAdapter(
 
     // Otherwise, use the simple flat mapping for adapters that return explicit folders
     const nodes: FileNode[] = filteredFiles.map((file: FileMetadata) => {
-      const isFolder = file.type === (FileType.Dir as any) || file.type === 'dir';
+      const isFolder = file.type === FileType.Dir;
 
       return {
         id: `${idPrefix}${file.id}`,

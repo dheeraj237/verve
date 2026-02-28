@@ -172,6 +172,8 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
         const activeWs = useWorkspaceStore.getState().activeWorkspace();
         if (!activeWs) return;
         try {
+          // Rebuild the canonical fileMap/rootIds by scanning the cache first.
+          // `_buildFileTreeFromCache` updates `fileMap` and `rootIds` in state as a side-effect
           const tree = await (get() as any)._buildFileTreeFromCache(activeWs.id);
 
           // If dirPath is root, replace whole tree
@@ -184,7 +186,10 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
           const currentTree = get().fileTree || [];
           const { tree: updatedTree, replaced } = get()._replaceChildrenInTree(currentTree, dirPath, tree);
           if (replaced) {
-            set({ fileTree: updatedTree });
+            // Ensure the canonical map/rootIds stay in sync with the rebuilt cache
+            const currentMap = get().fileMap;
+            const currentRootIds = get().rootIds;
+            set({ fileTree: updatedTree, fileMap: currentMap, rootIds: currentRootIds });
             return;
           }
 
@@ -294,6 +299,19 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
           }
 
           const tidyRoots = tidy(roots);
+          // Ensure directories are listed before files and sort alphabetically
+          function sortNodes(list: FileNode[]) {
+            list.sort((a, b) => {
+              if (a.type === FileNodeType.Folder && b.type === FileNodeType.File) return -1;
+              if (a.type === FileNodeType.File && b.type === FileNodeType.Folder) return 1;
+              return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
+            });
+            for (const n of list) {
+              if (n.children && n.children.length) sortNodes(n.children);
+            }
+          }
+
+          sortNodes(tidyRoots);
           buildMap(tidyRoots);
 
           // Persist map and root ids into state
@@ -455,7 +473,34 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
       /** Expands all folders in the tree */
       expandAll: () => {
         const state = get();
-        const allFolderIds = getAllFolderIds(state.fileTree);
+        // Prefer using the canonical `fileTree` if present, otherwise build
+        // folders list from `rootIds` + `fileMap` so expand all works when
+        // rendering uses `rootIds`/`fileMap` instead of `fileTree`.
+        let allFolderIds: string[] = [];
+
+        if (state.fileTree && state.fileTree.length > 0) {
+          allFolderIds = getAllFolderIds(state.fileTree);
+        } else {
+          // Walk the map starting at rootIds to collect folder ids
+          const visited = new Set<string>();
+          const map = state.fileMap || {};
+
+          function walkId(id?: string) {
+            if (!id || visited.has(id)) return;
+            visited.add(id);
+            const node = map[id];
+            if (!node) return;
+            if (node.type === 'folder') {
+              allFolderIds.push(node.id);
+              const children = (node as any).children || [];
+              for (const cid of children) walkId(cid);
+            }
+          }
+
+          const roots = state.rootIds || [];
+          for (const rid of roots) walkId(rid);
+        }
+
         set({ expandedFolders: new Set(allFolderIds) });
       },
 

@@ -21,14 +21,19 @@ export const cachedFileSchema: RxJsonSchema<CachedFile> = {
     size: { type: ['number', 'null'] },
     modifiedAt: { type: ['string', 'null'] },
     createdAt: { type: ['string', 'null'] },
+    // Legacy field used across the codebase for numeric timestamps
+    lastModified: { type: ['number', 'null'] },
     dirty: { type: 'boolean', default: false },
     isSynced: { type: 'boolean', default: true },
     version: { type: ['number', 'null'] },
     mimeType: { type: ['string', 'null'] },
-    workspaceType: { type: 'string', maxLength: 50, enum: ['browser', 'local', 'gdrive', 's3'] },
+    // Accept both 'drive' and 'gdrive' historically used by adapters
+    workspaceType: { type: 'string', maxLength: 50, enum: ['browser', 'local', 'drive', 'gdrive', 's3'] },
     workspaceId: { type: 'string', maxLength: 255 },
     content: { type: ['string', 'null'] },
-    meta: { type: ['object', 'null'] }
+    meta: { type: ['object', 'null'] },
+    // Many modules use `metadata` (not `meta`) — accept both shapes
+    metadata: { type: ['object', 'null'] }
   },
   required: ['id', 'name', 'path', 'type', 'workspaceType', 'dirty'],
   indexes: [['path'], ['workspaceType'], ['workspaceId']]
