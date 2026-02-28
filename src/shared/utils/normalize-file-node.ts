@@ -10,6 +10,7 @@ export type FileNode = {
   createdAt?: string;
   dirty?: boolean;
   synced?: boolean;
+  isSynced?: boolean;
   version?: number;
   mimeType?: string;
   meta?: Record<string, any>;
@@ -28,6 +29,7 @@ const KNOWN_KEYS = new Set([
   'createdAt',
   'dirty',
   'synced',
+  'isSynced',
   'version',
   'mimeType',
 ]);
@@ -61,7 +63,8 @@ export function normalizeToFileNode(raw: Record<string, any>): FileNode {
     modifiedAt: toISODate(raw.modifiedAt),
     createdAt: toISODate(raw.createdAt),
     dirty: raw.dirty === true,
-    synced: raw.synced === false ? false : true,
+    // Prefer explicit `isSynced`, fall back to legacy `synced` field
+    isSynced: raw.isSynced !== undefined ? raw.isSynced : (raw.synced === false ? false : true),
     version: raw.version !== undefined ? Number(raw.version) : undefined,
     mimeType: raw.mimeType !== undefined ? raw.mimeType : undefined,
     meta: {},

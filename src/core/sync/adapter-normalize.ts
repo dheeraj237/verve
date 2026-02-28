@@ -33,7 +33,7 @@ export function adapterEntryToCachedFile(
     modifiedAt: metadata?.modifiedTime ?? metadata?.modifiedAt ?? undefined,
     createdAt: metadata?.createdTime ?? metadata?.createdAt ?? undefined,
     dirty: false,
-    synced: true,
+    isSynced: true,
   } as CachedFile;
 
   if (isDirectory) {

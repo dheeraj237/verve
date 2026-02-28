@@ -16,7 +16,7 @@ describe('adapterEntryToCachedFile', () => {
     expect(out.meta).toBeDefined();
     expect(out.size).toBe(123);
     expect(out.dirty).toBe(false);
-    expect(out.synced).toBe(true);
+    expect(out.isSynced).toBe(true);
   });
 
   test('detects folders when mimeType indicates folder', () => {

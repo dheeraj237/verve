@@ -30,7 +30,7 @@ export type CachedFile = {
   modifiedAt?: string;
   createdAt?: string;
   dirty?: boolean; // Only relevant for 'local' and 'gdrive', not 'browser'
-  synced?: boolean;
+  isSynced?: boolean;
   version?: number;
   mimeType?: string;
   children?: string[];

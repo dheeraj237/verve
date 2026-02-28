@@ -7,7 +7,7 @@ import type { CachedFile } from './types';
  */
 export const cachedFileSchema: RxJsonSchema<CachedFile> = {
   title: 'cached_files schema',
-  version: 3,
+  version: 1,
   type: 'object',
   primaryKey: 'id',
   additionalProperties: false,
@@ -22,11 +22,11 @@ export const cachedFileSchema: RxJsonSchema<CachedFile> = {
     modifiedAt: { type: ['string', 'null'] },
     createdAt: { type: ['string', 'null'] },
     dirty: { type: 'boolean', default: false },
-    synced: { type: 'boolean', default: true },
+    isSynced: { type: 'boolean', default: true },
     version: { type: ['number', 'null'] },
     mimeType: { type: ['string', 'null'] },
     workspaceType: { type: 'string', maxLength: 50, enum: ['browser', 'local', 'gdrive', 's3'] },
-    workspaceId: { type: ['string', 'null'], maxLength: 255 },
+    workspaceId: { type: 'string', maxLength: 255 },
     content: { type: ['string', 'null'] },
     meta: { type: ['object', 'null'] }
   },
@@ -54,7 +54,7 @@ export const syncQueueSchema: RxJsonSchema<{
   createdAt?: number;
 }> = {
   title: 'sync_queue schema',
-  version: 2,
+  version: 1,
   type: 'object',
   primaryKey: 'id',
   additionalProperties: false,
@@ -107,52 +107,9 @@ export const syncQueueSchema: RxJsonSchema<{
 export const migrationStrategies = {
   cachedFile: {
     1: (doc: any) => doc,  // No-op migration from v0 to v1
-    2: (doc: any) => doc,  // No-op migration from v1 to v2
-    3: (doc: any) => {
-      // Normalize older cached_file docs to canonical FileNode shape
-      const out: any = { ...doc };
-
-      // Map legacy type 'dir' -> 'directory'
-      if (out.type === 'dir') out.type = 'directory';
-
-      // Ensure timestamps are ISO strings
-      if (out.lastModified !== undefined && out.lastModified !== null) {
-        try {
-          out.modifiedAt = new Date(Number(out.lastModified)).toISOString();
-        } catch {
-          out.modifiedAt = new Date().toISOString();
-        }
-      }
-      if (!out.createdAt) out.createdAt = new Date().toISOString();
-
-      // Move arbitrary metadata into `meta` property
-      if (out.metadata && typeof out.metadata === 'object') {
-        out.meta = { ...(out.meta || {}), ...out.metadata };
-        delete out.metadata;
-      }
-
-      // Ensure children is array for directories
-      if (out.type === 'directory') {
-        out.children = Array.isArray(out.children) ? out.children : (out.children ? [out.children] : []);
-      } else {
-        delete out.children;
-      }
-
-      // Ensure synced flag exists
-      if (out.synced === undefined) out.synced = out.dirty ? false : true;
-
-      // Ensure workspaceId exists (nullable)
-      if (out.workspaceId === undefined) out.workspaceId = null;
-
-      // Clean up legacy fields
-      delete out.lastModified;
-
-      return out;
-    }
   },
   // crdtDoc migrations removed
   syncQueue: {
     1: (doc: any) => doc,  // No-op migration from v0 to v1
-    2: (doc: any) => doc   // No-op migration from v1 to v2
   }
 };

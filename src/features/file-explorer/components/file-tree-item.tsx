@@ -78,20 +78,38 @@ export function FileTreeItem({ node, level, parentNode }: FileTreeItemProps) {
 
   // Get sibling names for duplicate checking
   const getSiblingNames = (): string[] => {
-    if (parentNode && parentNode.children) {
-      return parentNode.children
-        .filter(child => child.id !== node.id)
-        .map(child => child.name);
+    try {
+      if (parentNode && parentNode.children && parentNode.children.length) {
+        return parentNode.children
+          .filter(child => child.id !== node.id)
+          .map(child => child.name);
+      }
+      if (parentNode) {
+        const childIds = useFileExplorerStore.getState().getChildren(parentNode.id);
+        const map = useFileExplorerStore.getState().fileMap || {};
+        return childIds
+          .filter((id) => id !== node.id)
+          .map((id) => map[id]?.name)
+          .filter(Boolean) as string[];
+      }
+    } catch (e) {
+      // ignore
     }
     return [];
   };
 
   // Get children names for new item duplicate checking
   const getChildrenNames = (): string[] => {
-    if (node.children) {
-      return node.children.map(child => child.name);
+    try {
+      if (node.children && node.children.length) {
+        return node.children.map(child => child.name);
+      }
+      const childIds = useFileExplorerStore.getState().getChildren(node.id);
+      const map = useFileExplorerStore.getState().fileMap || {};
+      return childIds.map(id => map[id]?.name).filter(Boolean) as string[];
+    } catch (e) {
+      return [];
     }
-    return [];
   };
 
   const handleClick = async (e: React.MouseEvent) => {
@@ -439,9 +457,15 @@ export function FileTreeItem({ node, level, parentNode }: FileTreeItemProps) {
           )}
 
           {/* Render children */}
-          {node.children?.map((child) => (
-            <FileTreeItem key={child.id} node={child} level={level + 1} parentNode={node} />
-          ))}
+          {(() => {
+            const childrenIds = useFileExplorerStore(state => state.getChildren(node.id));
+            const map = useFileExplorerStore(state => state.fileMap);
+            return childrenIds.map((cid) => {
+              const childNode = map?.[cid];
+              if (!childNode) return null;
+              return <FileTreeItem key={childNode.id} node={childNode} level={level + 1} parentNode={node} />;
+            });
+          })()}
         </div>
       )}
     </div>

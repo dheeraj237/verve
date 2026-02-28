@@ -15,6 +15,8 @@ import { FileTreeFilter } from "./file-tree-filter";
 export function FileExplorer() {
   const {
     fileTree,
+    fileMap,
+    rootIds,
     setFileTree,
     refreshFileTree,
     toggleCollapseExpand,
@@ -119,7 +121,11 @@ export function FileExplorer() {
       // Defensive: if the computed rootPath points to a file node (e.g. tree contains
       // a top-level file like 'verve.md'), treat header creates as root (empty '')
       // to avoid creating under that file (e.g. 'verve.md/newfile.md').
-      const isFileAtRoot = fileTree.some(n => n.type === 'file' && (n.path === rootPath || n.path === `/${rootPath}`));
+      const isFileAtRoot = (rootIds || []).some(id => {
+        const n = fileMap?.[id];
+        if (!n) return false;
+        return n.type === 'file' && (n.path === rootPath || n.path === `/${rootPath}`);
+      });
       if (isFileAtRoot) {
         rootPath = '';
       }
@@ -143,7 +149,10 @@ export function FileExplorer() {
   };
 
   const getExistingNames = (): string[] => {
-    return fileTree.map(node => node.name);
+    if (filterValue.trim()) {
+      return fileTree.map(node => node.name);
+    }
+    return (rootIds || []).map(id => fileMap?.[id]?.name).filter(Boolean) as string[];
   };
 
   // Filter file tree based on search query
@@ -172,6 +181,9 @@ export function FileExplorer() {
   };
 
   const filteredFileTree = filterFileTree(fileTree, filterValue);
+  const rootsToRender = filterValue.trim()
+    ? filteredFileTree
+    : (rootIds || []).map(id => fileMap?.[id]).filter(Boolean) as typeof fileTree;
 
   return (
     <div className="h-full flex flex-col">
@@ -247,7 +259,7 @@ export function FileExplorer() {
             existingNames={getExistingNames()}
           />
         )}
-        {fileTree.length === 0 && !newItemType ? (
+        {rootsToRender.length === 0 && !newItemType ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center text-muted-foreground text-sm">
               <p>No files yet</p>
@@ -259,13 +271,19 @@ export function FileExplorer() {
             filteredFileTree.map((node) => (
               <FileTreeItem key={node.id} node={node} level={0} parentNode={undefined} />
             ))
+          ) : (
+            rootsToRender.length > 0 ? (
+              rootsToRender.map((node) => (
+                <FileTreeItem key={node.id} node={node} level={0} parentNode={undefined} />
+              ))
             ) : (
-                fileTree.length > 0 && (
-              <div className="px-3 py-2 text-xs text-muted-foreground">
-                No files match filter
-              </div>
-                )
+              fileTree.length > 0 && (
+                <div className="px-3 py-2 text-xs text-muted-foreground">
+                  No files match filter
+                </div>
               )
+            )
+          )
         )}
       </div>
     </div>

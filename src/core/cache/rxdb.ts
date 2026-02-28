@@ -151,6 +151,7 @@ export async function initializeRxDB(): Promise<CacheDatabase> {
     console.log('[RxDB] Initializing RxDB database...');
 
     // Create database with recommended React best practices
+    // Use the stable DB name used historically
     const db = await createRxDatabase<CacheDatabase>({
       name: 'verve_cache_db',
       storage: getRxStorageDexie(),               // Dexie-based IndexedDB storage
@@ -208,6 +209,7 @@ export async function initializeRxDB(): Promise<CacheDatabase> {
       error?.code?.includes('DB5') ||
       error?.code?.includes('SC39') ||
       safeErrorStr.includes('SC34') ||
+      safeErrorStr.includes('SC17') ||
       safeErrorStr.includes('DB6') ||
       safeErrorStr.includes('schema') ||
       safeErrorStr.includes('previousSchema') ||
@@ -233,9 +235,29 @@ export async function initializeRxDB(): Promise<CacheDatabase> {
       }
     }
 
-    // Handle schema errors gracefully
+    // Handle schema errors gracefully: attempt recovery by clearing storage and retrying
     if (isSchemaError) {
-      console.error('[RxDB] Schema error - clear browser storage and reload');
+      console.error('[RxDB] Schema error detected');
+
+      // If we haven't retried yet, attempt to clear storage and retry initialization
+      if (retryCount < MAX_RETRIES) {
+        console.log('[RxDB] Attempting recovery from schema error by clearing IndexedDB and retrying...');
+        try {
+          cachedDb = null;
+          retryCount++;
+          await clearAllIndexedDatabases();
+
+          initInProgress = false;
+          return initializeRxDB();
+        } catch (clearErr) {
+          console.error('[RxDB] Failed to clear storage during schema error recovery:', clearErr);
+          initInProgress = false;
+          cachedDb = null;
+          throw new Error(`RxDB schema error: ${error?.message || 'Unknown'}. Manual clear required.`);
+        }
+      }
+
+      console.error('[RxDB] Schema error - manual intervention required: clear browser storage and reload');
       initInProgress = false;
       cachedDb = null;
       throw new Error(`RxDB schema error: ${error?.message || 'Unknown'}. Clear storage and reload.`);

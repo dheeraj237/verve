@@ -9,7 +9,7 @@ export type FileNode = {
   modifiedAt?: string;      // ISO timestamp
   createdAt?: string;       // ISO timestamp
   dirty?: boolean;          // user-local changes not pushed
-  synced?: boolean;         // whether last change is synced
+  isSynced?: boolean;       // whether last change is synced
   version?: number;         // incrementing revision/version
   mimeType?: string;
   meta?: Record<string, any>;
