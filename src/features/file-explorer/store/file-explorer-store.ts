@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { FileNode } from "@/shared/types";
+import { FileNode, FileNodeType } from "@/shared/types";
 import { WorkspaceType } from '@/core/cache/types';
 import { buildSamplesFileTree } from "@/utils/demo-file-tree";
 import { getAllFolderIds, buildFileTreeFromAdapter } from "./helpers/file-tree-builder";
@@ -118,6 +118,70 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
         }
       },
 
+      // Helper: normalize paths for comparison (strip leading/trailing slashes)
+      normalizePathForCompare: (p: string) => {
+        if (!p) return '';
+        return p.replace(/^\/*/, '').replace(/\/*$/, '');
+      },
+
+      // Internal helper to replace children of a folder node matching dirPath
+      _replaceChildrenInTree: (nodes: FileNode[], dirPath: string, newChildren: FileNode[]): { tree: FileNode[]; replaced: boolean } => {
+        let replaced = false;
+
+        function norm(p: string) {
+          if (!p) return '';
+          return p.replace(/^\/*/, '').replace(/\/*$/, '');
+        }
+
+        function recurse(list: FileNode[]): FileNode[] {
+          return list.map(node => {
+            const nodePath = norm(node.path || '');
+            if (nodePath === norm(dirPath) && node.type === FileNodeType.Folder) {
+              replaced = true;
+              return { ...node, children: newChildren };
+            }
+            if (node.children && node.children.length > 0) {
+              return { ...node, children: recurse(node.children) };
+            }
+            return node;
+          });
+        }
+
+        const newTree = recurse(nodes);
+        return { tree: newTree, replaced };
+      },
+
+      // Update only the affected directory in the UI by reading RxDB for that dir
+      _updateFileTreeForDirectory: async (dirPath: string) => {
+        const activeWs = useWorkspaceStore.getState().activeWorkspace();
+        if (!activeWs) return;
+        try {
+          const children = await buildFileTreeFromAdapter(null, dirPath || '', 'local-', activeWs.type, activeWs.id);
+
+          // If dirPath is root, replace whole tree
+          const normalized = dirPath ? dirPath.replace(/^\/*/, '').replace(/\/*$/, '') : '';
+          if (!normalized) {
+            set({ fileTree: children, currentDirectoryName: activeWs.name, currentDirectoryPath: '/' });
+            return;
+          }
+
+          const currentTree = get().fileTree || [];
+          const { tree: updatedTree, replaced } = get()._replaceChildrenInTree(currentTree, dirPath, children);
+          if (replaced) {
+            set({ fileTree: updatedTree });
+            return;
+          }
+
+          // Parent folder not found in current tree — fall back to full rebuild
+          const full = await buildFileTreeFromAdapter(null, '', 'local-', activeWs.type, activeWs.id);
+          set({ fileTree: full, currentDirectoryName: activeWs.name, currentDirectoryPath: '/' });
+        } catch (e) {
+          console.error('Failed to update file tree for directory', dirPath, e);
+          // fallback
+          await get().refreshFileTree();
+        }
+      },
+
       /**
        * Opens a local directory using the File System Access API
        * @param workspaceId - Optional workspace ID for persisting the directory handle
@@ -214,8 +278,12 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
           const filePath = parentPath ? `${parentPath}/${fileName}` : fileName;
           await createFileOp(parentPath, fileName);
 
-          // Refresh file tree immediately from RxDB cache
-          await get().refreshFileTree();
+          const activeWs = useWorkspaceStore.getState().activeWorkspace();
+          if (activeWs && activeWs.type === WorkspaceType.Local) {
+            await get()._updateFileTreeForDirectory(parentPath || '');
+          } else {
+            await get().refreshFileTree();
+          }
         } catch (error) {
           console.error('Error creating file:', error);
           throw error;
@@ -232,8 +300,12 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
           const folderPath = parentPath ? `${parentPath}/${folderName}` : folderName;
           await createFolderOp(parentPath, folderName);
 
-          // Refresh file tree immediately from RxDB cache
-          await get().refreshFileTree();
+          const activeWs = useWorkspaceStore.getState().activeWorkspace();
+          if (activeWs && activeWs.type === WorkspaceType.Local) {
+            await get()._updateFileTreeForDirectory(parentPath || '');
+          } else {
+            await get().refreshFileTree();
+          }
         } catch (error) {
           console.error('Error creating folder:', error);
           throw error;
@@ -245,7 +317,13 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
         try {
           await renameNodeOp(nodePath, newName);
 
-          await get().refreshFileTree();
+          const parentPath = nodePath.includes('/') ? nodePath.replace(/\/[^\/]+$/, '') : '';
+          const activeWs = useWorkspaceStore.getState().activeWorkspace();
+          if (activeWs && activeWs.type === WorkspaceType.Local) {
+            await get()._updateFileTreeForDirectory(parentPath || '');
+          } else {
+            await get().refreshFileTree();
+          }
         } catch (error) {
           console.error('Error renaming:', error);
           throw error;
@@ -261,7 +339,13 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
         try {
           await deleteNodeOp(nodePath, isFolder);
 
-          await get().refreshFileTree();
+          const parentPath = nodePath.includes('/') ? nodePath.replace(/\/[^\/]+$/, '') : '';
+          const activeWs = useWorkspaceStore.getState().activeWorkspace();
+          if (activeWs && activeWs.type === WorkspaceType.Local) {
+            await get()._updateFileTreeForDirectory(parentPath || '');
+          } else {
+            await get().refreshFileTree();
+          }
         } catch (error) {
           console.error('Error deleting:', error);
           throw error;

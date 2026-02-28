@@ -150,7 +150,10 @@ async function loadFileSync(path: string, workspaceType: WorkspaceType = Workspa
     // try loading from the public `content/` folder so sample files still display.
     if ((!content || content.length === 0) && typeof window !== 'undefined') {
       try {
-        const fetchPath = cached.path.startsWith('/') ? `/content${cached.path}` : `/content/${cached.path}`;
+        const baseUrl = (globalThis as any).__VERVE_BASE_URL__ ?? (typeof process !== 'undefined' ? (process.env.BASE_URL ?? '/') : '/');
+        const normalizedBase = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+        const contentPrefix = `${normalizedBase}/content`;
+        const fetchPath = cached.path.startsWith('/') ? `${contentPrefix}${cached.path}` : `${contentPrefix}/${cached.path}`;
         const res = await fetch(fetchPath);
         if (res.ok) {
           const fetched = await res.text();
