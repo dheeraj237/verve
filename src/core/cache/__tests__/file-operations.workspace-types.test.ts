@@ -63,8 +63,18 @@ describe('file-operations across workspace types', () => {
     mgr.registerAdapter({ name: 'local', push: pushMock, pull: async () => null, exists: async () => false, delete: async () => false } as any);
 
     await mgr.enqueueAndProcess(saved.id, saved.path, WorkspaceType.Local, wsId);
-    // give background a moment
-    await new Promise(r => setTimeout(r, 30));
+    // wait until file is marked synced via RxDB subscription
+    const { observeCachedFiles } = await import('@/core/cache');
+    await new Promise<void>((resolve) => {
+      const sub: any = observeCachedFiles((files: any[]) => {
+        const f = files.find(x => x.id === saved.id && x.workspaceId === wsId);
+        if (f && f.dirty === false) {
+          try { sub.unsubscribe(); } catch (_) { }
+          resolve();
+        }
+      });
+      setTimeout(() => { try { sub.unsubscribe(); } catch (_) { }; resolve(); }, 2000);
+    });
     expect(pushMock).toHaveBeenCalled();
 
     stopSyncManager();
@@ -89,7 +99,17 @@ describe('file-operations across workspace types', () => {
     mgr.registerAdapter({ name: 'gdrive', push: pushMock, pull: async () => null, exists: async () => false, delete: async () => false } as any);
 
     await mgr.enqueueAndProcess(saved.id, saved.path, WorkspaceType.GDrive, wsId);
-    await new Promise(r => setTimeout(r, 30));
+    const { observeCachedFiles } = await import('@/core/cache');
+    await new Promise<void>((resolve) => {
+      const sub: any = observeCachedFiles((files: any[]) => {
+        const f = files.find(x => x.id === saved.id && x.workspaceId === wsId);
+        if (f && f.dirty === false) {
+          try { sub.unsubscribe(); } catch (_) { }
+          resolve();
+        }
+      });
+      setTimeout(() => { try { sub.unsubscribe(); } catch (_) { }; resolve(); }, 2000);
+    });
     expect(pushMock).toHaveBeenCalled();
 
     stopSyncManager();

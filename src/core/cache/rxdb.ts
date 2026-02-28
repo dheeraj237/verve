@@ -438,6 +438,26 @@ export async function markCachedFileAsSynced(id: string): Promise<void> {
       await doc.patch({ dirty: false });
     }
   } catch (error) {
+    // Handle RxDB write conflicts gracefully by attempting a safe upsert
+    const errStr = String(error || '');
+    const isConflict = errStr.includes('CONFLICT') || (error && (error as any).status === 409);
+    if (isConflict) {
+      try {
+        console.warn('[RxDB] Conflict while marking cached file as synced, attempting safe upsert for', id);
+        const existing = await db.cached_files.findOne({ selector: { id } }).exec();
+        if (existing) {
+          const json = existing.toJSON();
+          json.dirty = false;
+          // Use upsertCachedFile helper which already handles conflicts robustly
+          await upsertCachedFile(json as any);
+          return;
+        }
+      } catch (resolveErr) {
+        console.error('[RxDB] Failed to resolve conflict for markCachedFileAsSynced:', id, resolveErr);
+        throw resolveErr;
+      }
+    }
+
     console.error('Failed to mark cached file as synced:', id, error);
     throw error;
   }

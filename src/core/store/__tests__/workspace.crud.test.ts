@@ -26,14 +26,21 @@ describe('workspace CRUD integration', () => {
     expect(store.workspaces.some((w: any) => w.id === 'my-ws')).toBeTruthy();
     expect(store.activeWorkspaceId).toBe('my-ws');
 
-    // The default verve.md is created asynchronously; poll until content appears
-    let loaded: any = await fileOps.loadFile('verve.md', 'browser', 'my-ws');
-    const start = Date.now();
-    while ((loaded.content === '' || loaded.content == null) && Date.now() - start < 2000) {
-      await new Promise((r) => setTimeout(r, 20));
-      loaded = await fileOps.loadFile('verve.md', 'browser', 'my-ws');
-    }
+    // The default verve.md is created asynchronously; wait via RxDB subscription
+    const { observeCachedFiles } = await import('@/core/cache');
+    await new Promise<void>((resolve) => {
+      const sub: any = observeCachedFiles((files: any[]) => {
+        const f = files.find((x) => (x.path || '').endsWith('verve.md') && x.workspaceId === 'my-ws');
+        if (f && f.content && f.content.length > 0) {
+          try { sub.unsubscribe(); } catch (_) { }
+          resolve();
+        }
+      });
+      // fallback timeout
+      setTimeout(() => { try { sub.unsubscribe(); } catch (_) { }; resolve(); }, 2000);
+    });
 
+    const loaded = await fileOps.loadFile('verve.md', 'browser', 'my-ws');
     expect(loaded).toBeDefined();
     expect(loaded.content).toBe('# Verve 🚀');
 

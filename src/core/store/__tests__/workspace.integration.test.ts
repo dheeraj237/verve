@@ -95,8 +95,18 @@ describe('workspace integration tests', () => {
     // Create a new browser workspace
     useWorkspaceStore.getState().createWorkspace('New WS', 'browser', { id: 'new-ws' });
 
-    // give any async init a moment
-    await new Promise(res => setTimeout(res, 20));
+    // Wait for verve.md to appear via RxDB subscription
+    const { observeCachedFiles } = await import('@/core/cache');
+    await new Promise<void>((resolve) => {
+      const sub: any = observeCachedFiles((files: any[]) => {
+        const f = files.find((x) => ((x.path || '').endsWith('verve.md') || x.name === 'verve.md') && x.workspaceId === 'new-ws');
+        if (f) {
+          try { sub.unsubscribe(); } catch (_) { }
+          resolve();
+        }
+      });
+      setTimeout(() => { try { sub.unsubscribe(); } catch (_) { }; resolve(); }, 2000);
+    });
 
     const all = await fileOps.getAllFiles('new-ws');
     const verveMeta = all.find((f: any) => (f.path || '').endsWith('verve.md') || f.name === 'verve.md');
@@ -149,10 +159,19 @@ describe('workspace integration tests', () => {
 
     // Create a new file in workspace and trigger enqueueAndProcess to push
     const saved = await fileOps.saveFile('/gdrive/new.md', 'local content', 'gdrive', undefined, 'gdrive-1');
-    // enqueueAndProcess should attempt to push via adapter
+    // enqueueAndProcess should attempt to push via adapter — wait until file marked synced
     await mgr.enqueueAndProcess(saved.id, saved.path, 'gdrive', 'gdrive-1');
-    // give background tasks a moment
-    await new Promise(res => setTimeout(res, 50));
+    const { observeCachedFiles } = await import('@/core/cache');
+    await new Promise<void>((resolve) => {
+      const sub: any = observeCachedFiles((files: any[]) => {
+        const f = files.find(x => x.id === saved.id && x.workspaceId === 'gdrive-1');
+        if (f && f.dirty === false) {
+          try { sub.unsubscribe(); } catch (_) { }
+          resolve();
+        }
+      });
+      setTimeout(() => { try { sub.unsubscribe(); } catch (_) { }; resolve(); }, 2000);
+    });
     expect(pushMock).toHaveBeenCalled();
 
     // cleanup

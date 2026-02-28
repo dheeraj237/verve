@@ -29,7 +29,8 @@ export async function initializeApp(adapters?: any[]) {
     await initializeSyncManager(adapters);
   } else {
     const win: any = typeof window !== 'undefined' ? window : {};
-    const baseDir = win.__VERVE_LOCAL_BASE_DIR || (process.env.VITE_LOCAL_BASE_DIR as string) || './';
+    const envBaseDir = typeof process !== 'undefined' && process?.env ? (process.env.VITE_LOCAL_BASE_DIR as string) : undefined;
+    const baseDir = win.__VERVE_LOCAL_BASE_DIR || envBaseDir || './';
     await initializeSyncManager([
       new LocalAdapter(baseDir),
       new GDriveAdapter(),

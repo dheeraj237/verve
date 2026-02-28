@@ -6,10 +6,46 @@
 import { FileNode, FileNodeType } from '@/shared/types';
 import { getAllFiles } from '@/core/cache/file-operations';
 
+// Ensure RxDB and sample files are available when building the samples tree.
+async function ensureSamplesLoaded() {
+  try {
+    // Try a quick check to see if RxDB is initialized by calling getAllFiles
+    const files = await getAllFiles('verve-samples');
+    if (files && files.length > 0) return;
+  } catch (err) {
+    // If RxDB is not initialized, initialize it
+    try {
+      const ops = await import('@/core/cache/file-operations');
+      if (typeof ops.initializeFileOperations === 'function') {
+        // initializeFileOperations is idempotent so it's safe to call
+        // if another part of the app already initialized it
+        // (this ensures tests and app runtime behave consistently)
+        // eslint-disable-next-line no-await-in-loop
+        await ops.initializeFileOperations();
+      }
+    } catch (e) {
+      // ignore - we'll attempt to proceed and let callers handle errors
+    }
+  }
+
+  // If there are still no files, attempt to load sample files into the cache
+  try {
+    const ops = await import('@/core/cache/file-operations');
+    if (typeof ops.loadSampleFilesFromFolder === 'function') {
+      await ops.loadSampleFilesFromFolder();
+    }
+  } catch (e) {
+    // ignore - fallback behavior will handle empty list
+  }
+}
+
 /**
  * Build browser file tree from RxDB cache
  */
 export async function buildSamplesFileTree(): Promise<FileNode[]> {
+  // Ensure RxDB and sample files are available before querying
+  await ensureSamplesLoaded();
+
   // Get all files from RxDB cache (only sample workspace)
   const files = await getAllFiles('verve-samples');
   
