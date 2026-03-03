@@ -1,6 +1,6 @@
 import { SyncManager } from '@/core/sync/sync-manager';
 
-jest.mock('@/core/cache/rxdb', () => ({
+jest.mock('@/core/cache/file-manager', () => ({
   upsertCachedFile: jest.fn(),
 }));
 
@@ -8,7 +8,7 @@ jest.mock('@/core/cache/file-manager', () => ({
   saveFile: jest.fn(),
 }));
 
-import { upsertCachedFile } from '@/core/cache/rxdb';
+import { upsertCachedFile } from '@/core/cache/file-manager';
 import { saveFile } from '@/core/cache/file-manager';
 import { WorkspaceType } from '@/core/cache/types';
 import type { ISyncAdapter } from '@/core/sync/sync-manager';

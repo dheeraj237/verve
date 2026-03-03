@@ -810,7 +810,7 @@ export async function initializeSyncManager(adapters: ISyncAdapter[], options?: 
         try {
           // Ensure RxDB is available for handle metadata helpers and attempt to restore
           // the persisted handle via `workspace-manager` which will also upsert RxDB metadata.
-          const { initializeRxDB } = await import('@/core/cache/rxdb');
+          const { initializeRxDB } = await import('@/core/cache/file-manager');
           const { restoreDirectoryHandle } = await import('@/core/cache/workspace-manager');
           try { await initializeRxDB(); } catch (e) { /* best-effort */ }
           const handle = await restoreDirectoryHandle(active.id);

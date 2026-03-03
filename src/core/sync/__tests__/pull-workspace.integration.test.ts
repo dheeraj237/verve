@@ -35,7 +35,7 @@ describe('SyncManager.pullWorkspace (integration)', () => {
 
     await manager.pullWorkspace(workspace);
 
-    const { getCachedFile } = await import('@/core/cache/rxdb');
+    const { getCachedFile } = await import('@/core/cache/file-manager');
     const cached1 = await getCachedFile('remote1.md', 'ws-remote');
     const cached2 = await getCachedFile('remote2.md', 'ws-remote');
 

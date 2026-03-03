@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto';
 
 // initializeApp will be required after resetModules in tests to ensure module instance consistency
 import { mockFetchForSamples, restoreFetchMock } from '@/tests/helpers/test-utils';
-import { getCacheDB } from '@/core/cache/rxdb';
+import { getCacheDB } from '@/core/cache/file-manager';
 import * as fs from 'fs';
 import * as path from 'path';
 

@@ -1,5 +1,5 @@
 import type { CachedFile } from '@/core/cache/types';
-import { upsertCachedFile, getCachedFile } from '@/core/cache/rxdb';
+import { upsertCachedFile, getCachedFile } from '@/core/cache/file-manager';
 
 export interface MergeStrategy {
   handlePull(cached: CachedFile, remoteContent: string): Promise<'noop' | 'merged' | 'conflict'>;

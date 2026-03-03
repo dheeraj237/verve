@@ -45,7 +45,7 @@ describe('local workspace create updates file tree immediately', () => {
 
   afterAll(async () => {
     try {
-      const { getCacheDB } = await import('@/core/cache/rxdb');
+      const { getCacheDB } = await import('@/core/cache/file-manager');
       const db = getCacheDB();
       if (db) await db.destroy();
     } catch (_) {}

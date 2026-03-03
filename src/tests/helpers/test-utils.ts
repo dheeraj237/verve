@@ -15,7 +15,7 @@ export { WorkspaceType } from '@/core/cache/types';
 
 export async function destroyCacheDB() {
   try {
-    const { getCacheDB } = await import('@/core/cache/rxdb');
+    const { getCacheDB } = await import('@/core/cache/file-manager');
     const db = getCacheDB();
     if (db) await db.destroy();
   } catch (e) {

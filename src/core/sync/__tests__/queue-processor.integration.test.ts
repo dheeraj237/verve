@@ -15,7 +15,7 @@ describe('sync-queue-processor integration (real cache)', () => {
 
   it('processes a Put entry and clears dirty flag using real RxDB', async () => {
     // Import cache and processor after RxDB initialized
-    const { getCacheDB } = await import('@/core/cache/rxdb');
+    const { getCacheDB } = await import('@/core/cache/file-manager');
     const { enqueueSyncEntry, processPendingQueueOnce } = await import('@/core/sync/sync-queue-processor');
 
     const db = getCacheDB();
@@ -63,10 +63,10 @@ describe('sync-queue-processor integration (real cache)', () => {
   });
 });
 import 'fake-indexeddb/auto';
-import { initializeRxDB, getCacheDB, closeCacheDB } from '@/core/cache/rxdb';
+import { initializeRxDB, getCacheDB, closeCacheDB } from '@/core/cache/file-manager';
 import { enqueueSyncEntry, processPendingQueueOnce } from '@/core/sync/sync-queue-processor';
 import { GDriveMock } from '@/core/sync/mocks/gdrive-mock';
-import { upsertCachedFile, getCachedFile } from '@/core/cache/rxdb';
+import { upsertCachedFile, getCachedFile } from '@/core/cache/file-manager';
 import { SyncOp } from '@/core/cache/types';
 
 describe('Queue processor integration', () => {

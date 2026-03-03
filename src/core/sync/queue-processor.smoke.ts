@@ -1,4 +1,4 @@
-import { initializeRxDB, getCacheDB } from '@/core/cache/rxdb';
+import { initializeRxDB, getCacheDB } from '@/core/cache/file-manager';
 import { enqueueSyncEntry, processPendingQueueOnce } from '@/core/sync/sync-queue-processor';
 import { SyncOp, FileType, WorkspaceType } from '@/core/cache/types';
 import type { ISyncAdapter } from '@/core/sync/adapter-types';

@@ -59,7 +59,7 @@ describe('queue processor integration (native)', () => {
     await db.sync_queue.upsert({ id: 'qe-1', op: SyncOp.Put, target: 'file', targetId: file.id, attempts: 0, createdAt: Date.now() });
 
     // Mock the cache/rxdb module functions used by the processor to point at our db
-    jest.doMock('@/core/cache/rxdb', () => ({
+    jest.doMock('@/core/cache/file-manager', () => ({
       getCacheDB: () => db,
       getCachedFile: async (id: string) => {
         const doc = await db.cached_files.findOne({ selector: { id } }).exec();

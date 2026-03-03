@@ -7,26 +7,32 @@
  */
 
 import { v4 as uuidv4 } from 'uuid';
-import {
-  initializeRxDB,
-  getCacheDB,
-  getCachedFile,
-  upsertCachedFile,
-  observeCachedFiles,
-} from './rxdb';
-import { upsertDoc, getDoc, atomicUpsert } from '@/core/rxdb/rxdb-client';
 import type { FileDoc } from '@/core/rxdb/schemas';
 import { enqueueSyncEntry } from '@/core/sync/sync-queue-processor';
 import { SyncOp } from './types';
 import { CachedFile, WorkspaceType, FileType } from './types';
 
-// Normalize a path for internal comparison/storage (strip leading/trailing slashes)
-function normalizePath(p: string): string {
-  if (!p) return '';
-  return p.replace(/^\/*/, '').replace(/\/*$/, '');
+import { initializeRxDB, getCacheDB, upsertDoc as clientUpsertDoc, getDoc as clientGetDoc, findDocs as clientFindDocs, atomicUpsert as clientAtomicUpsert, removeDoc as clientRemoveDoc, subscribeQuery as clientSubscribeQuery } from '@/core/rxdb/rxdb-client';
+const client = await import('@/core/rxdb/rxdb-client');
+await client.createRxDB();
+const col = client.getCollection(collectionName as any);
+if (typeof col.upsert === 'function') return await col.upsert(doc);
+return client.upsertDoc(collectionName as any, doc as any);
+            },
+remove: async (arg: any) => {
+  const client = await import('@/core/rxdb/rxdb-client');
+  await client.createRxDB();
+  const col = client.getCollection(collectionName as any);
+  if (arg) {
+    const d = await col.findOne(arg).exec();
+    if (d && typeof d.remove === 'function') await d.remove();
+  } else {
+    const docs = await col.find({}).exec();
+    for (const d of docs) if (d && typeof d.remove === 'function') await d.remove();
+  }
 }
-
-/**
+          } as any;
+        };
  * Ensure parent folder documents exist for a given path.
  */
 async function ensureParentFoldersForPath(path: string, workspaceType: WorkspaceType = WorkspaceType.Browser, workspaceId?: string): Promise<void> {

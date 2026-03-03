@@ -1,4 +1,4 @@
-import { initializeRxDB, closeCacheDB, upsertCachedFile, getCachedFile } from '@/core/cache/rxdb';
+import { initializeRxDB, closeCacheDB, upsertCachedFile, getCachedFile } from '@/core/cache/file-manager';
 import { getSyncManager } from '@/core/sync/sync-manager';
 import { useWorkspaceStore } from '@/core/store/workspace-store';
 import { WorkspaceType } from '@/core/cache/types';

@@ -5,7 +5,7 @@
  * The implementation will be expanded in follow-up PRs.
  */
 
-import { initializeRxDB } from './rxdb';
+import { initializeRxDB } from '@/core/rxdb/rxdb-client';
 import type { WorkspaceType } from './types';
 import { loadSamplesIntoWorkspace } from './sample-loader';
 import { saveFile } from './file-manager';

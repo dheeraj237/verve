@@ -13,7 +13,7 @@ describe('cached_files schema compatibility', () => {
   });
 
   it('accepts documents with lastModified and metadata fields', async () => {
-    const { upsertCachedFile, getCachedFile } = await import('@/core/cache/rxdb');
+    const { upsertCachedFile, getCachedFile } = await import('@/core/cache/file-manager');
 
     const file = {
       id: 'test-file-1',

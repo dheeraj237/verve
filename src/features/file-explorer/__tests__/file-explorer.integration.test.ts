@@ -70,7 +70,7 @@ describe('file explorer integration (hierarchy + UI actions)', () => {
 
   afterAll(async () => {
     try {
-      const { getCacheDB } = await import('@/core/cache/rxdb');
+      const { getCacheDB } = await import('@/core/cache/file-manager');
       const db = getCacheDB();
       if (db) await db.destroy();
     } catch (_) {}

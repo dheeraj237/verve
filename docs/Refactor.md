@@ -146,7 +146,7 @@ Concrete implementation tasks & copy‑paste prompts
 - Files to edit:
   - `src/features/file-explorer/store/*`, editor-store.ts, and any UI components that used direct indexedDB or window handle
 - Prompt:
-  > "Replace direct calls to `workspace-manager` or handle usage in UI/stores with `rxdb-client` reads/subscriptions. For file lists, use `rxdb-client.subscribeQuery('files', { selector:{workspaceId}}, cb)`. For reading a file open, use `rxdb-client.getDoc('files', id)`."
+  > "Replace direct calls to `workspace-manager` or handle usage in UI/stores with `rxdb-client` reads/subscriptions. For file lists, use `rxdb-client.subscribeQuery([Collection], { selector:{workspaceId}}, cb)`. For reading a file open, use `rxdb-client.getDoc([Collection], id)`."
 
 5) Task: Adjust `SyncManager` to use `rxdb-client` observation and handle push/pull via adapters
 - Files to edit:

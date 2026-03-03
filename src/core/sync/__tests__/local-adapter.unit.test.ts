@@ -8,7 +8,7 @@ jest.mock('@/core/cache/workspace-manager', () => ({
 }));
 
 // Mock cache upsert/save to avoid RxDB dependency in unit test
-jest.mock('@/core/cache/rxdb', () => ({
+jest.mock('@/core/cache/file-manager', () => ({
   upsertCachedFile: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('@/core/cache/file-manager', () => ({
@@ -53,7 +53,7 @@ class MockDirHandle {
 
 describe('LocalAdapter unit', () => {
   const wm = require('@/core/cache/workspace-manager');
-  const { upsertCachedFile } = require('@/core/cache/rxdb');
+  const { upsertCachedFile } = require('@/core/cache/file-manager');
   const { saveFile } = require('@/core/cache/file-manager');
 
   afterEach(() => {
@@ -112,7 +112,7 @@ jest.mock('@/core/cache/workspace-manager', () => ({
   removeDirectoryHandle: jest.fn(),
 }));
 
-jest.mock('@/core/cache/rxdb', () => ({
+jest.mock('@/core/cache/file-manager', () => ({
   upsertCachedFile: jest.fn(() => Promise.resolve()),
 }));
 
@@ -122,7 +122,7 @@ jest.mock('@/core/cache/file-manager', () => ({
 
 import { LocalAdapter } from '@/core/sync/adapters/local-adapter';
 import { requestPermissionForWorkspace } from '@/core/cache/workspace-manager';
-import { upsertCachedFile } from '@/core/cache/rxdb';
+import { upsertCachedFile } from '@/core/cache/file-manager';
 import { saveFile } from '@/core/cache/file-manager';
 
 describe('LocalAdapter FS interactions', () => {

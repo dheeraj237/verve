@@ -65,7 +65,7 @@ describe('sync queue persistence and retry integration', () => {
     await db.sync_queue.upsert({ id: 'qretry-1', op: SyncOp.Put, target: 'file', targetId: file.id, attempts: 0, createdAt: Date.now() });
 
     // Mock cache/rxdb helpers to point to our test db
-    jest.doMock('@/core/cache/rxdb', () => ({
+    jest.doMock('@/core/cache/file-manager', () => ({
       getCacheDB: () => db,
       getCachedFile: async (id: string) => {
         const doc = await db.cached_files.findOne({ selector: { id } }).exec();

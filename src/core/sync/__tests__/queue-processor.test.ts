@@ -1,12 +1,12 @@
 import { processPendingQueueOnce } from '@/core/sync/sync-queue-processor';
 
-jest.mock('@/core/cache/rxdb', () => ({
+jest.mock('@/core/cache/file-manager', () => ({
   getCacheDB: jest.fn(),
   getCachedFile: jest.fn(),
   markCachedFileAsSynced: jest.fn(),
 }));
 
-import { getCacheDB, getCachedFile, markCachedFileAsSynced } from '@/core/cache/rxdb';
+import { getCacheDB, getCachedFile, markCachedFileAsSynced } from '@/core/cache/file-manager';
 import type { ISyncAdapter } from '@/core/sync/adapter-types';
 import { SyncOp } from '@/core/cache/types';
 

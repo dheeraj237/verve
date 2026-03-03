@@ -2,9 +2,9 @@ import { v4 as uuidv4 } from 'uuid';
 import { defaultRetryPolicy } from './retry-policy';
 import type { AdapterFileDescriptor, ISyncAdapter } from './adapter-types';
 import { toAdapterDescriptor } from './adapter-types';
-import { getCacheDB } from '@/core/cache/rxdb';
+import { getCacheDB } from '@/core/cache/file-manager';
 import { SyncOp } from '@/core/cache/types';
-import { getCachedFile, markCachedFileAsSynced } from '@/core/cache/rxdb';
+import { getCachedFile, markCachedFileAsSynced } from '@/core/cache/file-manager';
 import type { CachedFile } from '@/core/cache/types';
 
 export type SyncQueueEntry = {

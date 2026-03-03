@@ -1,6 +1,6 @@
 import { SyncManager } from '@/core/sync/sync-manager';
 
-jest.mock('@/core/cache/rxdb', () => ({
+jest.mock('@/core/cache/file-manager', () => ({
   getCachedFile: jest.fn(),
   markCachedFileAsSynced: jest.fn(),
   upsertCachedFile: jest.fn(),
@@ -11,7 +11,7 @@ jest.mock('@/core/cache/file-manager', () => ({
   saveFile: jest.fn(),
 }));
 
-import { getCachedFile } from '@/core/cache/rxdb';
+import { getCachedFile } from '@/core/cache/file-manager';
 import { loadFile } from '@/core/cache/file-manager';
 
 describe('SyncManager syncFile behavior (disable pull-after-push flag)', () => {

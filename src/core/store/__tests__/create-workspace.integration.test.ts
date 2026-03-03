@@ -24,7 +24,7 @@ describe('create workspace default file', () => {
     useWorkspaceStore.getState().createWorkspace('My New WS', WorkspaceType.Browser, { id: 'new-ws' });
 
     // Wait for the background save to complete by subscribing to the RxDB document
-    const { getCacheDB } = await import('@/core/cache/rxdb');
+    const { getCacheDB } = await import('@/core/cache/file-manager');
     const db = getCacheDB();
 
     const waitForFile = (timeoutMs = 3000) => new Promise<boolean>((resolve) => {

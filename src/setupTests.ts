@@ -15,7 +15,7 @@ afterAll(async () => {
 
   try {
     // eslint-disable-next-line global-require
-    const { getCacheDB } = require('@/core/cache/rxdb');
+    const { getCacheDB } = require('@/core/cache/file-manager');
     try {
       const db = getCacheDB();
       if (db && typeof db.destroy === 'function') {

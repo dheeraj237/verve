@@ -1,9 +1,9 @@
 import 'fake-indexeddb/auto';
 
-import { initializeRxDB, getCacheDB, closeCacheDB } from '@/core/cache/rxdb';
+import { initializeRxDB, getCacheDB, closeCacheDB } from '@/core/cache/file-manager';
 import { getSyncManager, stopSyncManager } from '@/core/sync/sync-manager';
 import { getAllFiles } from '@/core/cache/file-manager';
-import { getCachedFile } from '@/core/cache/rxdb';
+import { getCachedFile } from '@/core/cache/file-manager';
 import { WorkspaceType } from '@/core/cache/types';
 
 describe('SyncManager.pullWorkspace with adapters missing expected methods (local adapter mismatch)', () => {
