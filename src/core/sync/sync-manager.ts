@@ -808,12 +808,13 @@ export async function initializeSyncManager(adapters: ISyncAdapter[], options?: 
       const localAdapter = manager.getAdapter('local') as any;
       if (localAdapter && typeof localAdapter.initialize === 'function') {
         try {
-          const { getDirectoryHandle } = await import('@/shared/utils/idb-storage');
-          const handle = await getDirectoryHandle(active.id);
+          // Ensure RxDB is available for handle metadata helpers and attempt to restore
+          // the persisted handle via `workspace-manager` which will also upsert RxDB metadata.
+          const { initializeRxDB } = await import('@/core/cache/rxdb');
+          const { restoreDirectoryHandle } = await import('@/core/cache/workspace-manager');
+          try { await initializeRxDB(); } catch (e) { /* best-effort */ }
+          const handle = await restoreDirectoryHandle(active.id);
           if (handle) {
-            // Initialize adapter non-interactively with stored handle. This avoids prompting
-            // for permission; permission should have been granted previously. If the handle
-            // no longer has permissions, the adapter will fail later and UI can prompt.
             await localAdapter.initialize(handle);
           }
         } catch (e) {

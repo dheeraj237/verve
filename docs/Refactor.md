@@ -2,7 +2,7 @@
 
 Goal (non-ambiguous)
 - `RxDB` is the authoritative source of truth for everything UI/stores read and write: workspaces, file metadata, file content cache, user settings, and sync queue.
-- Low-level IndexedDB utilities will continue to persist raw `FileSystemDirectoryHandle` objects (browser handles) because they must be stored in native IndexedDB. The `workspace-manager` will be integrated with RxDB via a small helper so RxDB contains canonical metadata and a stable document ID that references the persisted handle.
+- RxDB is the authoritative store for workspace metadata and also persists the `FileSystemDirectoryHandle` objects (stored into the `directory_handles_meta` documents). The `workspace-manager` upserts handle metadata and the cloned `FileSystemDirectoryHandle` into RxDB so UI and stores can rely solely on RxDB documents.
 - UI and Zustand stores must only use RxDB wrapper APIs (CRUD + subscriptions). No direct IndexedDB, `window.showDirectoryPicker`, or file handle usage in UI/stores.
 - `SyncManager` coordinates adapters but uses RxDB collections for reads and writes: it observes RxDB for dirty files and writes updates into RxDB. Adapter code (Local/GDrive) is the only code allowed to interact with external storage/handles and must persist results into RxDB via the wrapper API.
 - Provide robust dev UX for seamless file editing: optimistic content updates, incremental saves, auto-save debounce, and consistent subscriptions so editor/file tree reflect changes immediately.
@@ -20,8 +20,8 @@ Core design: collections + responsibilities
     - Fields: `id` (string PK), `key`, `value` (any), `updatedAt`
     - Purpose: app & user settings used by UI.
   - `directory_handles_meta`:
-    - Fields: `id` (string PK = workspaceId), `workspaceId`, `directoryName`, `storedAt`, `permissionStatus` (`granted|prompt|denied`), `notes?`
-    - Purpose: metadata for persisted handles. The actual `FileSystemDirectoryHandle` remains in a dedicated low-level idb store; the metadata document keeps RxDB-aware UI informed and is managed via the `workspace-manager`.
+    - Fields: `id` (string PK = workspaceId), `workspaceId`, `directoryName`, `storedAt`, `permissionStatus` (`granted|prompt|denied`), `directoryHandle` (structured-clone), `notes?`
+    - Purpose: metadata and the persisted `FileSystemDirectoryHandle` for a workspace. `directory_handles_meta` documents contain the cloned handle (field `directoryHandle`) so UI, stores and adapters can read handles and metadata from RxDB.
   - `sync_queue`:
     - Fields: `id`, `op` (Put/Delete), `target` (`file`), `targetId`, `payload`, `createdAt`, `attempts`
     - Purpose: durable queue for sync operations.
@@ -49,9 +49,9 @@ APIs to implement (explicit signatures)
   - export async function `saveHandleMeta(workspaceId: string, handleMeta: {directoryName:string, permissionStatus:string}): Promise<void>`
   - export async function `getHandleMeta(workspaceId: string): Promise<HandleMeta | null>`
   - export async function `ensureHandleForWorkspace(workspaceId: string): Promise<FileSystemDirectoryHandle | null>`
-    - Implementation: check RxDB `directory_handles_meta` doc for workspaceId; call underlying `workspace-manager.getDirectoryHandle(workspaceId)` (or equivalent low-level handle accessor exposed by `workspace-manager`) to retrieve handle and return it.
+    - Implementation: read the `directory_handles_meta` doc from RxDB for `workspaceId`; if a `directoryHandle` is present return it. If missing, `ensureHandleForWorkspace` may request permission via `workspace-manager` (user gesture) and then upsert the resulting handle into RxDB.
   - export async function `storeHandleForWorkspace(workspaceId: string, handle: FileSystemDirectoryHandle): Promise<void>`
-    - Implementation: call `workspace-manager.storeDirectoryHandle(workspaceId, handle)` (or an equivalent `workspace-manager` API) then upsert metadata into RxDB with `permissionStatus` set to `granted`.
+    - Implementation: store the `directoryHandle` into `directory_handles_meta` via RxDB (and optionally call `workspace-manager` helpers to perform any platform-specific persistence). Upsert metadata with `permissionStatus: granted`.
 - File operations facade changes (adapter integration):
   - `saveFile(path, content, workspaceType, options?, workspaceId?)` — should call `upsertDoc('files', fileDoc)` using `atomicUpsert` to avoid race conditions and increment `version`.
   - `loadFile(path, workspaceType, workspaceId)` — should call `getDoc('files', id)` and return content and metadata.
@@ -70,13 +70,12 @@ SyncManager responsibilities (concrete)
 - When adapter reports remote changes (via `watch()` or pull), adapter must upsert `files` documents in RxDB only — adapters must not write to any external store other than remote APIs / FS.
 
 Migration approach for persisted handle integration (explicit)
-- Keep low-level idb utilities to store raw handles (unchanged functionally). The `workspace-manager` will act as the higher-level coordinator that integrates these raw handles with RxDB metadata.
-  - After the low-level store persists a handle, `workspace-manager` should call `handle-sync` to upsert a `directory_handles_meta` document into RxDB.
-  - Permission flows (e.g., `requestPermissionForWorkspace`) should be routed through `workspace-manager`; when a handle is returned and permission is granted, `workspace-manager` must upsert the corresponding `directory_handles_meta` with `permissionStatus: granted`.
-  - Remove any code that directly reads the low-level idb handle store except inside adapters and the `workspace-manager`. UI/stores should only query RxDB metadata.
+- When a handle is obtained (via user gesture or adapter), `workspace-manager` should upsert a `directory_handles_meta` document into RxDB that includes the `directoryHandle` and `permissionStatus`.
+  - Permission flows (e.g., `requestPermissionForWorkspace`) should be routed through `workspace-manager`; when a handle is returned and permission is granted, `workspace-manager` upserts the corresponding `directory_handles_meta` with `permissionStatus: granted`.
+  - UI/stores must only read handle metadata and persisted handles from RxDB. If a legacy low-level handle store exists in older installs, run a one-time migration to copy handles into RxDB and then retire the legacy store.
 
-- Migration script:
-  - On startup migration, query the low-level idb handle store (e.g., `getAllDirectoryHandles()`) and write a mirrored metadata doc to RxDB for each handle. Set `permissionStatus` to `granted` if `queryPermission` returns `granted`, otherwise `prompt`.
+- Migration script (optional):
+  - If the repository being upgraded still contains a legacy low-level handle store, provide a one-time migration script that reads the legacy store and writes corresponding `directory_handles_meta` docs into RxDB. The script should set `permissionStatus` to `granted` when `queryPermission` indicates so, otherwise `prompt`.
 
 Schema & indexing (explicit)
 - Define JSON schema for `files` and `workspaces` in `src/core/rxdb/schemas.ts`. Example `files` schema:
@@ -136,7 +135,7 @@ Concrete implementation tasks & copy‑paste prompts
   - update `workspace-manager.ts` to call new `handle-sync.ts` after persisting or restoring directory handles and when requesting permissions.
   - create `src/core/rxdb/handle-sync.ts` with helpers `storeHandleForWorkspace`, `getHandleMeta`, `ensureHandleForWorkspace`.
 - Prompt:
-  > "Add `src/core/rxdb/handle-sync.ts` exposing `storeHandleForWorkspace`, `getHandleMeta`, and `ensureHandleForWorkspace`. Modify `workspace-manager.ts` so when it persists or restores directory handles it calls `handle-sync` to upsert metadata in RxDB. Keep the low-level idb handle storage as-is; `workspace-manager` will be the integration point."
+   > "Add `src/core/rxdb/handle-sync.ts` exposing `storeHandleForWorkspace`, `getHandleMeta`, and `ensureHandleForWorkspace`. Modify `workspace-manager.ts` so when it persists or restores directory handles it calls `handle-sync` to upsert metadata and the cloned `FileSystemDirectoryHandle` into RxDB. `workspace-manager` is the integration point and RxDB is the authoritative store."
 
 3) Task: Update `file-operations` to use `rxdb-client`
 - Files to edit:
@@ -169,7 +168,7 @@ Concrete implementation tasks & copy‑paste prompts
 - Files to add:
   - `scripts/migrate-handles-to-rxdb.ts` (node script invoked in local dev to populate `directory_handles_meta` for existing idb handles)
 - Prompt:
-  > "Create `scripts/migrate-handles-to-rxdb.ts` that calls `workspace-manager.getAllDirectoryHandles()` (or the low-level handle listing API exposed by `workspace-manager`) and writes corresponding metadata docs into RxDB using `rxdb-client.upsertDoc('directory_handles_meta', ...)`. Add a verification mode that lists workspaceIds and permissionStatus."
+  > "Create `scripts/migrate-handles-to-rxdb.ts` that reads legacy handle storage (if present) or enumerates platform-specific persisted handles and writes corresponding metadata docs into RxDB using `rxdb-client.upsertDoc('directory_handles_meta', ...)`. Add a verification mode that lists workspaceIds and permissionStatus."
 
 8) Task: UX polish (auto-save, optimistic updates, conflict UI)
 - Changes to plan:

@@ -36,7 +36,8 @@ export const fileSchema: RxJsonSchema<FileDoc> = {
     syncStatus: { type: 'string' },
     version: { type: 'number' }
   },
-  indexes: [['workspaceId'], ['dirty'], ['path'], ['syncStatus']]
+  indexes: ['workspaceId', 'dirty', 'path', 'syncStatus'],
+  version: 0
 };
 
 // Workspace document stored in `workspaces` collection
@@ -46,8 +47,8 @@ export interface WorkspaceDoc {
   type: 'Browser' | 'Local' | 'Drive' | string;
   path?: string;
   driveFolder?: string;
-  createdAt: number;
-  lastAccessed?: number;
+  createdAt: string;
+  lastAccessed?: string;
 }
 
 export const workspaceSchema: RxJsonSchema<WorkspaceDoc> = {
@@ -55,6 +56,7 @@ export const workspaceSchema: RxJsonSchema<WorkspaceDoc> = {
   description: 'Workspace metadata',
   type: 'object',
   primaryKey: 'id',
+  version: 0,
   required: ['id', 'name', 'type', 'createdAt'],
   properties: {
     id: { type: 'string' },
@@ -62,8 +64,8 @@ export const workspaceSchema: RxJsonSchema<WorkspaceDoc> = {
     type: { type: 'string' },
     path: { type: 'string' },
     driveFolder: { type: 'string' },
-    createdAt: { type: 'number' },
-    lastAccessed: { type: 'number' }
+    createdAt: { type: 'string' },
+    lastAccessed: { type: 'string' }
   }
 };
 
@@ -80,6 +82,7 @@ export const settingsSchema: RxJsonSchema<SettingDoc> = {
   description: 'App and user settings',
   type: 'object',
   primaryKey: 'id',
+  version: 0,
   required: ['id', 'key', 'value', 'updatedAt'],
   properties: {
     id: { type: 'string' },
@@ -97,12 +100,14 @@ export interface DirectoryHandleMeta {
   storedAt: number;
   permissionStatus: 'granted' | 'prompt' | 'denied' | string;
   notes?: string;
+  directoryHandle?: any;
 }
 
 export const directoryHandleSchema: RxJsonSchema<DirectoryHandleMeta> = {
   title: 'directory handles meta',
   type: 'object',
   primaryKey: 'id',
+  version: 0,
   required: ['id', 'workspaceId', 'directoryName', 'storedAt', 'permissionStatus'],
   properties: {
     id: { type: 'string' },
@@ -110,7 +115,8 @@ export const directoryHandleSchema: RxJsonSchema<DirectoryHandleMeta> = {
     directoryName: { type: 'string' },
     storedAt: { type: 'number' },
     permissionStatus: { type: 'string' },
-    notes: { type: 'string' }
+    notes: { type: 'string' },
+    directoryHandle: { type: 'object' }
   }
 };
 
@@ -129,6 +135,7 @@ export const syncQueueSchema: RxJsonSchema<SyncQueueDoc> = {
   title: 'sync queue schema',
   type: 'object',
   primaryKey: 'id',
+  version: 0,
   required: ['id', 'op', 'target', 'targetId', 'createdAt'],
   properties: {
     id: { type: 'string' },
@@ -151,4 +158,4 @@ export const collections = {
 
 export type Collections = typeof collections;
 
-export { fileSchema, workspaceSchema, settingsSchema, directoryHandleSchema, syncQueueSchema };
+// export { fileSchema, workspaceSchema, settingsSchema, directoryHandleSchema, syncQueueSchema };

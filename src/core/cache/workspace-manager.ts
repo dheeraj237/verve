@@ -9,6 +9,8 @@ import { initializeRxDB } from './rxdb';
 import type { WorkspaceType } from './types';
 import { loadSamplesIntoWorkspace } from './sample-loader';
 import { saveFile } from './file-manager';
+import { storeHandleForWorkspace, getHandleMeta, ensureHandleForWorkspace } from '@/core/rxdb/handle-sync';
+import { findDocs, removeDoc } from '@/core/rxdb/rxdb-client';
 
 export interface WorkspaceRecord {
   id: string;
@@ -28,8 +30,8 @@ export async function createWorkspace(name: string, type: WorkspaceType, id?: st
     lastAccessed: new Date().toISOString(),
   };
 
-  // For browser workspaces, create a default verve.md file
-  if (type === ('browser' as WorkspaceType) && workspaceId !== 'verve-samples') {
+  // For any new workspace, create a default verve.md file
+  if (workspaceId !== 'verve-samples') {
     try {
       await initializeRxDB();
     } catch (e) {
@@ -95,4 +97,68 @@ export async function createSampleWorkspaceIfMissing(): Promise<WorkspaceRecord>
   }
 
   return workspace;
+}
+
+/**
+ * Persist a directory handle for the given workspace and upsert RxDB metadata
+ */
+export async function storeDirectoryHandle(workspaceId: string, directoryHandle: FileSystemDirectoryHandle): Promise<void> {
+  try {
+    await storeHandleForWorkspace(workspaceId, directoryHandle);
+  } catch (err) {
+    console.warn('Failed to upsert handle metadata for workspace', workspaceId, err);
+  }
+}
+
+/**
+ * Restore a persisted directory handle (if any) and ensure RxDB metadata is present.
+ */
+export async function restoreDirectoryHandle(workspaceId: string): Promise<FileSystemDirectoryHandle | null> {
+  const handle = await ensureHandleForWorkspace(workspaceId);
+  return handle;
+}
+
+export async function listPersistedHandles() {
+  return await findDocs<any>('directory_handles_meta', { selector: {} });
+}
+
+/**
+ * Remove persisted directory handle for workspace and delete RxDB metadata
+ */
+export async function removeDirectoryHandle(workspaceId: string): Promise<void> {
+  try {
+    await removeDoc('directory_handles_meta', workspaceId);
+  } catch (err) {
+    console.warn('Failed to remove handle metadata for', workspaceId, err);
+  }
+}
+
+/**
+ * Request permission for a workspace handle (must be called from a user gesture).
+ * Uses the `directory_handles_meta` RxDB doc to obtain the persisted `directoryHandle`.
+ * If permission granted, upsert RxDB metadata and return the handle.
+ */
+export async function requestPermissionForWorkspace(workspaceId: string): Promise<FileSystemDirectoryHandle | null> {
+  try {
+    // Read stored handle from RxDB and request permission from it (must be user gesture)
+    const meta = await getHandleMeta(workspaceId);
+    const handle = (meta as any)?.directoryHandle as FileSystemDirectoryHandle | undefined | null;
+    if (!handle) return null;
+    try {
+      const permission = await handle.queryPermission({ mode: 'readwrite' });
+      if (permission === 'granted') return handle;
+      const newPermission = await handle.requestPermission({ mode: 'readwrite' });
+      if (newPermission === 'granted') {
+        try { await storeHandleForWorkspace(workspaceId, handle); } catch (_) { }
+        return handle;
+      }
+      return null;
+    } catch (err) {
+      console.warn('Permission request failed for handle:', err);
+      return null;
+    }
+  } catch (err) {
+    console.warn('requestPermissionForWorkspace failed:', err);
+    return null;
+  }
 }

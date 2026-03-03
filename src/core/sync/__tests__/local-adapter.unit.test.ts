@@ -1,7 +1,7 @@
 import { LocalAdapter } from '@/core/sync/adapters/local-adapter';
 
-// Mock idb-storage functions used by adapter
-jest.mock('@/shared/utils/idb-storage', () => ({
+// Mock workspace-manager functions used by adapter (replaces idb-storage)
+jest.mock('@/core/cache/workspace-manager', () => ({
   storeDirectoryHandle: jest.fn().mockResolvedValue(undefined),
   requestPermissionForWorkspace: jest.fn().mockResolvedValue(undefined),
   removeDirectoryHandle: jest.fn().mockResolvedValue(undefined),
@@ -52,7 +52,7 @@ class MockDirHandle {
 }
 
 describe('LocalAdapter unit', () => {
-  const idb = require('@/shared/utils/idb-storage');
+  const wm = require('@/core/cache/workspace-manager');
   const { upsertCachedFile } = require('@/core/cache/rxdb');
   const { saveFile } = require('@/core/cache/file-operations');
 
@@ -82,7 +82,7 @@ describe('LocalAdapter unit', () => {
     await adapter.openDirectoryPicker('ws-test');
 
     expect(adapter.isReady()).toBe(true);
-    expect(idb.storeDirectoryHandle).toHaveBeenCalledWith('ws-test', root);
+    expect(wm.storeDirectoryHandle).toHaveBeenCalledWith('ws-test', root);
     expect(upsertCachedFile).toHaveBeenCalled();
     expect(saveFile).toHaveBeenCalledWith('foo.md', 'hello', expect.anything(), undefined, 'ws-test');
   });
@@ -95,7 +95,7 @@ describe('LocalAdapter unit', () => {
     });
 
     // Mock requestPermissionForWorkspace to return handle
-    idb.requestPermissionForWorkspace.mockResolvedValue(root);
+    wm.requestPermissionForWorkspace.mockResolvedValue(root);
 
     const ok = await adapter.promptPermissionAndRestore('ws-2');
     expect(ok).toBe(true);
@@ -105,8 +105,8 @@ describe('LocalAdapter unit', () => {
 });
 import 'fake-indexeddb/auto';
 
-// Mock idb storage and cache ops before importing adapter
-jest.mock('@/shared/utils/idb-storage', () => ({
+// Mock workspace-manager and cache ops before importing adapter
+jest.mock('@/core/cache/workspace-manager', () => ({
   requestPermissionForWorkspace: jest.fn(),
   storeDirectoryHandle: jest.fn(),
   removeDirectoryHandle: jest.fn(),
@@ -121,7 +121,7 @@ jest.mock('@/core/cache/file-operations', () => ({
 }));
 
 import { LocalAdapter } from '@/core/sync/adapters/local-adapter';
-import { requestPermissionForWorkspace } from '@/shared/utils/idb-storage';
+import { requestPermissionForWorkspace } from '@/core/cache/workspace-manager';
 import { upsertCachedFile } from '@/core/cache/rxdb';
 import { saveFile } from '@/core/cache/file-operations';
 

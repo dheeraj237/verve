@@ -1,7 +1,7 @@
 import { Observable } from 'rxjs';
 import { ISyncAdapter } from '../sync-manager';
 import type { CachedFile } from '../../cache/types';
-import { storeDirectoryHandle, requestPermissionForWorkspace } from '@/shared/utils/idb-storage';
+import { requestPermissionForWorkspace, storeDirectoryHandle as workspaceStoreDirectoryHandle } from '@/core/cache/workspace-manager';
 import { buildFileTreeFromDirectory } from '@/features/file-explorer/store/helpers/file-tree-builder';
 import { upsertCachedFile } from '@/core/cache/rxdb';
 import { saveFile } from '@/core/cache/file-operations';
@@ -42,9 +42,9 @@ export class LocalAdapter implements ISyncAdapter {
     const dirHandle = await (window as any).showDirectoryPicker();
     if (workspaceId) {
       try {
-        await storeDirectoryHandle(workspaceId, dirHandle);
+        await workspaceStoreDirectoryHandle(workspaceId, dirHandle);
       } catch (e) {
-        console.warn('Failed to store directory handle via idb-storage:', e);
+        console.warn('Failed to store directory handle via workspace-manager:', e);
       }
     }
     // Initialize adapter internal handle
@@ -102,6 +102,8 @@ export class LocalAdapter implements ISyncAdapter {
     try {
       const handle = await requestPermissionForWorkspace(workspaceId);
       if (!handle) return false;
+      // Ensure workspace-manager persists metadata for the restored handle
+      try { await workspaceStoreDirectoryHandle(workspaceId, handle); } catch (e) { /* ignore */ }
       // Initialize internal handle
       this.rootHandle = handle;
       await this.loadFileHandles();

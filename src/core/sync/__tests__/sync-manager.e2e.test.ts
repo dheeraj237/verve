@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 
-// Mock idb-storage to avoid structured-clone issues in tests
-jest.mock('@/shared/utils/idb-storage', () => ({
+// Mock workspace-manager to avoid structured-clone issues in tests
+jest.mock('@/core/cache/workspace-manager', () => ({
   storeDirectoryHandle: jest.fn().mockResolvedValue(undefined),
   requestPermissionForWorkspace: jest.fn().mockResolvedValue(undefined),
   removeDirectoryHandle: jest.fn().mockResolvedValue(undefined),

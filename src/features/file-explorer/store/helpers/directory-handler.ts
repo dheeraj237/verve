@@ -2,7 +2,7 @@ import { FileNode } from "@/shared/types";
 import { buildFileTreeFromDirectory, buildFileTreeFromAdapter } from "./file-tree-builder";
 import { getSyncManager } from '@/core/sync/sync-manager';
 import { WorkspaceType } from '@/core/cache/types';
-import { removeDirectoryHandle } from '@/shared/utils/idb-storage';
+import { removeDirectoryHandle } from '@/core/cache/workspace-manager';
 
 /**
  * Opens a local directory using File System Access API
@@ -128,7 +128,7 @@ export function clearLocalDirectory(): void {
     import('@/core/store/workspace-store').then((mod) => {
       try {
         const wsId = mod.useWorkspaceStore.getState().activeWorkspace?.()?.id;
-        if (wsId) removeDirectoryHandle(wsId).catch(() => { });
+        if (wsId) (async () => { try { await removeDirectoryHandle(wsId); } catch (_) { } })();
       } catch (_) { }
     }).catch(() => { });
   } catch (_) { }
