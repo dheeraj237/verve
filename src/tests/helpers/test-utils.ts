@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 
 export async function initFileOps() {
-  const fileOps = await import('@/core/cache/file-operations');
+  const fileOps = await import('@/core/cache/file-manager');
   await fileOps.initializeFileOperations();
   return fileOps;
 }

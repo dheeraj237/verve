@@ -19,7 +19,7 @@ describe('create in root edge cases across workspace types', () => {
     it(`creates file and folder in root for workspace type=${wsType}`, async () => {
       const { useWorkspaceStore } = await import('@/core/store/workspace-store');
       const { useFileExplorerStore } = await import('@/features/file-explorer/store/file-explorer-store');
-      const fileOps = await import('@/core/cache/file-operations');
+      const fileOps = await import('@/core/cache/file-manager');
       const cache = await import('@/core/cache');
 
       // Create workspace and ensure it's active
@@ -29,7 +29,7 @@ describe('create in root edge cases across workspace types', () => {
       // Create file in root
       await useFileExplorerStore.getState().createFile('', 'root-new.md');
 
-      // load via file-operations to validate content is empty string
+      // load via file-manager to validate content is empty string
       const loaded = await fileOps.loadFile('root-new.md', wsType, wsId);
       expect(loaded).toBeDefined();
       expect(loaded.content).toBe('');

@@ -4,7 +4,7 @@ import type { CachedFile } from '../../cache/types';
 import { requestPermissionForWorkspace, storeDirectoryHandle as workspaceStoreDirectoryHandle } from '@/core/cache/workspace-manager';
 import { buildFileTreeFromDirectory } from '@/features/file-explorer/store/helpers/file-tree-builder';
 import { upsertCachedFile } from '@/core/cache/rxdb';
-import { saveFile } from '@/core/cache/file-operations';
+import { saveFile } from '@/core/cache/file-manager';
 import { CachedFile as CachedFileType, WorkspaceType } from '@/core/cache/types';
 
 /**

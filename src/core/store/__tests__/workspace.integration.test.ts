@@ -12,7 +12,7 @@ describe('workspace integration tests', () => {
     const { useWorkspaceStore } = require('@/core/store/workspace-store');
     const { useEditorStore } = require('@/features/editor/store/editor-store');
     const { WorkspaceType } = require('@/core/cache/types');
-    const fileOps = await import('@/core/cache/file-operations');
+    const fileOps = await import('@/core/cache/file-manager');
 
     await fileOps.initializeFileOperations();
 
@@ -65,7 +65,7 @@ describe('workspace integration tests', () => {
   it('create, read, delete workspaces', async () => {
     const { useWorkspaceStore } = require('@/core/store/workspace-store');
     const { WorkspaceType } = require('@/core/cache/types');
-    const fileOps = await import('@/core/cache/file-operations');
+    const fileOps = await import('@/core/cache/file-manager');
 
     await fileOps.initializeFileOperations();
 
@@ -85,7 +85,7 @@ describe('workspace integration tests', () => {
   it('new workspace creates verve.md with default content and is visible', async () => {
     const { useWorkspaceStore } = require('@/core/store/workspace-store');
     const { WorkspaceType } = require('@/core/cache/types');
-    const fileOps = await import('@/core/cache/file-operations');
+    const fileOps = await import('@/core/cache/file-manager');
 
     await fileOps.initializeFileOperations();
 
@@ -120,7 +120,7 @@ describe('workspace integration tests', () => {
     const { useWorkspaceStore } = require('@/core/store/workspace-store');
     const { WorkspaceType } = require('@/core/cache/types');
     const { getSyncManager, stopSyncManager } = await import('@/core/sync/sync-manager');
-    const fileOps = await import('@/core/cache/file-operations');
+    const fileOps = await import('@/core/cache/file-manager');
 
     await fileOps.initializeFileOperations();
 

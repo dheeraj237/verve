@@ -1,5 +1,24 @@
+import 'fake-indexeddb/auto';
+
+import { initializeFileOperations, saveFile, ensureFolderDocs } from '@/core/cache/file-manager';
+import { WorkspaceType } from '@/core/cache/types';
+
+describe('migration: create folder docs', () => {
+  beforeEach(async () => {
+    jest.resetModules();
+    await initializeFileOperations();
+  });
+
+  it('ensureFolderDocs runs without error and creates folder docs', async () => {
+    // Create a nested file to force folder doc creation
+    await saveFile('/nested/inner/test.md', 'hello', WorkspaceType.Browser, undefined, 'mig-ws');
+
+    // Should not throw
+    await expect(ensureFolderDocs('mig-ws')).resolves.not.toThrow();
+  });
+});
 import { initializeRxDB, closeCacheDB, upsertCachedFile, getAllFiles } from '@/core/cache';
-import { ensureFolderDocs } from '@/core/cache/file-operations';
+import { ensureFolderDocs } from '@/core/cache/file-manager';
 import { FileType, WorkspaceType } from '@/core/cache/types';
 
 jest.setTimeout(20000);

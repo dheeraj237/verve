@@ -7,10 +7,10 @@ jest.mock('@/core/cache/workspace-manager', () => ({
   removeDirectoryHandle: jest.fn().mockResolvedValue(undefined),
 }));
 
-import { initializeFileOperations } from '@/core/cache/file-operations';
+import { initializeFileOperations } from '@/core/cache/file-manager';
 import { getSyncManager } from '@/core/sync/sync-manager';
 import { LocalAdapter } from '@/core/sync/adapters/local-adapter';
-import { getAllFiles } from '@/core/cache/file-operations';
+import { getAllFiles } from '@/core/cache/file-manager';
 import { WorkspaceType } from '@/core/cache/types';
 
 class MockFileHandle {

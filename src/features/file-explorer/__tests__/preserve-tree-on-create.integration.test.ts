@@ -8,7 +8,7 @@ describe('file explorer preserve tree on create/delete', () => {
   });
 
   it('creating a file should not remove other existing root files', async () => {
-    const fileOps = await import('@/core/cache/file-operations');
+    const fileOps = await import('@/core/cache/file-manager');
     const { useWorkspaceStore } = await import('@/core/store/workspace-store');
     const { useFileExplorerStore } = await import('@/features/file-explorer/store/file-explorer-store');
     const { WorkspaceType } = require('@/core/cache/types');
@@ -46,7 +46,7 @@ describe('file explorer preserve tree on create/delete', () => {
   });
 
   it('deleting a file should not remove other existing root files', async () => {
-    const fileOps = await import('@/core/cache/file-operations');
+    const fileOps = await import('@/core/cache/file-manager');
     const { useWorkspaceStore } = await import('@/core/store/workspace-store');
     const { useFileExplorerStore } = await import('@/features/file-explorer/store/file-explorer-store');
     const { WorkspaceType } = require('@/core/cache/types');

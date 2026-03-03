@@ -13,7 +13,7 @@ import { create } from "zustand";
 import { MarkdownFile, FileCategory } from "@/shared/types";
 import { useWorkspaceStore } from "@/core/store/workspace-store";
 import { WorkspaceType } from '@/core/cache/types';
-import { initializeFileOperations } from "@/core/cache/file-operations";
+import { initializeFileOperations } from "@/core/cache/file-manager";
 import { fileRepo } from '@/core/cache/file-repo';
 import { isFeatureEnabled } from '@/core/config/features';
 import { getSyncManager } from '@/core/sync/sync-manager';

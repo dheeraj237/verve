@@ -7,7 +7,7 @@ import { persist } from "zustand/middleware";
 import { MarkdownFile } from "@/shared/types";
 import { WorkspaceType } from '@/core/cache/types';
 import { useEditorStore } from "@/features/editor/store/editor-store";
-import { initializeFileOperations } from '@/core/cache/file-operations';
+import { initializeFileOperations } from '@/core/cache/file-manager';
 import { createWorkspace as workspaceManagerCreateWorkspace, createSampleWorkspaceIfMissing } from '@/core/cache/workspace-manager';
 import { getSyncManager } from '@/core/sync/sync-manager';
 
@@ -283,7 +283,7 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
             // Then reload file contents from the RxDB cache for the new workspace
             const workspace = get().workspaces.find(w => w.id === idToRestore);
             if (workspace) {
-              const { loadFile } = await import('@/core/cache/file-operations');
+              const { loadFile } = await import('@/core/cache/file-manager');
 
               // Reload each tab's content from the RxDB cache
               const reloadedTabs = await Promise.all(

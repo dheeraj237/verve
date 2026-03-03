@@ -4,7 +4,7 @@
  */
 
 import { FileNode, FileNodeType } from '@/shared/types';
-import { getAllFiles } from '@/core/cache/file-operations';
+import { getAllFiles } from '@/core/cache/file-manager';
 
 // Ensure RxDB and sample files are available when building the samples tree.
 async function ensureSamplesLoaded() {
@@ -15,7 +15,7 @@ async function ensureSamplesLoaded() {
   } catch (err) {
     // If RxDB is not initialized, initialize it
     try {
-      const ops = await import('@/core/cache/file-operations');
+      const ops = await import('@/core/cache/file-manager');
       if (typeof ops.initializeFileOperations === 'function') {
         // initializeFileOperations is idempotent so it's safe to call
         // if another part of the app already initialized it
@@ -30,7 +30,7 @@ async function ensureSamplesLoaded() {
 
   // If there are still no files, attempt to load sample files into the cache
   try {
-    const ops = await import('@/core/cache/file-operations');
+      const ops = await import('@/core/cache/file-manager');
     if (typeof ops.loadSampleFilesFromFolder === 'function') {
       await ops.loadSampleFilesFromFolder();
     }

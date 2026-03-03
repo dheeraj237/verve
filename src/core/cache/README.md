@@ -8,6 +8,6 @@ This folder contains the offline cache layer built on RxDB. Key modules:
 - `schemas.ts` — RxDB JSON schemas for `cached_files` and `sync_queue`. Includes composite index `['workspaceId','path']` for efficient workspace-scoped lookups.
 
 Guidance:
-- Prefer `file-manager` for all file CRUD and subscription needs. `file-operations.ts` re-exports `file-manager` for backward compatibility.
+- Prefer `file-manager` for all file CRUD and subscription needs. Legacy `file-operations.ts` has been removed; update imports to `file-manager`.
 - Tests should mock `fetch` when `sample-loader` runs in Node environments.
 - If adding new workspace IDs in tests, reuse `generateWorkspaceId` when deterministic formatting is required.

@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { initializeFileOperations, loadSampleFilesFromFolder } from '@/core/cache/file-operations';
+import { initializeFileOperations, loadSampleFilesFromFolder } from '@/core/cache/file-manager';
 import { initializeSyncManager } from '@/core/sync/sync-manager';
 import { LocalAdapter } from '@/core/sync/adapters/local-adapter';
 import { GDriveAdapter } from '@/core/sync/adapters/gdrive-adapter';
@@ -83,14 +83,14 @@ export function useBrowserMode() {
 }
 
 /**
- * Get the global file cache (deprecated - use file-operations directly)
+ * Get the global file cache (deprecated - use file-manager directly)
  */
 export function getBrowserAdapter(workspaceId: string = 'default') {
-  console.warn('getBrowserAdapter is deprecated - use file-operations from @/core/cache instead');
+  console.warn('getBrowserAdapter is deprecated - use file-manager from @/core/cache instead');
   return null;
 }
 
 export function getBrowserFileManager() {
-  console.warn('getBrowserFileManager is deprecated - use file-operations from @/core/cache instead');
+  console.warn('getBrowserFileManager is deprecated - use file-manager from @/core/cache instead');
   return null;
 }

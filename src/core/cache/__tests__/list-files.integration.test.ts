@@ -8,7 +8,7 @@ describe('listFiles integration', () => {
   });
 
   it('lists root files whether stored with or without leading slash', async () => {
-    const fileOps = await import('@/core/cache/file-operations');
+    const fileOps = await import('@/core/cache/file-manager');
     const { WorkspaceType } = require('@/core/cache/types');
 
     await fileOps.initializeFileOperations();

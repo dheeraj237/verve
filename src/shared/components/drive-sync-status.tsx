@@ -8,7 +8,7 @@
 import { useEffect, useState } from "react";
 import { Cloud, CloudOff, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { useWorkspaceStore } from "@/core/store/workspace-store";
-import { getDirtyFiles } from "@/core/cache/file-operations";
+import { getDirtyFiles } from "@/core/cache/file-manager";
 import { Button } from "@/shared/components/ui/button";
 import {
   Tooltip,

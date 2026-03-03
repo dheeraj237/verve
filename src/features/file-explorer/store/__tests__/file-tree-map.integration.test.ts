@@ -1,8 +1,8 @@
-jest.mock('@/core/cache/file-operations', () => ({
+jest.mock('@/core/cache/file-manager', () => ({
   getAllFiles: jest.fn()
 }));
 
-import { getAllFiles } from '@/core/cache/file-operations';
+import { getAllFiles } from '@/core/cache/file-manager';
 import { useFileExplorerStore } from '../file-explorer-store';
 
 describe('build file tree -> map integration', () => {

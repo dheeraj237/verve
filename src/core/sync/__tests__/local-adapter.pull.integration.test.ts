@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto';
 
 import { initializeRxDB, getCacheDB, closeCacheDB } from '@/core/cache/rxdb';
 import { getSyncManager, stopSyncManager } from '@/core/sync/sync-manager';
-import { getAllFiles } from '@/core/cache/file-operations';
+import { getAllFiles } from '@/core/cache/file-manager';
 import { getCachedFile } from '@/core/cache/rxdb';
 import { WorkspaceType } from '@/core/cache/types';
 

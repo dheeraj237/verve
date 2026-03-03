@@ -73,7 +73,7 @@ describe('fresh instance end-to-end', () => {
     expect(ws.name).toBe('Verve Samples');
     expect(ws.type).toBe(WorkspaceType.Browser);
 
-    const { getAllFiles, loadFile, saveFile } = await import('@/core/cache/file-operations');
+    const { getAllFiles, loadFile, saveFile } = await import('@/core/cache/file-manager');
 
     const files = await getAllFiles('verve-samples');
     expect(files.length).toBe(10);

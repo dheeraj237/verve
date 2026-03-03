@@ -10,7 +10,7 @@ describe('file-explorer root create & workspace switch behavior', () => {
   it('uses currentDirectoryPath as root when creating a new file', async () => {
     const { useWorkspaceStore } = require('@/core/store/workspace-store');
     const { useFileExplorerStore } = require('@/features/file-explorer/store/file-explorer-store');
-    const fileOps = await import('@/core/cache/file-operations');
+    const fileOps = await import('@/core/cache/file-manager');
     const { WorkspaceType } = require('@/core/cache/types');
 
     await fileOps.initializeFileOperations();
@@ -42,7 +42,7 @@ describe('file-explorer root create & workspace switch behavior', () => {
   it('switching active workspace changes currentDirectory and new creates go to the then-active root', async () => {
     const { useWorkspaceStore } = require('@/core/store/workspace-store');
     const { useFileExplorerStore } = require('@/features/file-explorer/store/file-explorer-store');
-    const fileOps = await import('@/core/cache/file-operations');
+    const fileOps = await import('@/core/cache/file-manager');
     const { WorkspaceType } = require('@/core/cache/types');
 
     await fileOps.initializeFileOperations();

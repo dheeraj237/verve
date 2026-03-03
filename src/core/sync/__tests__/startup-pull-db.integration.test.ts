@@ -1,5 +1,5 @@
 import 'fake-indexeddb/auto';
-import { initializeFileOperations } from '@/core/cache/file-operations';
+import { initializeFileOperations } from '@/core/cache/file-manager';
 import { getCacheDB } from '@/core/cache/rxdb';
 import { initializeSyncManager, stopSyncManager } from '@/core/sync/sync-manager';
 import { useWorkspaceStore } from '@/core/store/workspace-store';

@@ -2,14 +2,14 @@ import 'fake-indexeddb/auto';
 
 jest.setTimeout(10000);
 
-describe('file-operations across workspace types', () => {
+describe('file-manager across workspace types', () => {
   beforeEach(() => {
     jest.resetModules();
   });
 
   it('browser workspace: create/read/rename/delete files and directories', async () => {
     const { WorkspaceType } = require('@/core/cache/types');
-    const fileOps = await import('@/core/cache/file-operations');
+    const fileOps = await import('@/core/cache/file-manager');
 
     await fileOps.initializeFileOperations();
 
@@ -44,7 +44,7 @@ describe('file-operations across workspace types', () => {
 
   it('local workspace: dirty flag set and enqueue triggers adapter push', async () => {
     const { WorkspaceType } = require('@/core/cache/types');
-    const fileOps = await import('@/core/cache/file-operations');
+    const fileOps = await import('@/core/cache/file-manager');
     const { getSyncManager, stopSyncManager } = await import('@/core/sync/sync-manager');
 
     await fileOps.initializeFileOperations();
@@ -82,7 +82,7 @@ describe('file-operations across workspace types', () => {
 
   it('gdrive workspace: dirty flag and sync push via adapter', async () => {
     const { WorkspaceType } = require('@/core/cache/types');
-    const fileOps = await import('@/core/cache/file-operations');
+    const fileOps = await import('@/core/cache/file-manager');
     const { getSyncManager, stopSyncManager } = await import('@/core/sync/sync-manager');
 
     await fileOps.initializeFileOperations();

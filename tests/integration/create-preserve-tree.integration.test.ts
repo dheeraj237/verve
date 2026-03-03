@@ -1,5 +1,5 @@
 import { initializeRxDB, closeCacheDB, upsertCachedFile, getAllFiles } from '@/core/cache';
-import { saveFile } from '@/core/cache/file-operations';
+import { saveFile } from '@/core/cache/file-manager';
 import { FileType, WorkspaceType } from '@/core/cache/types';
 import { useWorkspaceStore } from '@/core/store/workspace-store';
 import { useFileExplorerStore } from '@/features/file-explorer/store/file-explorer-store';

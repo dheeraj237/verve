@@ -72,10 +72,10 @@ SyncManager responsibilities (concrete)
 Migration approach for persisted handle integration (explicit)
 - When a handle is obtained (via user gesture or adapter), `workspace-manager` should upsert a `directory_handles_meta` document into RxDB that includes the `directoryHandle` and `permissionStatus`.
   - Permission flows (e.g., `requestPermissionForWorkspace`) should be routed through `workspace-manager`; when a handle is returned and permission is granted, `workspace-manager` upserts the corresponding `directory_handles_meta` with `permissionStatus: granted`.
-  - UI/stores must only read handle metadata and persisted handles from RxDB. If a legacy low-level handle store exists in older installs, run a one-time migration to copy handles into RxDB and then retire the legacy store.
+  - UI/stores must only read handle metadata and persisted handles from RxDB. If older installs used a different handle persistence mechanism, provide a one-time migration to copy existing handles into RxDB and then retire the legacy store.
 
 - Migration script (optional):
-  - If the repository being upgraded still contains a legacy low-level handle store, provide a one-time migration script that reads the legacy store and writes corresponding `directory_handles_meta` docs into RxDB. The script should set `permissionStatus` to `granted` when `queryPermission` indicates so, otherwise `prompt`.
+  - If the repository being upgraded still contains a legacy handle persistence mechanism, provide a one-time migration script that reads that store and writes corresponding `directory_handles_meta` docs into RxDB. The script should set `permissionStatus` to `granted` when `queryPermission` indicates so, otherwise `prompt`.
 
 Schema & indexing (explicit)
 - Define JSON schema for `files` and `workspaces` in `src/core/rxdb/schemas.ts`. Example `files` schema:
@@ -86,7 +86,7 @@ Schema & indexing (explicit)
 
 UI/store migration checklist (explicit, file-level)
 - `src/features/file-explorer/store/*`:
-  - Replace direct calls to `getAllFiles` or `file-operations` implementations that read IndexedDB directly with `rxdb-client` wrappers (e.g., `findDocs('files', {selector:{workspaceId}})`).
+  - Replace direct calls to `getAllFiles` or `file-manager` implementations that read IndexedDB directly with `rxdb-client` wrappers (e.g., `findDocs('files', {selector:{workspaceId}})`).
   - Replace `hasLocalDirectory()` to read `directory_handles_meta` doc and `isReady()` from adapter via `getSyncManager().getAdapter('local')`.
 - editor-store.ts:
   - All saves must call `saveFile` (which now writes to RxDB).
@@ -112,7 +112,7 @@ Testing & verification (explicit)
 - Unit tests:
   - `rxdb-client` CRUD + subscriptions
   - `handle-sync` saving & retrieval with `workspace-manager` mocked
-  - `file-operations` writes upsert proper `files` docs and set `dirty`.
+  - `file-manager` writes upsert proper `files` docs and set `dirty`.
   - `SyncManager` push/pull flows with mocked adapters that simulate success/failure and remote versions.
 - End-to-end tests:
   - Scenario: Persisted local handle exists → reload app → `SyncManager` auto-initializes adapter → `pullWorkspace` populates `files` docs → explorer shows files.
@@ -137,12 +137,10 @@ Concrete implementation tasks & copy‑paste prompts
 - Prompt:
    > "Add `src/core/rxdb/handle-sync.ts` exposing `storeHandleForWorkspace`, `getHandleMeta`, and `ensureHandleForWorkspace`. Modify `workspace-manager.ts` so when it persists or restores directory handles it calls `handle-sync` to upsert metadata and the cloned `FileSystemDirectoryHandle` into RxDB. `workspace-manager` is the integration point and RxDB is the authoritative store."
 
-3) Task: Update `file-operations` to use `rxdb-client`
+3) Task: Update `file-manager` to use `rxdb-client`
 - Files to edit:
-  - file-operations.ts
-  - `src/core/cache/rxdb` usages
-- Prompt:
-  > "Refactor file-operations.ts to use `rxdb-client.upsertDoc('files', fileDoc)` and `rxdb-client.getDoc('files', id)` for `saveFile` and `loadFile`. Ensure `saveFile` uses `atomicUpsert` to increment `version` and set `dirty` according to `options`."
+  - `src/core/cache/file-manager.ts`
+  > "Refactor `file-manager.ts` to use `rxdb-client.upsertDoc('files', fileDoc)` and `rxdb-client.getDoc('files', id)` for `saveFile` and `loadFile`. Ensure saves use `atomicUpsert` to increment `version`, set `dirty` appropriately, and maintain optimistic updates for editor UX."
 
 4) Task: Refactor stores/UI to use RxDB wrapper exclusively
 - Files to edit:

@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto';
 
-import { initializeFileOperations } from '@/core/cache/file-operations';
+import { initializeFileOperations } from '@/core/cache/file-manager';
 import { getSyncManager, initializeSyncManager } from '@/core/sync/sync-manager';
 import { LocalAdapter } from '@/core/sync/adapters/local-adapter';
 import { useWorkspaceStore } from '@/core/store/workspace-store';

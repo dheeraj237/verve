@@ -8,7 +8,7 @@ describe('create file and open it via editor', () => {
   });
 
   it('creating a file then opening it loads its content', async () => {
-    const fileOps = await import('@/core/cache/file-operations');
+    const fileOps = await import('@/core/cache/file-manager');
     const { useWorkspaceStore } = await import('@/core/store/workspace-store');
     const { useFileExplorerStore } = await import('@/features/file-explorer/store/file-explorer-store');
     const { useEditorStore } = await import('@/features/editor/store/editor-store');

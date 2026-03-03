@@ -31,7 +31,7 @@ export type CachedFile = {
   size?: number;
   modifiedAt?: string;
   createdAt?: string;
-  // Numeric lastModified timestamp used across adapters and file-operations
+  // Numeric lastModified timestamp used across adapters and `file-manager`
   lastModified?: number;
   dirty?: boolean; // Only relevant for 'local' and 'gdrive', not 'browser'
   isSynced?: boolean;

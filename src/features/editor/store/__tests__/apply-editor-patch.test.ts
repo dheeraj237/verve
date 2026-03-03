@@ -1,7 +1,7 @@
 import { jest } from '@jest/globals';
 
 const saveFileMock: any = jest.fn(() => Promise.resolve({ id: 'file-1', name: 'doc', path: '/doc.md', content: 'new content' }));
-jest.mock('@/core/cache/file-operations', () => ({
+jest.mock('@/core/cache/file-manager', () => ({
   initializeFileOperations: jest.fn(),
   loadFile: jest.fn(),
   saveFile: saveFileMock,
@@ -18,7 +18,7 @@ jest.mock('@/core/config/features', () => ({ isFeatureEnabled: isFeatureEnabledM
 
 import { useEditorStore } from '../editor-store';
 import { useWorkspaceStore } from '@/core/store/workspace-store';
-import { saveFile } from '@/core/cache/file-operations';
+import { saveFile } from '@/core/cache/file-manager';
 import { getSyncManager } from '@/core/sync/sync-manager';
 import { WorkspaceType } from '@/core/cache/types';
 import { FileCategory } from '@/shared/types';

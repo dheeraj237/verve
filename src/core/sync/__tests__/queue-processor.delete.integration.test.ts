@@ -3,7 +3,7 @@ import 'fake-indexeddb/auto';
 import { initializeRxDB, getCacheDB, closeCacheDB } from '@/core/cache/rxdb';
 import { enqueueSyncEntry, processPendingQueueOnce } from '@/core/sync/sync-queue-processor';
 import { upsertCachedFile, getCachedFile } from '@/core/cache/rxdb';
-import { deleteFile } from '@/core/cache/file-operations';
+import { deleteFile } from '@/core/cache/file-manager';
 import { SyncOp } from '@/core/cache/types';
 
 describe('Queue processor delete propagation (integration)', () => {

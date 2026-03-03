@@ -29,7 +29,7 @@ describe('initializeApp loads verve-samples on fresh start', () => {
     const { initializeApp } = require('@/hooks/use-browser-mode');
     await initializeApp();
 
-    const { getAllFiles, loadFile } = await import('@/core/cache/file-operations');
+    const { getAllFiles, loadFile } = await import('@/core/cache/file-manager');
     const files = await getAllFiles('verve-samples');
 
     // Expect at least the known sample files to be present

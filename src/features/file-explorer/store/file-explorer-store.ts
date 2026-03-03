@@ -3,7 +3,7 @@ import { persist } from "zustand/middleware";
 import { FileNode, FileNodeType } from "@/shared/types";
 import { WorkspaceType, FileType } from '@/core/cache/types';
 import { buildSamplesFileTree } from "@/utils/demo-file-tree";
-import { getAllFiles, saveFile, createDirectory, renameFile, deleteFile, loadSampleFilesFromFolder } from '@/core/cache/file-operations';
+import { getAllFiles, saveFile, createDirectory, renameFile, deleteFile, loadSampleFilesFromFolder } from '@/core/cache/file-manager';
 import { upsertCachedFile } from '@/core/cache/rxdb';
 import { CachedFile, FileType as CacheFileType } from '@/core/cache/types';
 import { subscribeToWorkspaceFiles } from '@/core/cache/file-manager';

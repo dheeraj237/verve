@@ -1,10 +1,10 @@
 import 'fake-indexeddb/auto';
 
-import { initializeFileOperations } from '@/core/cache/file-operations';
+import { initializeFileOperations } from '@/core/cache/file-manager';
 import { getSyncManager } from '@/core/sync/sync-manager';
 import type { ISyncAdapter } from '@/core/sync/adapter-types';
 import { upsertCachedFile } from '@/core/cache/rxdb';
-import { saveFile } from '@/core/cache/file-operations';
+import { saveFile } from '@/core/cache/file-manager';
 import { WorkspaceType } from '@/core/cache/types';
 import { openLocalDirectory } from '@/features/file-explorer/store/helpers/directory-handler';
 

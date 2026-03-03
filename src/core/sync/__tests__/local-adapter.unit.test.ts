@@ -1,6 +1,6 @@
 import { LocalAdapter } from '@/core/sync/adapters/local-adapter';
 
-// Mock workspace-manager functions used by adapter (replaces idb-storage)
+// Mock workspace-manager functions used by adapter (replaces previous idb helper)
 jest.mock('@/core/cache/workspace-manager', () => ({
   storeDirectoryHandle: jest.fn().mockResolvedValue(undefined),
   requestPermissionForWorkspace: jest.fn().mockResolvedValue(undefined),
@@ -11,7 +11,7 @@ jest.mock('@/core/cache/workspace-manager', () => ({
 jest.mock('@/core/cache/rxdb', () => ({
   upsertCachedFile: jest.fn().mockResolvedValue(undefined),
 }));
-jest.mock('@/core/cache/file-operations', () => ({
+jest.mock('@/core/cache/file-manager', () => ({
   saveFile: jest.fn().mockResolvedValue(undefined),
   getAllFiles: jest.fn().mockResolvedValue([]),
 }));
@@ -54,7 +54,7 @@ class MockDirHandle {
 describe('LocalAdapter unit', () => {
   const wm = require('@/core/cache/workspace-manager');
   const { upsertCachedFile } = require('@/core/cache/rxdb');
-  const { saveFile } = require('@/core/cache/file-operations');
+  const { saveFile } = require('@/core/cache/file-manager');
 
   afterEach(() => {
     jest.resetAllMocks();
@@ -116,14 +116,14 @@ jest.mock('@/core/cache/rxdb', () => ({
   upsertCachedFile: jest.fn(() => Promise.resolve()),
 }));
 
-jest.mock('@/core/cache/file-operations', () => ({
+jest.mock('@/core/cache/file-manager', () => ({
   saveFile: jest.fn(() => Promise.resolve()),
 }));
 
 import { LocalAdapter } from '@/core/sync/adapters/local-adapter';
 import { requestPermissionForWorkspace } from '@/core/cache/workspace-manager';
 import { upsertCachedFile } from '@/core/cache/rxdb';
-import { saveFile } from '@/core/cache/file-operations';
+import { saveFile } from '@/core/cache/file-manager';
 
 describe('LocalAdapter FS interactions', () => {
   beforeEach(() => {

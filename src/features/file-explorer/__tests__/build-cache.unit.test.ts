@@ -51,7 +51,7 @@ describe('_buildFileTreeFromCache builder', () => {
     expect(fileMap['dir-folder']).toBeDefined();
   });
 });
-import { initializeFileOperations, saveFile, createDirectory } from '@/core/cache/file-operations';
+import { initializeFileOperations, saveFile, createDirectory } from '@/core/cache/file-manager';
 import { useFileExplorerStore } from '@/features/file-explorer/store/file-explorer-store';
 import { WorkspaceType } from '@/core/cache/types';
 

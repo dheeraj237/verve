@@ -1,4 +1,4 @@
-import { initializeFileOperations } from '@/core/cache/file-operations';
+import { initializeFileOperations } from '@/core/cache/file-manager';
 import { initializeSyncManager } from '@/core/sync/sync-manager';
 import type { ISyncAdapter } from '@/core/sync/sync-manager';
 

@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 
 import { initializeRxDB, getCacheDB, closeCacheDB, upsertCachedFile, getCachedFile } from '@/core/cache/rxdb';
-import { renameFile } from '@/core/cache/file-operations';
+import { renameFile } from '@/core/cache/file-manager';
 import { enqueueSyncEntry, processPendingQueueOnce } from '@/core/sync/sync-queue-processor';
 import { SyncOp } from '@/core/cache/types';
 

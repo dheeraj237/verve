@@ -10,7 +10,7 @@ describe('file explorer integration (hierarchy + UI actions)', () => {
   it('builds nested tree from flat paths and responds to create/rename/delete via store', async () => {
     const { useWorkspaceStore } = require('@/core/store/workspace-store');
     const { useFileExplorerStore } = require('@/features/file-explorer/store/file-explorer-store');
-    const fileOps = await import('@/core/cache/file-operations');
+    const fileOps = await import('@/core/cache/file-manager');
     const { WorkspaceType } = require('@/core/cache/types');
 
     await fileOps.initializeFileOperations();
@@ -18,7 +18,7 @@ describe('file explorer integration (hierarchy + UI actions)', () => {
     // Setup browser workspace
     useWorkspaceStore.setState({ workspaces: [{ id: 'ws-ui', name: 'UI WS', type: WorkspaceType.Browser }], activeWorkspaceId: 'ws-ui' });
 
-    // Create nested files directly via file-operations
+    // Create nested files directly via file-manager
     await fileOps.saveFile('/alpha/beta/gamma.md', 'gamma', WorkspaceType.Browser, undefined, 'ws-ui');
     await fileOps.saveFile('/alpha/beta/delta.md', 'delta', WorkspaceType.Browser, undefined, 'ws-ui');
     await fileOps.saveFile('/alpha/epsilon.md', 'epsilon', WorkspaceType.Browser, undefined, 'ws-ui');

@@ -1,5 +1,5 @@
-import type { FileData } from './file-operations';
-import * as fileOps from './file-operations';
+import type { FileData } from './file-manager';
+import * as fileOps from './file-manager';
 
 export interface IFileRepository {
   loadFile(path: string, workspaceType?: any, workspaceId?: string): Promise<any>;

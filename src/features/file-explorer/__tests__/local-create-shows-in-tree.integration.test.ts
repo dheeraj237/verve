@@ -10,7 +10,7 @@ describe('local workspace create updates file tree immediately', () => {
   it('creates a file in RxDB and updates the file tree for Local workspace', async () => {
     const { useWorkspaceStore } = require('@/core/store/workspace-store');
     const { useFileExplorerStore } = require('@/features/file-explorer/store/file-explorer-store');
-    const fileOps = await import('@/core/cache/file-operations');
+    const fileOps = await import('@/core/cache/file-manager');
     const { WorkspaceType } = require('@/core/cache/types');
 
     // Ensure RxDB is initialized

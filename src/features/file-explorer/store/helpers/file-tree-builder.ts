@@ -1,6 +1,6 @@
 import { FileNode, FileNodeType } from "@/shared/types";
 import { MARKDOWN_EXTENSIONS, CODE_EXTENSIONS, TEXT_EXTENSIONS } from "@/shared/utils/file-type-detector";
-import { getAllFiles } from "@/core/cache/file-operations";
+import { getAllFiles } from "@/core/cache/file-manager";
 import type { FileMetadata } from "@/core/cache";
 import { WorkspaceType, FileType } from '@/core/cache/types';
 

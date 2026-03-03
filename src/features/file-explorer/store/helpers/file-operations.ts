@@ -5,9 +5,9 @@ import {
   deleteFile as deleteFileRxDB,
   renameFile as renameFileRxDB,
   initializeFileOperations,
-} from '@/core/cache/file-operations';
+} from '@/core/cache/file-manager';
 import { getCachedFile } from '@/core/cache';
-import { existsInWorkspace } from '@/core/cache/file-operations';
+import { existsInWorkspace } from '@/core/cache/file-manager';
 import { WorkspaceType } from '@/core/cache/types';
 import { subscribeToWorkspaceFiles } from '@/core/cache/file-manager';
 
@@ -29,7 +29,7 @@ function getActiveWorkspaceType() {
  */
 export async function createFile(parentPath: string, fileName: string): Promise<void> {
   try {
-    // Ensure RxDB and file-operations are initialized in browser
+    // Ensure RxDB and file-manager are initialized in browser
     try {
       await initializeFileOperations();
     } catch (initErr) {

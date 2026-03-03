@@ -1,4 +1,4 @@
-import { initializeFileOperations, saveFile, getAllFiles, ensureFolderDocs } from '@/core/cache/file-operations';
+import { initializeFileOperations, saveFile, getAllFiles, ensureFolderDocs } from '@/core/cache/file-manager';
 
 describe('migration: create missing folder docs', () => {
   beforeAll(async () => {
