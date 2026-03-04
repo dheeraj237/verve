@@ -191,7 +191,7 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
         function recurse(list: FileNode[]): FileNode[] {
           return list.map(node => {
             const nodePath = norm(node.path || '');
-            if (nodePath === norm(dirPath) && node.type === FileNodeType.Folder) {
+            if (nodePath === norm(dirPath) && node.type === FileType.Directory) {
               replaced = true;
               return { ...node, children: newChildren };
             }
@@ -254,7 +254,7 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
           // Build a lookup of directory ids from cached files (so folder nodes use DB ids when present)
           const dirIdByPath: Record<string, string> = {};
           for (const f of files) {
-            if (f.type === FileType.Dir) {
+            if (f.type === FileType.Directory) {
               const p = (f.path || '').replace(/^\/*/, '').replace(/\/*$/, '');
               dirIdByPath[p] = f.id;
             }
@@ -266,7 +266,7 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
 
             const name = pathSegments[pathSegments.length - 1] || '';
             const id = dirIdByPath[nodePath] || `node-${nodePath}`;
-            const node: FileNode = { id, name, path: nodePath, type: FileNodeType.Folder, children: [] };
+            const node: FileNode = { id, name, path: nodePath, type: FileType.Directory, children: [] };
             map[nodePath] = node;
             return node;
           }
@@ -314,7 +314,7 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
             // It's a file - create a file node under parent
             const fileName = parts[parts.length - 1] || f.name;
             const filePath = normalized;
-            const fileNode: FileNode = { id: f.id, name: fileName, path: filePath, type: FileNodeType.File };
+            const fileNode: FileNode = { id: f.id, name: fileName, path: filePath, type: FileType.File };
 
             if (parent) {
               parent.children = parent.children || [];
@@ -354,8 +354,8 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
           // Ensure directories are listed before files and sort alphabetically
           function sortNodes(list: FileNode[]) {
             list.sort((a, b) => {
-              if (a.type === FileNodeType.Folder && b.type === FileNodeType.File) return -1;
-              if (a.type === FileNodeType.File && b.type === FileNodeType.Folder) return 1;
+              if (a.type === FileType.Directory && b.type === FileType.File) return -1;
+              if (a.type === FileType.File && b.type === FileType.Directory) return 1;
               return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
             });
             for (const n of list) {
@@ -573,7 +573,7 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
             visited.add(id);
             const node = map[id];
             if (!node) return;
-            if (node.type === 'folder') {
+            if (node.type === FileType.Directory) {
               allFolderIds.push(node.id);
               const children = (node as any).children || [];
               for (const cid of children) walkId(cid);

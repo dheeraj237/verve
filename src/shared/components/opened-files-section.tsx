@@ -8,7 +8,7 @@ import { getCachedFile } from '@/core/cache';
 import { useWorkspaceStore } from '@/core/store/workspace-store';
 
 export function OpenedFilesSection() {
-  const { openTabs, activeTabId, closeTab, openFile } = useEditorStore();
+  const { openTabs, activeTabId, closeTab, openFile, fileTabUiState } = useEditorStore();
   const activeWorkspace = useWorkspaceStore((s) => s.activeWorkspace());
   const [dirtyMap, setDirtyMap] = useState<Record<string, boolean>>({});
 
@@ -63,7 +63,7 @@ export function OpenedFilesSection() {
       <div className="space-y-0.5">
         {openTabs.map((file) => {
           const isActive = file.id === activeTabId;
-          const isDirty = file.isSaving || false;
+          const isDirty = fileTabUiState[file.id]?.isSaving || false;
           
           return (
             <div

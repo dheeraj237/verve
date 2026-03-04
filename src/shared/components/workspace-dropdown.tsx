@@ -142,9 +142,9 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
         } catch (err) {
           // ignore picker errors; user can open folder via Search -> Open Folder
         }
-      } else if (selectedWorkspaceType === WorkspaceType.Drive) {
+      } else if (selectedWorkspaceType === WorkspaceType.GDrive) {
         // Create a Drive workspace entry — do not call Google APIs from UI
-        createWorkspace(newWorkspaceName, WorkspaceType.Drive, {});
+        createWorkspace(newWorkspaceName, WorkspaceType.GDrive, {});
         toast.success("Drive workspace created (cache-only)");
       } else {
         // Browser workspace
@@ -194,7 +194,7 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
         // Inform user that adapter integrations are disabled in the UI
         if (workspace.type === WorkspaceType.Local) {
           toast.info('Local workspace opened (cache-only). Direct filesystem access is disabled in the UI.');
-        } else if (workspace.type === WorkspaceType.Drive) {
+        } else if (workspace.type === WorkspaceType.GDrive) {
           toast.info('Drive workspace opened (cache-only). Direct Google Drive sync is disabled in the UI.');
         }
 
@@ -252,7 +252,7 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
     switch (type) {
       case WorkspaceType.Local:
         return <FolderOpen className="h-3 w-3" />;
-      case WorkspaceType.Drive:
+      case WorkspaceType.GDrive:
         return <Cloud className="h-3 w-3" />;
       default:
         return <Globe className="h-3 w-3" />;
@@ -263,7 +263,7 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
     switch (type) {
       case WorkspaceType.Local:
         return 'Local Files';
-      case WorkspaceType.Drive:
+      case WorkspaceType.GDrive:
         return 'Google Drive';
       default:
         return 'Browser Storage';
@@ -282,7 +282,7 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
               {currentWorkspace && getWorkspaceIcon(currentWorkspace.type)}
               <span className="truncate flex items-center gap-2">
                 {currentWorkspace?.name || "No workspace selected"}
-                {currentWorkspace?.type === WorkspaceType.Drive && (isSyncingDrive || pendingSyncCount > 0) && (
+                {currentWorkspace?.type === WorkspaceType.GDrive && (isSyncingDrive || pendingSyncCount > 0) && (
                   <span className="flex items-center gap-1">
                     <svg className="animate-spin h-4 w-4 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -428,7 +428,7 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
                   Note: Your local files will not be deleted, only the workspace connection will be removed.
                 </span>
               )}
-              {workspaceToDelete?.type === WorkspaceType.Drive && (
+              {workspaceToDelete?.type === WorkspaceType.GDrive && (
                 <span className="block mt-2">
                   Note: Your Google Drive files will not be deleted, only the workspace connection will be removed.
                 </span>

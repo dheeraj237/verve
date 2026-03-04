@@ -110,12 +110,12 @@ export function WorkspaceTypePicker({
             {/* Google Drive option (only available when logged in) */}
             <button
               type="button"
-              onClick={() => isLoggedIn && setSelectedType(WorkspaceType.Drive)}
+              onClick={() => isLoggedIn && setSelectedType(WorkspaceType.GDrive)}
               disabled={!isLoggedIn}
               className={cn(
                 "w-full text-left p-4 rounded-lg border-2 transition-colors",
                 "hover:border-primary/50 focus:outline-none focus:border-primary",
-                selectedType === WorkspaceType.Drive
+                selectedType === WorkspaceType.GDrive
                   ? "border-primary bg-primary/5"
                   : "border-border",
                 !isLoggedIn && "opacity-60 cursor-not-allowed"
@@ -124,11 +124,11 @@ export function WorkspaceTypePicker({
               <div className="flex items-center space-x-3">
                 <div className={cn(
                   "w-4 h-4 rounded-full border-2 flex items-center justify-center",
-                  selectedType === WorkspaceType.Drive
+                  selectedType === WorkspaceType.GDrive
                     ? "border-primary"
                     : "border-muted-foreground"
                 )}>
-                  {selectedType === WorkspaceType.Drive && (
+                  {selectedType === WorkspaceType.GDrive && (
                     <div className="w-2 h-2 rounded-full bg-primary" />
                   )}
                 </div>

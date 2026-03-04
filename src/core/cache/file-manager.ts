@@ -151,8 +151,11 @@ async function ensureParentFoldersForPath(path: string, workspaceType: Workspace
         type: FileType.Directory,
         workspaceType: workspaceType,
         workspaceId: workspaceId,
-        lastModified: Date.now(),
+        modifiedAt: new Date().toISOString(),
         dirty: false,
+        isSynced: true,
+        syncStatus: 'idle',
+        version: 0,
       };
 
       await upsertCachedFile(dir);
@@ -265,8 +268,8 @@ async function loadFileSync(path: string, workspaceType: WorkspaceType = Workspa
       name: doc.name,
       path: doc.path,
       content,
-      metadata: (doc as any).metadata,
-      lastModified: doc.lastModified,
+      metadata: (doc as any).meta || (doc as any).metadata,
+      mimeType: doc.mimeType,
     };
   }
   return {
@@ -274,7 +277,6 @@ async function loadFileSync(path: string, workspaceType: WorkspaceType = Workspa
     name: path.split('/').pop() || 'untitled',
     path,
     content: '',
-    lastModified: Date.now(),
   };
 }
 
@@ -322,9 +324,11 @@ async function saveSyncFile(
       workspaceType,
       workspaceId: workspaceId,
       content,
-      metadata: metadata || { mimeType: 'text/markdown' },
-      lastModified: Date.now(),
+      meta: metadata || { mimeType: 'text/markdown' },
+      modifiedAt: new Date().toISOString(),
       dirty: String(workspaceType) !== WorkspaceType.Browser,
+      isSynced: false,
+      syncStatus: 'idle',
       version: nextVersion,
     } as CachedFile;
   };
@@ -349,8 +353,8 @@ async function saveSyncFile(
     name: (saved as any).name,
     path: (saved as any).path,
     content: (saved as any).content,
-    metadata: (saved as any).metadata,
-    lastModified: (saved as any).lastModified,
+    metadata: (saved as any).meta || (saved as any).metadata,
+    mimeType: (saved as any).mimeType,
   };
 }
 

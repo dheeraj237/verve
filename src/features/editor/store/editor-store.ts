@@ -33,6 +33,16 @@ function getActiveWorkspaceType() {
   return workspace?.type || WorkspaceType.Browser;
 }
 
+/**
+ * UI state for a file tab (transient, not persisted)
+ */
+interface FileTabUiState {
+  isSaving?: boolean;
+  saveError?: string;
+  lastSaved?: Date;
+  isExternalUpdate?: boolean;
+}
+
 /** Editor Store State Interface */
 interface EditorStore {
   openTabs: FileNode[];
@@ -41,6 +51,8 @@ interface EditorStore {
   isLoading: boolean;
   isCodeViewMode: boolean;
   isSourceMode: boolean;
+  // Track UI state separately from FileNode to avoid persisting transient fields
+  fileTabUiState: Record<string, FileTabUiState>;
 
   openFile: (file: FileNode) => void;
   closeTab: (fileId: string) => void;
@@ -76,6 +88,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   isCodeViewMode: false,
   isSourceMode: false,
   editorViewKey: 0,
+  fileTabUiState: {},
 
   /**
    * Opens a file in a new tab or switches to it if already open
@@ -113,9 +126,14 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       }
     }
 
+    // Clean up UI state for closed tab
+    const newUiState = { ...state.fileTabUiState };
+    delete newUiState[fileId];
+
     return {
       openTabs: newTabs,
       activeTabId: newActiveId,
+      fileTabUiState: newUiState,
       // bump the editor view key so editor components remount and clear any stale instance
       editorViewKey: state.editorViewKey + 1,
     };
@@ -124,7 +142,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   /**
    * Closes all open tabs
    */
-  closeAllTabs: () => set((state) => ({ openTabs: [], activeTabId: null, editorViewKey: state.editorViewKey + 1 })),
+  closeAllTabs: () => set((state) => ({ openTabs: [], activeTabId: null, fileTabUiState: {}, editorViewKey: state.editorViewKey + 1 })),
 
   bumpEditorViewKey: () => set((state) => ({ editorViewKey: state.editorViewKey + 1 })),
 
@@ -143,27 +161,40 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   })),
 
   /**
-   * Sets the saving state for a file
+   * Sets the saving state for a file (transient UI state, not persisted to FileNode)
    */
   setFileSaving: (fileId, isSaving) => set((state) => ({
-    openTabs: state.openTabs.map(tab =>
-      tab.id === fileId ? { ...tab, isSaving, ...(isSaving ? { saveError: undefined } : {}) } : tab
-    ),
+    fileTabUiState: {
+      ...state.fileTabUiState,
+      [fileId]: {
+        ...(state.fileTabUiState[fileId] || {}),
+        isSaving,
+        ...(isSaving ? { saveError: undefined } : {}),
+      },
+    },
   })),
 
   /**
-   * Sets the last saved timestamp for a file
+   * Sets the last saved timestamp for a file (transient UI state, not persisted to FileNode)
    */
   setFileLastSaved: (fileId, lastSaved) => set((state) => ({
-    openTabs: state.openTabs.map(tab =>
-      tab.id === fileId ? { ...tab, lastSaved } : tab
-    ),
+    fileTabUiState: {
+      ...state.fileTabUiState,
+      [fileId]: {
+        ...(state.fileTabUiState[fileId] || {}),
+        lastSaved,
+      },
+    },
   })),
 
   setFileSaveError: (fileId, error) => set((state) => ({
-    openTabs: state.openTabs.map(tab =>
-      tab.id === fileId ? { ...tab, saveError: error ?? undefined } : tab
-    ),
+    fileTabUiState: {
+      ...state.fileTabUiState,
+      [fileId]: {
+        ...(state.fileTabUiState[fileId] || {}),
+        saveError: error ?? undefined,
+      },
+    },
   })),
 
   /**
@@ -176,8 +207,15 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
 
     return {
       openTabs: state.openTabs.map(t =>
-        t.id === fileId ? { ...t, content, isExternalUpdate: true } : t
+        t.id === fileId ? { ...t, content } : t
       ),
+      fileTabUiState: {
+        ...state.fileTabUiState,
+        [fileId]: {
+          ...(state.fileTabUiState[fileId] || {}),
+          isExternalUpdate: true,
+        },
+      },
     };
   }),
 
@@ -402,7 +440,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
 /**
  * Helper hook to get the currently active file
  * 
- * @returns The active MarkdownFile or null if no file is open
+ * @returns The active FileNode or null if no file is open
  */
 export const useCurrentFile = () => {
   const { openTabs, activeTabId } = useEditorStore();

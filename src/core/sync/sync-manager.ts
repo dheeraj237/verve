@@ -146,7 +146,7 @@ export class SyncManager {
    */
   async pullFileToCache(fileId: string, workspaceType: WorkspaceType | string, workspaceId?: string): Promise<void> {
     try {
-      const adapterName = (workspaceType === WorkspaceType.Drive || String(workspaceType) === 'drive') ? 'gdrive' : String(workspaceType);
+      const adapterName = (String(workspaceType) === 'drive' || workspaceType === WorkspaceType.GDrive) ? 'gdrive' : String(workspaceType);
       const adapter = this.adapters.get(adapterName);
       if (!adapter || typeof (adapter as any).pull !== 'function') {
         throw new Error(`Adapter not available for ${adapterName}`);
@@ -347,7 +347,7 @@ export class SyncManager {
                 try {
                   const active = useWorkspaceStore.getState().activeWorkspace?.();
                   if (active && String(active.id) === String(entry.payload.workspaceId)) {
-                    const adapterName = (entry.payload.workspaceType === WorkspaceType.Drive || String(entry.payload.workspaceType) === 'drive') ? 'gdrive' : String(entry.payload.workspaceType);
+                    const adapterName = (String(entry.payload.workspaceType) === 'drive' || entry.payload.workspaceType === WorkspaceType.GDrive) ? 'gdrive' : String(entry.payload.workspaceType);
                     const targetAdapter = this.adapters.get(adapterName);
                     if (targetAdapter) {
                       try {
@@ -547,7 +547,7 @@ export class SyncManager {
       // Adapter naming convention: WorkspaceType.Drive -> 'gdrive', otherwise string(workspaceType)
       let pushed = false;
       try {
-        const adapterName = (file.workspaceType === WorkspaceType.Drive || String(file.workspaceType) === 'drive') ? 'gdrive' : String(file.workspaceType);
+        const adapterName = (String(file.workspaceType) === 'drive' || file.workspaceType === WorkspaceType.GDrive) ? 'gdrive' : String(file.workspaceType);
         const targetAdapter = this.adapters.get(adapterName);
         if (targetAdapter) {
           pushed = await this.pushWithRetry(targetAdapter, file, content);
@@ -575,7 +575,7 @@ export class SyncManager {
           const activeWorkspace = useWorkspaceStore.getState().activeWorkspace?.();
           // Only pull if the file belongs to the active workspace
           if (activeWorkspace && String(activeWorkspace.id) === String(file.workspaceId)) {
-            const adapterName = (activeWorkspace.type === WorkspaceType.Drive || String(activeWorkspace.type) === 'drive') ? 'gdrive' : String(activeWorkspace.type);
+            const adapterName = (String(activeWorkspace.type) === 'drive' || activeWorkspace.type === WorkspaceType.GDrive) ? 'gdrive' : String(activeWorkspace.type);
             const targetAdapter = this.adapters.get(adapterName);
             if (targetAdapter && typeof targetAdapter.pull === 'function') {
               try {
@@ -668,7 +668,7 @@ export class SyncManager {
    */
   async pullWorkspace(workspace: { id: string; type: WorkspaceType | string; path?: string }): Promise<void> {
     if (!workspace) return;
-    const adapterName = (workspace.type === WorkspaceType.Drive || workspace.type === 'drive') ? 'gdrive' : String(workspace.type);
+    const adapterName = (String(workspace.type) === 'drive' || workspace.type === WorkspaceType.GDrive) ? 'gdrive' : String(workspace.type);
     const adapter = this.adapters.get(adapterName);
     if (!adapter) {
       console.warn(`No adapter registered for workspace type: ${workspace.type}`);

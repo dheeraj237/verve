@@ -13,7 +13,7 @@ import {
 } from "@/shared/components/ui/tooltip";
 
 export function FileTabs() {
-  const { openTabs, activeTabId, setActiveTab, closeTab, isSourceMode, setSourceMode, isCodeViewMode } = useEditorStore();
+  const { openTabs, activeTabId, setActiveTab, closeTab, isSourceMode, setSourceMode, isCodeViewMode, fileTabUiState } = useEditorStore();
   const currentTab = openTabs.find(tab => tab.id === activeTabId);
   const isMarkdown = currentTab ? isMarkdownFile(currentTab.name) : false;
 
@@ -38,15 +38,15 @@ export function FileTabs() {
                     : "bg-muted/30 text-muted-foreground hover:bg-muted/50 hover:text-foreground border-t-2 border-t-transparent"
                 )}
                 onClick={() => setActiveTab(tab.id)}
-                title={`${tab.path} - Last saved: ${formatLastSaved(tab.lastSaved)}`}
+                title={`${tab.path} - Last saved: ${formatLastSaved(fileTabUiState[tab.id]?.lastSaved)}`}
               >
                 {activeTabId === tab.id && (
                   <div className="absolute bottom-0 left-0 right-0 h-0.5 shadow-sm" />
                 )}
                 <span className="text-sm truncate flex-1 font-medium">{tab.name}</span>
-                {tab.isSaving ? (
+                {fileTabUiState[tab.id]?.isSaving ? (
                   <Loader2 className="h-3 w-3 animate-spin text-primary shrink-0" />
-                ) : (tab as any).saveError ? (
+                ) : fileTabUiState[tab.id]?.saveError ? (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div className="text-red-600 dark:text-red-400 rounded p-0.5 transition-all shrink-0 cursor-default">
@@ -56,7 +56,7 @@ export function FileTabs() {
                     <TooltipContent side="bottom" asChild={false}>
                       <div className="text-xs max-w-xs">
                         <div className="font-medium">Sync error</div>
-                          <div className="text-muted-foreground break-words">{(tab as any).saveError}</div>
+                          <div className="text-muted-foreground break-words">{fileTabUiState[tab.id]?.saveError}</div>
                       </div>
                     </TooltipContent>
                   </Tooltip>
@@ -84,7 +84,7 @@ export function FileTabs() {
             <TooltipContent side="bottom" sideOffset={8} className="text-xs max-w-xs" asChild={false}>
               <div className="space-y-1">
                 <div className="font-medium">{tab.path}</div>
-                <div className="text-muted-foreground">{formatLastSaved(tab.lastSaved)}</div>
+                <div className="text-muted-foreground">{formatLastSaved(fileTabUiState[tab.id]?.lastSaved)}</div>
               </div>
             </TooltipContent>
           </Tooltip>

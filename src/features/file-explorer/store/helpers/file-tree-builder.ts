@@ -1,8 +1,8 @@
-import { FileNode, FileNodeType } from "@/shared/types";
+import { FileNode, FileType } from "@/shared/types";
 import { MARKDOWN_EXTENSIONS, CODE_EXTENSIONS, TEXT_EXTENSIONS } from "@/shared/utils/file-type-detector";
 import { getAllFiles } from "@/core/cache/file-manager";
 import type { FileMetadata } from "@/core/cache";
-import { WorkspaceType, FileType } from '@/core/cache/types';
+import { WorkspaceType } from '@/core/cache/types';
 
 /**
  * Builds a file tree from RxDB cache
@@ -58,7 +58,7 @@ export async function buildFileTreeFromAdapter(
         id: `${idPrefix}${file.id}`,
         name: file.name,
         path: file.path,
-        type: isFolder ? FileNodeType.Folder : FileNodeType.File,
+        type: isFolder ? FileType.Directory : FileType.File,
         // For folders, we'll lazy load children when expanded
         children: isFolder ? [] : undefined,
       };
@@ -200,7 +200,7 @@ function buildTreeFromFlatPaths(files: FileMetadata[], idPrefix: string = ''): F
           id: `${idPrefix}folder-${value.path}`,
           name,
           path: value.path,
-          type: FileNodeType.Folder,
+          type: FileType.Directory,
           children,
         });
       } else {
@@ -208,7 +208,7 @@ function buildTreeFromFlatPaths(files: FileMetadata[], idPrefix: string = ''): F
           id: `${idPrefix}${value.metadata.id || value.path}`,
           name,
           path: value.path,
-          type: FileNodeType.File,
+          type: FileType.File,
         });
       }
     }
@@ -248,7 +248,7 @@ export async function buildFileTreeFromDirectory(
           id: `local-file-${entryPath}`,
           name: entry.name,
           path: entryPath,
-          type: FileNodeType.File,
+          type: FileType.File,
         });
       }
     } else if (entry.kind === 'directory') {
@@ -258,7 +258,7 @@ export async function buildFileTreeFromDirectory(
           id: `local-dir-${entryPath}`,
           name: entry.name,
           path: entryPath,
-          type: FileNodeType.Folder,
+          type: FileType.Directory,
           children,
         });
       }
@@ -277,7 +277,7 @@ export async function buildFileTreeFromDirectory(
 export function sortFileNodes(nodes: FileNode[]): FileNode[] {
   return nodes.sort((a, b) => {
     if (a.type !== b.type) {
-      return a.type === FileNodeType.Folder ? -1 : 1;
+      return a.type === FileType.Directory ? -1 : 1;
     }
     return a.name.localeCompare(b.name);
   });
@@ -294,7 +294,7 @@ export function getAllFolderIds(nodes: FileNode[]): string[] {
   const ids: string[] = [];
   
   for (const node of nodes) {
-    if (node.type === 'folder') {
+    if (node.type === FileType.Directory) {
       ids.push(node.id);
       if (node.children) {
         ids.push(...getAllFolderIds(node.children));

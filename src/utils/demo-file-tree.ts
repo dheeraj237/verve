@@ -3,7 +3,7 @@
  * Loads sample files from RxDB cache into the file explorer
  */
 
-import { FileNode, FileNodeType } from '@/shared/types';
+import { FileNode, FileType } from '@/shared/types';
 import { getAllFiles } from '@/core/cache/file-manager';
 
 // Ensure RxDB and sample files are available when building the samples tree.
@@ -86,7 +86,7 @@ export async function buildSamplesFileTree(): Promise<FileNode[]> {
           id: `samples-${path}`,
           name: key,
           path: `/${path}`,
-          type: FileNodeType.File,
+          type: FileType.File,
         });
       } else if (value && typeof value === 'object') {
         // It's a folder
@@ -96,7 +96,7 @@ export async function buildSamplesFileTree(): Promise<FileNode[]> {
             id: `samples-folder-${path}`,
             name: key,
             path: `/${path}`,
-            type: FileNodeType.Folder,
+            type: FileType.Directory,
             children,
           });
         }

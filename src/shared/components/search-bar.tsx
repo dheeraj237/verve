@@ -17,7 +17,7 @@ import {
 import { Search, File, FolderOpen, Hash } from "lucide-react";
 import { useEditorStore } from "@/features/editor/store/editor-store";
 import { useFileExplorerStore } from "@/features/file-explorer/store/file-explorer-store";
-import { FileNode, FileNodeType } from "@/shared/types";
+import { FileNode, FileType } from "@/shared/types";
 import { cn } from "@/shared/utils/cn";
 
 enum SearchResultType {
@@ -88,11 +88,11 @@ export function SearchBar({ className }: SearchBarProps) {
             type: SearchResultType.File,
             title: node.name,
             description: node.path,
-            icon: node.type === FileNodeType.Folder ? 
+            icon: node.type === FileType.Directory ? 
               <FolderOpen className="h-4 w-4" /> : 
               <File className="h-4 w-4" />,
             action: () => {
-                if (node.type === FileNodeType.File) {
+              if (node.type === FileType.File) {
                 // This would need to be implemented to open the file
                 console.log('Opening file:', node.path);
               }

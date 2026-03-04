@@ -4,7 +4,7 @@
  */
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { MarkdownFile } from "@/shared/types";
+import { FileNode } from "@/shared/types";
 import { WorkspaceType } from '@/core/cache/types';
 import { useEditorStore } from "@/features/editor/store/editor-store";
 import { initializeFileOperations } from '@/core/cache/file-manager';
@@ -59,7 +59,7 @@ interface WorkspaceStore {
   /** Gets all Google Drive workspaces */
   getDriveWorkspaces: () => Workspace[];
   /** Mapping of workspaceId -> opened tabs and active tab for that workspace */
-  tabsByWorkspace: Record<string, { openTabs: MarkdownFile[]; activeTabId: string | null }>;
+  tabsByWorkspace: Record<string, { openTabs: FileNode[]; activeTabId: string | null }>;
   /** Save current editor tabs into the store for a workspace */
   saveTabsForWorkspace: (workspaceId?: string) => void;
   /** Restore editor tabs from the store for a workspace (reloads content from file manager) */
@@ -236,7 +236,7 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
        * Filters and returns all Google Drive workspaces
        */
       getDriveWorkspaces: () => {
-        return get().workspaces.filter(w => w.type === WorkspaceType.Drive);
+        return get().workspaces.filter(w => w.type === WorkspaceType.GDrive);
       },
 
       /**

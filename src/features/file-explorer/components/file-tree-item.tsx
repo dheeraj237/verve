@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { ChevronRight, File, Folder, FolderOpen, FilePlus, FolderPlus } from "lucide-react";
-import { FileNode, FileCategory, FileNodeType } from "@/shared/types";
+import { FileNode, FileType } from "@/shared/types";
 import { useFileExplorerStore } from "../store/file-explorer-store";
 import { cn } from "@/shared/utils/cn";
 import { useEditorStore } from "@/features/editor/store/editor-store";
@@ -44,7 +44,7 @@ export function FileTreeItem({ node, level, parentNode }: FileTreeItemProps) {
     // Initial check
     (async () => {
       try {
-        if (node.type === FileNodeType.File) {
+        if (node.type === FileType.File) {
           const cached = await getCachedFile(node.path || node.id, activeWs?.id);
           if (mounted) setIsDirty(!!(cached && (cached as any).dirty));
         } else {
@@ -59,7 +59,7 @@ export function FileTreeItem({ node, level, parentNode }: FileTreeItemProps) {
 
     const unsub = subscribeToFileChanges((files: any[]) => {
       try {
-        if (node.type === FileNodeType.File) {
+        if (node.type === FileType.File) {
           const found = files.find((f) => String(f.path) === String(node.path) || String(f.id) === String(node.id));
           setIsDirty(!!(found && found.dirty));
         } else {
@@ -131,7 +131,7 @@ export function FileTreeItem({ node, level, parentNode }: FileTreeItemProps) {
     e.stopPropagation();
 
     // Single click behavior - VSCode style
-    if (node.type === FileNodeType.Folder) {
+    if (node.type === FileType.Directory) {
       toggleFolder(node.id);
     } else {
       setSelectedFile(node.id);
@@ -143,7 +143,7 @@ export function FileTreeItem({ node, level, parentNode }: FileTreeItemProps) {
     e.stopPropagation();
 
     // Single tap behavior - same as click for mobile
-    if (node.type === FileNodeType.Folder) {
+    if (node.type === FileType.Directory) {
       toggleFolder(node.id);
     } else {
       setSelectedFile(node.id);
@@ -176,11 +176,11 @@ export function FileTreeItem({ node, level, parentNode }: FileTreeItemProps) {
         const fileData = await loadFileData(node.path, WorkspaceType.Local, activeWorkspace?.id);
 
         openFile({
+          ...fileData,
           id: fileData?.id || node.id,
           path: node.path,
           name: node.name,
           content: fileData?.content || '',
-          category: FileCategory.Local,
           isLocal: true,
         });
       } else if (node.id.startsWith('gdrive-')) {
@@ -192,33 +192,33 @@ export function FileTreeItem({ node, level, parentNode }: FileTreeItemProps) {
         const fileData = await loadFileData(node.path, WorkspaceType.GDrive, activeWorkspace?.id);
 
         openFile({
+          ...fileData,
           id: fileData?.id || node.id,
           path: node.path,
           name: node.name,
           content: fileData.content,
-          category: FileCategory.GDrive,
         });
       } else if (node.id.startsWith('samples-') && activeWorkspace?.id === 'verve-samples') {
         // Load from verve-samples workspace from RxDB cache
         const fileData = await loadFileData(node.path, WorkspaceType.Browser, activeWorkspace?.id);
 
         openFile({
+          ...fileData,
           id: fileData?.id || node.id,
           path: node.path,
           name: node.name,
           content: fileData.content,
-          category: FileCategory.Browser,
         });
       } else if (activeWorkspace?.type === WorkspaceType.Browser && activeWorkspace.id !== 'verve-samples') {
         // Browser workspace (non-samples) - load from RxDB cache
         const fileData = await loadFileData(node.path, WorkspaceType.Browser, activeWorkspace?.id);
 
         openFile({
+          ...fileData,
           id: fileData?.id || node.id,
           path: node.path,
           name: node.name,
           content: fileData.content,
-          category: FileCategory.Browser,
         });
       } else {
         // Fallback: attempt to load from public directory (relative path for Vite)
@@ -233,7 +233,6 @@ export function FileTreeItem({ node, level, parentNode }: FileTreeItemProps) {
           path: node.path,
           name: node.name,
           content,
-          category: (node.path.split("/")[1] as FileCategory) || FileCategory.Browser,
         });
       }
     } catch (error) {
@@ -277,7 +276,7 @@ export function FileTreeItem({ node, level, parentNode }: FileTreeItemProps) {
   };
 
   const handleNewFile = () => {
-    if (node.type === 'folder') {
+    if (node.type === FileType.Directory) {
       if (!isExpanded) {
         toggleFolder(node.id);
       }
@@ -286,7 +285,7 @@ export function FileTreeItem({ node, level, parentNode }: FileTreeItemProps) {
   };
 
   const handleNewFolder = () => {
-    if (node.type === 'folder') {
+    if (node.type === FileType.Directory) {
       if (!isExpanded) {
         toggleFolder(node.id);
       }
@@ -299,7 +298,7 @@ export function FileTreeItem({ node, level, parentNode }: FileTreeItemProps) {
   };
 
   const handleDelete = async () => {
-    const confirmMsg = node.type === 'folder'
+    const confirmMsg = node.type === FileType.Directory
       ? `Delete folder "${node.name}" and all its contents?`
       : `Delete file "${node.name}"?`;
 
@@ -396,7 +395,7 @@ export function FileTreeItem({ node, level, parentNode }: FileTreeItemProps) {
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
         >
-          {node.type === "folder" ? (
+          {node.type === FileType.Directory ? (
             <>
               <ChevronRight
                 className={cn(
@@ -426,7 +425,7 @@ export function FileTreeItem({ node, level, parentNode }: FileTreeItemProps) {
           )}
 
           {/* Folder hover actions - VSCode style */}
-          {node.type === "folder" && isHovered && (
+          {node.type === FileType.Directory && isHovered && (
             <div className="flex items-center gap-0.5 ml-auto">
               <Button
                 variant="ghost"
@@ -453,7 +452,7 @@ export function FileTreeItem({ node, level, parentNode }: FileTreeItemProps) {
         </div>
       </FileContextMenu>
 
-      {node.type === "folder" && isExpanded && (
+      {node.type === FileType.Directory && isExpanded && (
         <div>
           {/* Show new item input at the top of children */}
           {newItemType && (
