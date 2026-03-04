@@ -688,7 +688,7 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
             try {
               if ((state as any).fileTree && (state as any).fileTree.length > 0) {
                 // In tests we may rely on fileTree for samples; only log in non-test env
-                if (process.env.NODE_ENV !== 'test') {
+                if (typeof process === 'undefined' || process.env.NODE_ENV !== 'test') {
                   console.warn('[FileExplorerStore] Persisted `fileTree` detected on rehydrate — clearing derived state. Use `getFileTree()` instead of persisting `fileTree`.');
                 }
                 (state as any).fileTree = [];
@@ -740,14 +740,14 @@ try {
 }
 
 // Dev-only subscription: detect accidental persistence or usage of derived `fileTree`.
-if (process.env.NODE_ENV !== 'production') {
+if (typeof process === 'undefined' || process.env.NODE_ENV !== 'production') {
   try {
     useFileExplorerStore.subscribe((state) => {
       try {
         const ft = (state as any).fileTree;
         if (ft && Array.isArray(ft) && ft.length > 0) {
           // Warn in non-test environments to avoid noisy test logs
-          if (process.env.NODE_ENV !== 'test') {
+          if (typeof process === 'undefined' || process.env.NODE_ENV !== 'test') {
             console.warn('[FileExplorerStore] `fileTree` is non-empty in memory. Prefer `fileMap + rootIds` and compute `getFileTree()` on demand.');
           }
         }

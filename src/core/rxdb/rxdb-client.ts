@@ -43,7 +43,7 @@ export async function createRxDB(): Promise<void> {
   try {
     // If an existing IDB named 'verve' exists, delete it first to avoid
     // duplicate-open errors when running tests in the same process.
-    const dbName = process.env.JEST_WORKER_ID ? `verve_${process.env.JEST_WORKER_ID}` : 'verve';
+    const dbName = typeof process !== 'undefined' && process.env.JEST_WORKER_ID ? `verve_${process.env.JEST_WORKER_ID}` : 'verve';
     if (typeof indexedDB !== 'undefined' && typeof (indexedDB as any).deleteDatabase === 'function') {
       try {
         await new Promise<void>((resolve) => {

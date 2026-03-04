@@ -1,6 +1,6 @@
-# MDNotes Viewer Architecture
+# Verve Architecture
 
-This document provides a comprehensive overview of the MDNotes Viewer architecture for developers with beginner to intermediate experience in React and CodeMirror.
+This document provides a comprehensive overview of the Verve architecture for developers with beginner to intermediate experience in React and CodeMirror.
 
 ## Table of Contents
 
@@ -13,33 +13,46 @@ This document provides a comprehensive overview of the MDNotes Viewer architectu
 
 ## System Overview
 
-MDNotes Viewer is built with a modular, feature-based architecture that separates concerns and makes the codebase easy to understand and extend.
+Verve is built with a modular, feature-based architecture that separates concerns and makes the codebase easy to understand and extend. The system uses Vite as the build tool, React 19 for the UI layer, Zustand for state management, and RxDB as the local database for data persistence.
 
 ```mermaid
-graph LR
-    A[User Interface] --> B[Features]
-    B --> C[Core Systems]
-    C --> D[Storage]
+graph TB
+    subgraph UI["UI Layer"]
+        AppShell["App Shell<br/>(VSCode-like Layout)"]
+        Toolbar["Toolbar<br/>(Controls & Theme)"]
+    end
     
-    B1[File Explorer]
-    B2[Markdown Editor]
-    B3[Markdown Preview]
-    B4[Table of Contents]
+    subgraph Features["Feature Modules"]
+        Explorer["File Explorer<br/>(Tree Navigation)"]
+        Editor["Markdown Editor<br/>(CodeMirror 6)"]
+        Preview["Markdown Preview<br/>(react-markdown)"]
+        TOC["Table of Contents<br/>(Scroll Sync)"]
+    end
     
-    C1[File Manager]
-    C2[Plugin System]
-    C3[Theme System]
-    C4[State Management]
+    subgraph State["State Layer"]
+        PanelStore["Panel Store"]
+        EditorStore["Editor Store"]
+        FileStore["File Explorer Store"]
+        TOCStore["TOC Store"]
+    end
     
-    B --> B1
-    B --> B2
-    B --> B3
-    B --> B4
+    subgraph Core["Core Systems"]
+        FileManager["File Manager<br/>(Git-like Workflow)"]
+        PluginSystem["Plugin System<br/>(CodeMirror Plugins)"]
+        Cache["Cache Layer"]
+    end
     
-    C --> C1
-    C --> C2
-    C --> C3
-    C --> C4
+    subgraph Data["Data Layer"]
+        RxDB["RxDB<br/>(Local Database)"]
+        Adapters["Sync Adapters<br/>(Browser/Local/Remote)"]
+    end
+    
+    UI --> Features
+    Features --> State
+    State --> Core
+    Core --> Data
+    
+    Editor --> PluginSystem
 ```
 
 ### Key Principles
@@ -162,9 +175,9 @@ const myPlugin = StateField.define({
 
 Core systems provide Infrastructure and shared functionality.
 
-#### File Manager (`core/file-manager/`)
+#### File Manager (`src/core/cache/`)
 
-Implements a git-like workflow for file operations:
+The file manager handles the lifecycle of file operations with a git-like push/pull workflow. It manages conflict detection, external change detection, and coordinates with the cache layer and RxDB.
 
 ```mermaid
 sequenceDiagram
@@ -331,65 +344,56 @@ sequenceDiagram
     participant U as User
     participant E as Editor
     participant S as Store
-    participant FM as FileManager
-    participant API as API Route
-    participant FS as File System
+    participant FM as File Manager
+    participant RxDB as RxDB
+    participant Adapters as Sync Adapters
 
     U->>E: Edit content
     E->>S: Update content
-    S->>S: Start 2s timer
+    S->>S: Start 2s autosave timer
     
     Note over S,FM: Autosave triggered
     S->>FM: applyPatch(fileId, content)
-    FM->>API: GET file version
-    API->>FS: Read file metadata
-    FS-->>API: Return ETag/timestamp
-    API-->>FM: Latest version
+    FM->>RxDB: Get file document
+    RxDB-->>FM: Current version
     
-    alt Version matches
-        FM->>API: PUT file content
-        API->>FS: Write file
-        FS-->>API: Success
-        API-->>FM: Write confirmed
+    alt No conflict
+        FM->>RxDB: Update document
+        RxDB-->>FM: Confirmed
+        FM->>Adapters: Sync changes
+        Adapters-->>FM: Synced
         FM-->>S: Update saved state
         S-->>E: Show "Saved" status
-    else Version mismatch (conflict)
-        FM->>API: GET latest content
-        API->>FS: Read file
-        FS-->>API: File content
-        API-->>FM: Latest content
-        FM-->>S: External update
-        S-->>E: Update editor (preserve scroll)
-        E-->>U: Show updated content
+    else Conflict detected
+        FM->>RxDB: Fetch latest
+        RxDB-->>FM: Latest content
+        FM-->>S: Update editor
+        S-->>E: Show updated content
     end
 ```
 
 ### External Change Detection
 
-The file manager watches for external changes:
+The system detects external changes through RxDB's reactive updates and sync adapters:
 
 ```typescript
-// Pseudocode
-setInterval(async () => {
-  const latestVersion = await getFileVersion(path);
-  
-  if (latestVersion !== cachedVersion) {
-    // File changed externally
-    const content = await readFile(path);
-    
-    // Update editor without scroll jump
-    updateEditor(content, { preserveScroll: true });
-  }
-}, 5000); // Check every 5 seconds
+// RxDB emit$ observable watches for changes
+DocumentCollection.find().$.subscribe(changes => {
+  // Update UI when external changes are detected
+  handleExternalUpdate(changes);
+});
+
+// Preserve scroll position during updates
+updateEditor(content, { preserveScroll: true });
 ```
 
 ## Performance Considerations
 
 ### Bundle Size Optimization
 
-- Code splitting by feature
-- Lazy loading for heavy components (Mermaid, CodeMirror plugins)
-- Tree-shaking unused dependencies
+- **Code splitting:** Feature-based modules enable efficient code splitting
+- **Lazy loading:** Heavy dependencies (Mermaid, KaTeX) loaded on-demand
+- **Tree-shaking:** Unused dependencies removed during build
 
 ### Render Optimization
 
@@ -444,7 +448,6 @@ If you're new to React or CodeMirror, here's where to start:
 
 ---
 
-For more details on specific topics:
-- [Plugin Development Guide](./PLUGIN_DEVELOPMENT.md)
-- [File Manager Architecture](../core/file-manager/README.md)
-- [Contributing Guide](../CONTRIBUTING.md)
+For more information:
+- [.github/copilot-instructions.md](../.github/copilot-instructions.md) - Development guidelines
+- Feature documentation in individual feature directories

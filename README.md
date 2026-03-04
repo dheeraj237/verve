@@ -1,8 +1,8 @@
 # 📝 Verve
 
-A serene, VSCode-inspired markdown documentation editor built with Next.js 16, featuring a powerful **Live Markdown Editor** powered by **CodeMirror 6** with real-time preview capabilities. Let your thoughts flow freely.
+A serene, VSCode-inspired markdown documentation editor built with **Vite** and **React 19**, featuring a powerful **Live Markdown Editor** powered by **CodeMirror 6** with real-time preview capabilities. Let your thoughts flow freely.
 
-[![Next.js](https://img.shields.io/badge/Next.js-16.1.4-black)](https://nextjs.org/)
+[![Vite](https://img.shields.io/badge/Vite-6.0-646cff)](https://vite.dev/)
 [![React](https://img.shields.io/badge/React-19.2.3-blue)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)](https://www.typescriptlang.org/)
 [![CodeMirror](https://img.shields.io/badge/CodeMirror-6-orange)](https://codemirror.net/)
@@ -106,12 +106,13 @@ graph TB
     subgraph "Core Systems"
         FileManager[File Manager<br/>Git-like Workflow]
         PluginSystem[Plugin System<br/>CodeMirror Extensions]
-        ThemeSystem[Theme System<br/>next-themes]
+        CacheLayer[Cache & RxDB<br/>Data Persistence]
+        ThemeSystem[Theme System<br/>CSS Variables]
     end
 
     subgraph "Storage Layer"
-        API[API Routes<br/>File Operations]
-        FS[File System<br/>Local Storage]
+        RxDB[RxDB<br/>Local Database]
+        Adapters[Sync Adapters<br/>Browser/Local/Remote]
     end
 
     UI --> Explorer
@@ -124,8 +125,9 @@ graph TB
     Preview --> TOCStore
 
     EditorStore --> FileManager
-    FileManager --> API
-    API --> FS
+    FileManager --> CacheLayer
+    CacheLayer --> RxDB
+    RxDB --> Adapters
 
     Editor --> PluginSystem
     UI --> ThemeSystem
@@ -147,11 +149,11 @@ cd verve
 # Install dependencies
 yarn install
 
-# Start development server
+# Start development server (opens at http://localhost:5173)
 yarn dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to see the application.
+The development server runs on Vite, providing hot module replacement and fast startup times.
 
 ### Project Structure
 
@@ -164,7 +166,7 @@ verve/
 │   ├── features/                    # Feature-based modules
 │   │   ├── file-explorer/          # File tree navigation
 │   │   │   ├── components/         # FileExplorer component
-│   │   │   └── store/              # File tree state
+│   │   │   └── store/              # File tree state (Zustand)
 │   │   │
 │   │   ├── editor/                 # Live markdown editor with preview
 │   │   │   ├── components/         # LiveMarkdownEditor, MarkdownPreview, TOC
@@ -175,35 +177,48 @@ verve/
 │   │   │   │   ├── mermaid-plugin.tsx
 │   │   │   │   ├── html-plugin.tsx
 │   │   │   │   └── ...             # More plugins
-│   │   │   ├── hooks/              # useTableOfContents, useActiveHeading
-│   │   │   └── store/              # Editor & TOC state
+│   │   │   ├── hooks/              # Custom editor hooks
+│   │   │   └── store/              # Editor & TOC state (Zustand)
 │   │
 │   ├── shared/                      # Shared resources
 │   │   ├── components/             # Reusable UI components
-│   │   │   ├── app-shell.tsx      # Main layout
+│   │   │   ├── app-shell.tsx      # Main VSCode-like layout
 │   │   │   ├── app-toolbar.tsx    # Top toolbar
 │   │   │   └── ui/                # shadcn/ui components
-│   │   ├── types/                  # TypeScript types
+│   │   ├── types/                  # TypeScript type definitions
 │   │   └── utils/                  # Utility functions
 │   │
 │   ├── core/                        # Core systems
-│   │   ├── config/                 # Configuration
-│   │   │   └── features.ts        # Feature flags
-│   │   ├── file-manager/          # File management system
-│   │   │   ├── file-manager.ts    # Core file manager
-│   │   │   ├── adapters/          # Storage adapters
-│   │   │   └── README.md          # Architecture docs
-│   │   └── store/                  # Global state
+│   │   ├── auth/                   # Authentication (Google)
+│   │   ├── cache/                  # Cache & file operations
+│   │   ├── config/                 # Configuration & feature flags
+│   │   ├── file-manager/           # File lifecycle management
+│   │   ├── init/                   # Initialization
+│   │   ├── loading/                # Loading utilities
+│   │   ├── rxdb/                   # RxDB database setup
+│   │   ├── store/                  # Global Zustand stores
+│   │   └── sync/                   # Sync adapters & bridges
 │   │
 │   ├── hooks/                       # Custom React hooks
 │   ├── pages/                       # Page components
-│   ├── styles/                      # Global styles
-│   └── utils/                       # Utility functions
+│   ├── styles/                      # Global CSS & themes
+│   ├── utils/                       # Utility functions
+│   └── __mocks__/                   # Test mocks
 │
-└── public/content/                   # Markdown content
-    ├── get-started.md
-    ├── mermaid-examples.md
-    └── ...
+├── tests/                            # Test files
+│   ├── e2e/                        # End-to-end tests
+│   ├── integration/                # Integration tests
+│   └── unit/                       # Unit tests (inline)
+│
+├── public/                           # Static assets
+│   ├── 404.html                    # Error page
+│   └── content/                    # Sample markdown files
+│
+├── docs/                             # Documentation
+│   ├── ARCHITECTURE.md             # System architecture
+│   └── ...                         # Other guides
+│
+└── vite.config.ts                  # Vite configuration
 ```
 
 ## 📖 How It Works
@@ -332,42 +347,47 @@ flowchart TD
 ## 🛠️ Technology Stack
 
 ### Core Framework
-- **Next.js** 16.1.4 (App Router with Turbopack)
-- **React** 19.2.3 (Server & Client Components)
+- **Vite** 6.x (Lightning-fast build tool)
+- **React** 19.2.3 (UI framework)
 - **TypeScript** 5 (Strict mode)
+- **Tailwind CSS** 4 (Utility-first CSS)
 
 ### Editor & Rendering
 - **CodeMirror** 6.x (Extensible code editor)
-- **codemirror-live-markdown** (Live preview base)
+- **codemirror-live-markdown** (Live preview)
 - **react-markdown** 10.1.0 (Markdown rendering)
 - **remark-gfm** 4.0.1 (GitHub Flavored Markdown)
-- **rehype-prism-plus** 2.0.1 (Syntax highlighting)
-- **KaTeX** (Math rendering)
-- **Mermaid** 11.x (Diagram rendering)
+- **rehype-sanitize** 6.0.0 (HTML sanitization)
+- **KaTeX** 0.16.27 (Math rendering)
+- **Mermaid** 11.12.2 (Diagram rendering)
 
-### UI & Styling
-- **Tailwind CSS** 4 (Utility-first CSS)
+### UI & Components
 - **Radix UI** (Accessible components)
-- **lucide-react** (Icon system)
-- **next-themes** (Theme management)
-- **class-variance-authority** (CVA for variants)
+- **shadcn/ui** (Component library)
+- **lucide-react** 0.563.0 (Icon system)
+- **next-themes** 0.4.6 (Theme management)
+- **class-variance-authority** (Component variants)
 
 ### State & Data
-- **Zustand** 5.0.10 (State management)
-- **react-complex-tree** 2.6.1 (File tree component)
+- **Zustand** 5.0.10 (Lightweight state management)
+- **RxDB** 14.13.0 (Local database)
+- **RxJS** 7.8.2 (Reactive programming)
+- **react-complex-tree** 2.6.1 (Tree component)
 - **react-resizable-panels** 2.0.0 (Resizable layout)
+- **Dexie** 4.3.0 (IndexedDB wrapper)
 
-### Development
-- **Yarn** 1.22.x (Package manager)
-- **ESLint** (Code linting)
-- **Prettier** (Code formatting)
+### Development Tools
+- **Yarn** (Package manager)
+- **ESLint** 9 (Code linting)
+- **Jest** 29 (Testing framework)
+- **TypeScript** strict mode (Type safety)
 
 ## 📋 Documentation
 
-- [Architecture Guide](./docs/ARCHITECTURE.md) - System architecture and design patterns
-- [Plugin Development](./docs/PLUGIN_DEVELOPMENT.md) - Creating CodeMirror plugins
-- [File Manager](./src/core/file-manager/README.md) - File management system
-- [Copilot Instructions](./.github/copilot-instructions.md) - Development guidelines
+- [Architecture Guide](./docs/ARCHITECTURE.md) - System architecture, data flow, and design patterns
+- [Copilot Instructions](./.github/copilot-instructions.md) - Development guidelines and conventions
+- [File Manager](./src/core/cache/) - File lifecycle and synchronization
+- [RxDB Setup](./src/core/rxdb/) - Database schema and collections
 
 ## 🎯 Roadmap
 
@@ -433,20 +453,17 @@ This project is MIT licensed. See [LICENSE](./LICENSE) for details.
 
 ---
 
-**Version**: 2.0.0
-**Last Updated**: February 8, 2026
+**Version**: 0.1.0
+**Last Updated**: March 4, 2026
 **Maintainer**: Development Team
 
 > "Document everything. Analyze everything. Understand everything." - Verve
 
 Made with ❤️ using React and CodeMirror
+yarn preview
 
-## 🚀 Deployment
-
-Deploy to AWS S3 with a single command:
-
-```bash
+# Deploy to AWS S3 (requires configured bucket)
 ./deploy-s3.sh your-bucket-name
 ```
 
-See [S3 Deployment Guide](./docs/S3_DEPLOYMENT.md) for full setup instructions.
+For detailed deployment instructions, see the project's deployment guides.

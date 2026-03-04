@@ -105,7 +105,7 @@ export function isFeatureEnabled(featureId: keyof typeof features): boolean {
   if (!feature) return false;
 
   // In development, experimental features can be enabled
-  const isDev = process.env.NODE_ENV === "development";
+  const isDev = typeof process !== 'undefined' && process.env.NODE_ENV === "development";
   if (feature.experimental && !isDev && !feature.enabled) {
     return false;
   }
