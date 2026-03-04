@@ -163,7 +163,7 @@ export function subscribeToActiveWorkspaceFiles(callback: (files: any[]) => void
   let unsub = subscribeToWorkspaceFiles(currentWorkspaceId, callback);
 
   // Listen for workspace changes and re-subscribe when it changes
-  const unsubscribeStore = useWorkspaceStore.subscribe(
+  const unsubscribeStore = (useWorkspaceStore.subscribe as any)(
     (s) => s.activeWorkspaceId,
     (newId) => {
       try { unsub(); } catch (_) { }

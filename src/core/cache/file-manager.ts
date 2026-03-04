@@ -11,35 +11,36 @@ import type { FileDoc } from '@/core/rxdb/schemas';
 import { SyncOp } from './types';
 import { CachedFile, WorkspaceType, FileType } from './types';
 
-import { initializeRxDB as clientInitializeRxDB, getCacheDB as clientGetCacheDB, upsertDoc as clientUpsertDoc, getDoc as clientGetDoc, findDocs as clientFindDocs, atomicUpsert as clientAtomicUpsert, removeDoc as clientRemoveDoc, subscribeQuery as clientSubscribeQuery } from '@/core/rxdb/rxdb-client';
+import { initializeRxDB as rxInitializeRxDB, getCacheDB as rxGetCacheDB, upsertDoc as rxUpsertDoc, getDoc as rxGetDoc, findDocs as rxFindDocs, atomicUpsert as rxAtomicUpsert, removeDoc as rxRemoveDoc, subscribeQuery as rxSubscribeQuery } from '@/core/rxdb/rxdb-client';
 import Collections from '@/core/rxdb/collections';
 import { normalizePath } from '@/shared/utils/file-path-resolver';
 
-// Local aliases for legacy names used throughout this module.
-const atomicUpsert = clientAtomicUpsert;
-const upsertDoc = clientUpsertDoc;
-const getDoc = clientGetDoc;
-const findDocs = clientFindDocs;
-const subscribeQuery = clientSubscribeQuery;
-const removeDoc = clientRemoveDoc;
+// Local aliases to keep calls concise and avoid indirect circular-init problems.
+const upsertDoc = rxUpsertDoc;
+const getDoc = rxGetDoc;
+const findDocs = rxFindDocs;
+const atomicUpsert = rxAtomicUpsert;
+const removeDoc = rxRemoveDoc;
+const subscribeQuery = rxSubscribeQuery;
 
-// Re-export / delegate helpers expected by the rest of the codebase/tests.
-export async function initializeRxDB(): Promise<void> { return clientInitializeRxDB(); }
-export function getCacheDB(): any { return clientGetCacheDB(); }
+// Export thin wrappers so other modules can import `initializeRxDB`/`getCacheDB`
+// from this file without creating import-time cycles.
+export async function initializeRxDB(): Promise<void> { return rxInitializeRxDB(); }
+export function getCacheDB(): any { return rxGetCacheDB(); }
 
 export async function upsertCachedFile(doc: CachedFile): Promise<void> {
-  await clientInitializeRxDB();
+  await initializeRxDB();
   try {
     console.debug('[file-manager] upsertCachedFile id=%s path=%s', doc.id, doc.path);
   } catch (_) { }
-  return clientUpsertDoc((Collections as any).Files, doc as any);
+  return upsertDoc((Collections as any).Files, doc as any);
 }
 
 export async function getCachedFile(pathOrId: string, workspaceId?: string): Promise<CachedFile | null> {
   // try by id first
-  await clientInitializeRxDB();
+  await initializeRxDB();
   try {
-    const byId = await clientGetDoc((Collections as any).Files, pathOrId as any);
+    const byId = await getDoc((Collections as any).Files, pathOrId as any);
     if (byId && (!workspaceId || String((byId as any).workspaceId) === String(workspaceId))) return byId as any;
   } catch (_) { /* ignore */ }
   // Try exact path matches for several common stored forms: raw, normalized, and
@@ -50,14 +51,14 @@ export async function getCachedFile(pathOrId: string, workspaceId?: string): Pro
     try {
       const sel: any = { path: candidate };
       if (workspaceId) sel.workspaceId = workspaceId;
-      const found = await clientFindDocs((Collections as any).Files, { selector: sel });
+      const found = await findDocs((Collections as any).Files, { selector: sel });
       if (found && found.length) return (found[0] as any);
     } catch (_) { /* ignore individual candidate errors */ }
   }
 
   // Debug: list all IDs if nothing found (helps in failing tests)
   try {
-    const all = await clientFindDocs((Collections as any).Files, { selector: {} });
+    const all = await findDocs((Collections as any).Files, { selector: {} });
     try { console.debug('[file-manager] getCachedFile allIds=', JSON.stringify((all || []).map((a: any) => a.id))); } catch (_) { }
   } catch (_) { }
 
@@ -66,7 +67,7 @@ export async function getCachedFile(pathOrId: string, workspaceId?: string): Pro
     const esc = (pathOrId || '').replace(/[.*+?^${}()|[\\]\\]/g, '\\$&');
     const regexSel: any = { path: { $regex: `${esc}$` } };
     if (workspaceId) regexSel.workspaceId = workspaceId;
-    const regexFound = await clientFindDocs((Collections as any).Files, { selector: regexSel });
+    const regexFound = await findDocs((Collections as any).Files, { selector: regexSel });
     if (regexFound && regexFound.length) return regexFound[0] as any;
   } catch (_) { /* ignore */ }
 
@@ -74,51 +75,51 @@ export async function getCachedFile(pathOrId: string, workspaceId?: string): Pro
 }
 
 export async function getAllCachedFiles(workspaceId?: string): Promise<CachedFile[]> {
-  await clientInitializeRxDB();
+  await initializeRxDB();
   const selector = workspaceId ? { workspaceId } : {};
-  return clientFindDocs((Collections as any).Files, { selector }) as Promise<CachedFile[]>;
+  return findDocs((Collections as any).Files, { selector }) as Promise<CachedFile[]>;
 }
 
 export function observeCachedFiles(cb: (files: CachedFile[]) => void): { unsubscribe: () => void } {
   let unsubFn: (() => void) | null = null;
   (async () => {
-    await clientInitializeRxDB();
-    unsubFn = clientSubscribeQuery((Collections as any).Files, { selector: {} }, (docs: any[]) => cb(docs as CachedFile[]));
+    await initializeRxDB();
+    unsubFn = subscribeQuery((Collections as any).Files, { selector: {} }, (docs: any[]) => cb(docs as CachedFile[]));
   })();
   return { unsubscribe: () => { try { if (unsubFn) unsubFn(); } catch (_) { } } };
 }
 
 export async function getDirtyCachedFiles(workspaceId?: string): Promise<CachedFile[]> {
-  await clientInitializeRxDB();
+  await initializeRxDB();
   const selector: any = { dirty: true };
   if (workspaceId) selector.workspaceId = workspaceId;
-  return clientFindDocs((Collections as any).Files, { selector }) as Promise<CachedFile[]>;
+  return findDocs((Collections as any).Files, { selector }) as Promise<CachedFile[]>;
 }
 
 export async function markCachedFileAsSynced(fileId: string): Promise<void> {
-  await clientInitializeRxDB();
+  await initializeRxDB();
   try {
-    await clientAtomicUpsert((Collections as any).Files, fileId as any, (current?: any) => ({ ...(current || {}), id: fileId, dirty: false }));
+    await atomicUpsert((Collections as any).Files, fileId as any, (current?: any) => ({ ...(current || {}), id: fileId, dirty: false }));
   } catch (e) {
-    const doc = await clientGetDoc((Collections as any).Files, fileId as any);
-    if (doc) await clientUpsertDoc((Collections as any).Files, { ...(doc as any), dirty: false } as any);
+    const doc = await getDoc((Collections as any).Files, fileId as any);
+    if (doc) await upsertDoc((Collections as any).Files, { ...(doc as any), dirty: false } as any);
   }
 }
 
 export async function removeCachedFile(fileId: string): Promise<void> {
-  await clientInitializeRxDB();
-  return clientRemoveDoc((Collections as any).Files, fileId as any);
+  await initializeRxDB();
+  return removeDoc((Collections as any).Files, fileId as any);
 }
 
 export async function closeCacheDB(): Promise<void> {
   try {
-    await clientInitializeRxDB();
-    const files = await clientFindDocs((Collections as any).Files, { selector: {} });
+    await initializeRxDB();
+    const files = await findDocs((Collections as any).Files, { selector: {} });
     for (const f of files) {
-      try { await clientRemoveDoc((Collections as any).Files, f.id); } catch (_) { }
+      try { await removeDoc((Collections as any).Files, f.id); } catch (_) { }
     }
-    const queue = await clientFindDocs((Collections as any).SyncQueue, { selector: {} });
-    for (const q of queue) { try { await clientRemoveDoc((Collections as any).SyncQueue, q.id); } catch (_) { } }
+    const queue = await findDocs((Collections as any).SyncQueue, { selector: {} });
+    for (const q of queue) { try { await removeDoc((Collections as any).SyncQueue, q.id); } catch (_) { } }
     if (typeof indexedDB !== 'undefined' && (indexedDB as any).deleteDatabase) {
       try { (indexedDB as any).deleteDatabase('verve'); } catch (_) { }
     }

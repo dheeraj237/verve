@@ -217,7 +217,7 @@ export function FileExplorer() {
   const filteredFileTree = filterFileTree(computedTree, filterValue);
   const rootsToRender = filterValue.trim()
     ? filteredFileTree
-    : (rootIds || []).map(id => fileMap?.[id]).filter(Boolean) as typeof fileTree;
+    : (rootIds || []).map(id => fileMap?.[id]).filter(Boolean) as FileNode[];
 
   return (
     <div className="h-full flex flex-col">

@@ -98,14 +98,14 @@ function ensureDb(): RxDatabase {
   return db as RxDatabase;
 }
 
-export function getCollection<T = any>(name: Collections): AnyCollection {
+export function getCollection<T = any>(name: Collections | string): AnyCollection {
   const database = ensureDb();
   const col = (database.collections as any)[name] as AnyCollection | undefined;
   if (!col) throw new Error(`Collection ${name} not found; did you call createRxDB()?`);
   return col as AnyCollection;
 }
 
-export async function upsertDoc<T extends { id: string }>(collection: Collections, doc: T): Promise<void> {
+export async function upsertDoc<T extends { id: string }>(collection: Collections | string, doc: T): Promise<void> {
   const col = getCollection<T>(collection);
   try {
     const database = ensureDb();
@@ -114,7 +114,7 @@ export async function upsertDoc<T extends { id: string }>(collection: Collection
   await col.upsert(doc as any);
 }
 
-export async function getDoc<T>(collection: Collections, id: string): Promise<T | null> {
+export async function getDoc<T = any>(collection: Collections | string, id: string): Promise<T | null> {
   const col = getCollection<T>(collection);
   try {
     const database = ensureDb();
@@ -129,7 +129,7 @@ export async function getDoc<T>(collection: Collections, id: string): Promise<T 
   return doc.toJSON() as T;
 }
 
-export async function findDocs<T>(collection: Collections, query: { selector?: any; sort?: any; limit?: number } = {}): Promise<T[]> {
+export async function findDocs<T = any>(collection: Collections | string, query: { selector?: any; sort?: any; limit?: number } = {}): Promise<T[]> {
   const col = getCollection<T>(collection);
   const rxQuery: any = col.find({ selector: query.selector || {} });
   if (query.sort && typeof rxQuery.sort === 'function') rxQuery.sort(query.sort);
@@ -158,7 +158,7 @@ export function subscribeQuery<T>(collection: Collections, query: { selector?: a
   return () => sub.unsubscribe();
 }
 
-export async function atomicUpsert<T extends { id: string }>(collection: Collections, id: string, mutator: (current?: T | null) => T): Promise<T> {
+export async function atomicUpsert<T extends { id: string }>(collection: Collections | string, id: string, mutator: (current?: T | null) => T): Promise<T> {
   const col = getCollection<T>(collection);
   try {
     const database = ensureDb();
@@ -175,7 +175,7 @@ export async function atomicUpsert<T extends { id: string }>(collection: Collect
   return next;
 }
 
-export async function bulkWrite<T extends { id: string }>(collection: Collections, docs: Array<T>): Promise<void> {
+export async function bulkWrite<T extends { id: string }>(collection: Collections | string, docs: Array<T>): Promise<void> {
   const col = getCollection<T>(collection);
   if (typeof col.bulkWrite === 'function') {
     const ops = docs.map((d) => ({ document: d }));
@@ -186,7 +186,7 @@ export async function bulkWrite<T extends { id: string }>(collection: Collection
   }
 }
 
-export async function removeDoc(collection: Collections, id: string): Promise<void> {
+export async function removeDoc(collection: Collections | string, id: string): Promise<void> {
   const col = getCollection(collection);
   try { const database = ensureDb(); console.log('[rxdb-client] removeDoc', collection, 'db=', (database as any).name, 'time=', Date.now(), 'id=', id); } catch (_) { }
   const doc = await col.findOne(id).exec();

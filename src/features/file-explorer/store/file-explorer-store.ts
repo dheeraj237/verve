@@ -47,6 +47,7 @@ interface FileExplorerStore {
   getChildren: (id: string) => string[];
   getPath: (id: string) => string | null;
   isDirty: (id: string) => boolean;
+  getFileTree: () => FileNode[];
   createFile: (parentPath: string, fileName: string) => Promise<void>;
   createFolder: (parentPath: string, folderName: string) => Promise<void>;
   renameNode: (nodePath: string, newName: string) => Promise<void>;
@@ -708,7 +709,7 @@ try {
     try { await useFileExplorerStore.getState().refreshFileTree(); } catch (e) { /* ignore */ }
   });
 
-  const unsubWorkspace = useWorkspaceStore.subscribe(s => s.activeWorkspaceId, (newId) => {
+  const unsubWorkspace = (useWorkspaceStore.subscribe as any)(s => s.activeWorkspaceId, (newId) => {
     try { unsubFiles(); } catch (_) { }
     currentWsId = newId ?? null;
     unsubFiles = subscribeToWorkspaceFiles(currentWsId, async () => {

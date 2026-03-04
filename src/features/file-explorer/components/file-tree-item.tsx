@@ -117,7 +117,7 @@ export function FileTreeItem({ node, level, parentNode }: FileTreeItemProps) {
         }
         // children are ids
         const map = useFileExplorerStore.getState().fileMap || {};
-        return (node.children as string[]).map(id => map[id]?.name).filter(Boolean) as string[];
+        return (node.children as any).map(id => map[id]?.name).filter(Boolean) as string[];
       }
       const childIds = useFileExplorerStore.getState().getChildren(node.id) || [];
       const map = useFileExplorerStore.getState().fileMap || {};

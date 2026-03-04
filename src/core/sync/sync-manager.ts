@@ -252,7 +252,7 @@ export class SyncManager {
 
     // Subscribe to active workspace changes and listen to cached file updates
     try {
-      this.workspaceSub = useWorkspaceStore.subscribe(
+      this.workspaceSub = (useWorkspaceStore.subscribe as any)(
         (s) => s.activeWorkspaceId,
         (newId: string | null, oldId: string | null) => {
           try {
