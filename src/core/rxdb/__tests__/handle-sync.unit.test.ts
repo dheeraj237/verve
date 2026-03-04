@@ -1,16 +1,16 @@
+import 'fake-indexeddb/auto';
 import { createRxDB, getDoc } from '@/core/rxdb/rxdb-client';
 import { storeHandleForWorkspace, getHandleMeta } from '@/core/rxdb/handle-sync';
 
 describe('handle-sync', () => {
   beforeEach(async () => {
-    try { await createRxDB(); } catch (e) { /* best-effort */ }
+    await createRxDB();
   });
 
   test('stores directoryHandle in directory_handles_meta', async () => {
+    // Use a serializable handle-like object so fake-indexeddb can clone it.
     const fakeHandle: any = {
-      name: 'root',
-      queryPermission: jest.fn(async () => 'granted'),
-      requestPermission: jest.fn(async () => 'granted')
+      name: 'root'
     };
 
     await storeHandleForWorkspace('ws-test', fakeHandle as any);

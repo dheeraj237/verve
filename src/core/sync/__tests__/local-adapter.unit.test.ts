@@ -10,8 +10,6 @@ jest.mock('@/core/cache/workspace-manager', () => ({
 // Mock cache upsert/save to avoid RxDB dependency in unit test
 jest.mock('@/core/cache/file-manager', () => ({
   upsertCachedFile: jest.fn().mockResolvedValue(undefined),
-}));
-jest.mock('@/core/cache/file-manager', () => ({
   saveFile: jest.fn().mockResolvedValue(undefined),
   getAllFiles: jest.fn().mockResolvedValue([]),
 }));
@@ -105,25 +103,10 @@ describe('LocalAdapter unit', () => {
 });
 import 'fake-indexeddb/auto';
 
-// Mock workspace-manager and cache ops before importing adapter
-jest.mock('@/core/cache/workspace-manager', () => ({
-  requestPermissionForWorkspace: jest.fn(),
-  storeDirectoryHandle: jest.fn(),
-  removeDirectoryHandle: jest.fn(),
-}));
-
-jest.mock('@/core/cache/file-manager', () => ({
-  upsertCachedFile: jest.fn(() => Promise.resolve()),
-}));
-
-jest.mock('@/core/cache/file-manager', () => ({
-  saveFile: jest.fn(() => Promise.resolve()),
-}));
-
+// Reuse the above workspace-manager and file-manager mocks.
 import { LocalAdapter } from '@/core/sync/adapters/local-adapter';
 import { requestPermissionForWorkspace } from '@/core/cache/workspace-manager';
-import { upsertCachedFile } from '@/core/cache/file-manager';
-import { saveFile } from '@/core/cache/file-manager';
+import { upsertCachedFile, saveFile } from '@/core/cache/file-manager';
 
 describe('LocalAdapter FS interactions', () => {
   beforeEach(() => {

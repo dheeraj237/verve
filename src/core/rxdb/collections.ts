@@ -6,6 +6,4 @@ export enum Collections {
   SyncQueue = 'sync_queue'
 }
 
-export type CollectionName = Collections;
-
 export default Collections;

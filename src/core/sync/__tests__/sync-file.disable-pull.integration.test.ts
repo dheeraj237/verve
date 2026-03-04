@@ -4,15 +4,11 @@ jest.mock('@/core/cache/file-manager', () => ({
   getCachedFile: jest.fn(),
   markCachedFileAsSynced: jest.fn(),
   upsertCachedFile: jest.fn(),
-}));
-
-jest.mock('@/core/cache/file-manager', () => ({
   loadFile: jest.fn(),
   saveFile: jest.fn(),
 }));
 
-import { getCachedFile } from '@/core/cache/file-manager';
-import { loadFile } from '@/core/cache/file-manager';
+import { getCachedFile, loadFile } from '@/core/cache/file-manager';
 
 describe('SyncManager syncFile behavior (disable pull-after-push flag)', () => {
   beforeEach(() => {

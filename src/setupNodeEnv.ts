@@ -9,6 +9,13 @@ try {
 // Register common RxDB plugins for the test/runtime environment so the
 // library has the expected hooks available during tests.
 try {
+  // Ensure Dexie storage plugin is loaded early so Jest transforms it
+  // before tests import RxDB. This helps integration tests use Dexie
+  // with the fake-indexeddb polyfill.
+  try {
+    // eslint-disable-next-line global-require
+    require('rxdb/plugins/storage-dexie');
+  } catch (_) { }
   // eslint-disable-next-line global-require
   const { addRxPlugin } = require('rxdb');
   // eslint-disable-next-line global-require
@@ -16,10 +23,14 @@ try {
   // eslint-disable-next-line global-require
   const { RxDBJsonDumpPlugin } = require('rxdb/plugins/json-dump');
   // eslint-disable-next-line global-require
+  const { RxDBDevModePlugin } = require('rxdb/plugins/dev-mode');
+  // eslint-disable-next-line global-require
   const { RxDBMigrationPlugin } = require('rxdb/plugins/migration');
   // eslint-disable-next-line global-require
   const { RxDBQueryBuilderPlugin } = require('rxdb/plugins/query-builder');
 
+  // Enable dev-mode plugin in test environment to get descriptive RxDB errors
+  try { addRxPlugin(RxDBDevModePlugin); } catch (_) { }
   addRxPlugin(RxDBLeaderElectionPlugin);
   addRxPlugin(RxDBJsonDumpPlugin);
   addRxPlugin(RxDBMigrationPlugin);

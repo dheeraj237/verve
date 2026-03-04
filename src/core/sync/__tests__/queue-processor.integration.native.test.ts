@@ -6,7 +6,7 @@ import { RxDBJsonDumpPlugin } from 'rxdb/plugins/json-dump';
 import { RxDBMigrationPlugin } from 'rxdb/plugins/migration';
 import { RxDBQueryBuilderPlugin } from 'rxdb/plugins/query-builder';
 
-import { cachedFileSchema, syncQueueSchema } from '@/core/cache/schemas';
+import { cachedFileSchema, syncQueueSchema, migrationStrategies } from '@/core/cache/schemas';
 import { FileType, WorkspaceType, SyncOp } from '@/core/cache/types';
 
 // Ensure plugins registered similar to runtime
@@ -30,8 +30,8 @@ describe('queue processor integration (native)', () => {
     });
 
     await db.addCollections({
-      cached_files: { schema: cachedFileSchema },
-      sync_queue: { schema: syncQueueSchema },
+      cached_files: { schema: cachedFileSchema, migrationStrategies: migrationStrategies.cachedFile || {} },
+      sync_queue: { schema: syncQueueSchema, migrationStrategies: migrationStrategies.syncQueue || {} },
     });
   });
 

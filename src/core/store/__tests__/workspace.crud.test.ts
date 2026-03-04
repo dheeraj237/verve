@@ -1,5 +1,8 @@
 import 'fake-indexeddb/auto';
 
+// Use the real rxdb-client for this integration test to capture real DB traces
+jest.unmock('@/core/rxdb/rxdb-client');
+
 // Keep integration tests bounded so CI/dev runners don't wait indefinitely
 jest.setTimeout(10000);
 

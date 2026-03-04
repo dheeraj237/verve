@@ -41,6 +41,9 @@ module.exports = {
       // `fake-indexeddb/auto` so RxDB can initialize against `indexedDB`.
       // Load fake-indexeddb and ensure a clean DB before integration tests.
       setupFiles: ['<rootDir>/src/setupIndexedDBEnv.ts', '<rootDir>/src/setupIntegrationEnv.ts', '<rootDir>/src/setupNodeEnv.ts'],
+      // Ensure integration tests unmock the real rxdb client so they exercise
+      // the actual DB-backed implementation rather than the unit mock.
+      setupFilesAfterEnv: ['<rootDir>/src/setupTests.ts', '<rootDir>/src/setupIntegrationUnmock.ts'],
       // Match both dedicated `tests/integration` folder and any files named
       // `*.integration.test.*` located under `src` or elsewhere.
       testMatch: [

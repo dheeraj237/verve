@@ -1,57 +1,41 @@
 import { createRxDatabase, addRxPlugin } from 'rxdb';
 import type { RxDatabase, RxCollection } from 'rxdb';
 import { RxDBQueryBuilderPlugin } from 'rxdb/plugins/query-builder';
-// Use explicit storage plugins so tests can run with in-memory storage while
-// browsers use Dexie-backed storage when available. Import the memory
-// storage statically but load Dexie dynamically to avoid requiring ESM
-// modules during Jest startup.
+// Register the QueryBuilder plugin at module load so `.where()` / `.sort()`
+// chain methods are available before any DB/queries are created.
+try { addRxPlugin(RxDBQueryBuilderPlugin); } catch (_) { }
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import { collections as schemaCollections } from './schemas';
 import Collections from './collections';
 
 let db: RxDatabase | null = null;
+let initPromise: Promise<void> | null = null;
 
 type AnyCollection = RxCollection<any> | any;
 
 
 export async function createRxDB(): Promise<void> {
-  // Ensure query builder plugin is available so `.where()` / `.sort()` etc work
-  try { addRxPlugin(RxDBQueryBuilderPlugin); } catch (_) { }
   if (db) return;
-  // Choose storage: force Dexie when requested (integration tests), or
-  // prefer Dexie when `indexedDB` exists. Fallback to memory storage.
-  let storage: any;
-  const preferIdb = typeof indexedDB !== 'undefined';
-  const forceDexie = process.env.FORCE_DEXIE === '1';
-  if (forceDexie || preferIdb) {
+  if (initPromise) return initPromise;
+  initPromise = (async () => {
+    // Prefer Dexie when available (and when `indexedDB` exists), but
+    // fall back to memory storage for tests so we can iterate on schema
+    // and query fixes without failing test environment initialization.
+    let storage: any;
     try {
       const mod: any = await import('rxdb/plugins/storage-dexie');
       const getRxStorageDexie = mod.getRxStorageDexie || (mod.default && mod.default.getRxStorageDexie);
-      if (typeof getRxStorageDexie === 'function') {
-        // Probe Dexie-backed storage to ensure it's usable in this environment.
-        try {
-          const probeName = `verve_probe_${process.env.JEST_WORKER_ID || '0'}_${Date.now()}`;
-          const probeStorage = getRxStorageDexie();
-          // Try creating and immediately removing a small DB to validate storage.
-          const probeDb = await createRxDatabase({ name: probeName, storage: probeStorage, multiInstance: false, eventReduce: true });
-          try { if ((probeDb as any).remove) await (probeDb as any).remove(); } catch (_) { }
-          storage = getRxStorageDexie();
-          console.info('[rxdb-client] storage=DEXIE');
-        } catch (probeErr) {
-          storage = getRxStorageMemory();
-          console.info('[rxdb-client] storage=MEMORY (dexie probe failed)');
-        }
+      if (typeof getRxStorageDexie === 'function' && typeof indexedDB !== 'undefined') {
+        storage = getRxStorageDexie();
+        console.info('[rxdb-client] storage=DEXIE');
       } else {
         storage = getRxStorageMemory();
-        console.info('[rxdb-client] storage=MEMORY (no dexie factory)');
+        console.info('[rxdb-client] storage=MEMORY (dexie unavailable or no indexedDB)');
       }
-    } catch (e) {
+    } catch (err) {
       storage = getRxStorageMemory();
       console.info('[rxdb-client] storage=MEMORY (dexie import failed)');
     }
-  } else {
-    storage = getRxStorageMemory();
-  }
 
   try {
     // If an existing IDB named 'verve' exists, delete it first to avoid
@@ -72,22 +56,23 @@ export async function createRxDB(): Promise<void> {
         });
       } catch (_) { /* ignore */ }
     }
-    // Create a single database instance. Tests should either register
-    // `fake-indexeddb/auto` in their Jest setup or mock this module.
+    // Create a single database instance using Dexie-backed storage.
     db = await createRxDatabase({ name: dbName, storage, multiInstance: false, eventReduce: true });
 
     await db.addCollections({
-      [Collections.Workspaces]: { schema: (schemaCollections.workspaces as any).schema as any },
-      [Collections.Files]: { schema: (schemaCollections.files as any).schema as any },
-      [Collections.Settings]: { schema: (schemaCollections.settings as any).schema as any },
-      [Collections.DirectoryHandlesMeta]: { schema: (schemaCollections.directory_handles_meta as any).schema as any },
-      [Collections.SyncQueue]: { schema: (schemaCollections.sync_queue as any).schema as any }
+      [Collections.Workspaces]: { schema: (schemaCollections.workspaces as any).schema as any, migrationStrategies: {} },
+      [Collections.Files]: { schema: (schemaCollections.files as any).schema as any, migrationStrategies: {} },
+      [Collections.Settings]: { schema: (schemaCollections.settings as any).schema as any, migrationStrategies: {} },
+      [Collections.DirectoryHandlesMeta]: { schema: (schemaCollections.directory_handles_meta as any).schema as any, migrationStrategies: {} },
+      [Collections.SyncQueue]: { schema: (schemaCollections.sync_queue as any).schema as any, migrationStrategies: {} }
     });
     return;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     throw new Error(`Failed to initialize RxDB: ${msg}. In tests register 'fake-indexeddb/auto' in Jest setup or mock '@/core/rxdb/rxdb-client'.`);
   }
+  })().finally(() => { initPromise = null; });
+  return initPromise;
 }
 
 // Useful for tests: destroy the database instance and remove underlying data.
@@ -122,24 +107,38 @@ export function getCollection<T = any>(name: Collections): AnyCollection {
 
 export async function upsertDoc<T extends { id: string }>(collection: Collections, doc: T): Promise<void> {
   const col = getCollection<T>(collection);
-  try { console.log('[rxdb-client] upsertDoc', collection, (doc && (doc as any).id)); } catch (_) { }
+  try {
+    const database = ensureDb();
+    console.log('[rxdb-client] upsertDoc', collection, 'db=', (database as any).name, 'time=', Date.now(), 'id=', (doc && (doc as any).id));
+  } catch (_) { }
   await col.upsert(doc as any);
 }
 
 export async function getDoc<T>(collection: Collections, id: string): Promise<T | null> {
   const col = getCollection<T>(collection);
+  try {
+    const database = ensureDb();
+    console.log('[rxdb-client] getDoc', collection, 'db=', (database as any).name, 'time=', Date.now(), 'id=', id);
+  } catch (_) { }
   const doc = await col.findOne(id).exec();
-  if (!doc) return null;
+  if (!doc) {
+    try { console.log('[rxdb-client] getDoc MISS', collection, 'id=', id); } catch (_) { }
+    return null;
+  }
+  try { console.log('[rxdb-client] getDoc HIT', collection, 'id=', id); } catch (_) { }
   return doc.toJSON() as T;
 }
 
 export async function findDocs<T>(collection: Collections, query: { selector?: any; sort?: any; limit?: number } = {}): Promise<T[]> {
   const col = getCollection<T>(collection);
-  const rxQuery: any = col.find(query.selector || {});
+  const rxQuery: any = col.find({ selector: query.selector || {} });
   if (query.sort && typeof rxQuery.sort === 'function') rxQuery.sort(query.sort);
   if (typeof query.limit === 'number' && typeof rxQuery.limit === 'function') rxQuery.limit(query.limit);
   const docs = await rxQuery.exec();
-  try { console.log('[rxdb-client] findDocs', collection, (query && query.selector)); } catch (_) { }
+  try {
+    const database = ensureDb();
+    console.log('[rxdb-client] findDocs', collection, 'db=', (database as any).name, 'time=', Date.now(), 'selector=', JSON.stringify(query.selector || {}), 'count=', (docs && docs.length));
+  } catch (_) { }
   return docs.map((d: any) => d.toJSON() as T);
 }
 
@@ -153,7 +152,7 @@ export function subscribeDoc<T>(collection: Collections, id: string, cb: (doc: T
 
 export function subscribeQuery<T>(collection: Collections, query: { selector?: any }, cb: (docs: T[]) => void): () => void {
   const col = getCollection<T>(collection);
-  const sub = col.find(query.selector || {}).$.subscribe((docs: any[]) => {
+  const sub = col.find({ selector: query.selector || {} }).$.subscribe((docs: any[]) => {
     cb(docs.map((d) => (d ? d.toJSON() : null)).filter(Boolean) as T[]);
   });
   return () => sub.unsubscribe();
@@ -161,11 +160,18 @@ export function subscribeQuery<T>(collection: Collections, query: { selector?: a
 
 export async function atomicUpsert<T extends { id: string }>(collection: Collections, id: string, mutator: (current?: T | null) => T): Promise<T> {
   const col = getCollection<T>(collection);
+  try {
+    const database = ensureDb();
+    console.log('[rxdb-client] atomicUpsert START', collection, 'db=', (database as any).name, 'time=', Date.now(), 'id=', id);
+  } catch (_) { }
   const existing = await col.findOne(id).exec();
   const current = existing ? (existing.toJSON() as T) : null;
   const next = mutator(current || undefined);
-  try { console.log('[rxdb-client] atomicUpsert', collection, id); } catch (_) { }
   await col.upsert(next as any);
+  try {
+    const database = ensureDb();
+    console.log('[rxdb-client] atomicUpsert END', collection, 'db=', (database as any).name, 'time=', Date.now(), 'id=', id);
+  } catch (_) { }
   return next;
 }
 
@@ -173,6 +179,7 @@ export async function bulkWrite<T extends { id: string }>(collection: Collection
   const col = getCollection<T>(collection);
   if (typeof col.bulkWrite === 'function') {
     const ops = docs.map((d) => ({ document: d }));
+    try { const database = ensureDb(); console.log('[rxdb-client] bulkWrite', collection, 'db=', (database as any).name, 'time=', Date.now(), 'count=', ops.length); } catch (_) { }
     await col.bulkWrite(ops);
   } else {
     await Promise.all(docs.map((d) => upsertDoc(collection, d)));
@@ -181,6 +188,7 @@ export async function bulkWrite<T extends { id: string }>(collection: Collection
 
 export async function removeDoc(collection: Collections, id: string): Promise<void> {
   const col = getCollection(collection);
+  try { const database = ensureDb(); console.log('[rxdb-client] removeDoc', collection, 'db=', (database as any).name, 'time=', Date.now(), 'id=', id); } catch (_) { }
   const doc = await col.findOne(id).exec();
   if (doc) {
     await doc.remove();

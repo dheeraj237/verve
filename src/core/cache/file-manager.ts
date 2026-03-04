@@ -42,11 +42,35 @@ export async function getCachedFile(pathOrId: string, workspaceId?: string): Pro
     const byId = await clientGetDoc((Collections as any).Files, pathOrId as any);
     if (byId && (!workspaceId || String((byId as any).workspaceId) === String(workspaceId))) return byId as any;
   } catch (_) { /* ignore */ }
+  // Try exact path matches for several common stored forms: raw, normalized, and
+  // with a leading slash. This covers creation paths like `/foo` vs `foo`.
+  const norm = normalizePath(pathOrId || '');
+  const candidates = Array.from(new Set([pathOrId, norm, norm ? `/${norm}` : ''].filter(Boolean)));
+  for (const candidate of candidates) {
+    try {
+      const sel: any = { path: candidate };
+      if (workspaceId) sel.workspaceId = workspaceId;
+      const found = await clientFindDocs((Collections as any).Files, { selector: sel });
+      if (found && found.length) return (found[0] as any);
+    } catch (_) { /* ignore individual candidate errors */ }
+  }
 
-  const selector: any = { path: pathOrId };
-  if (workspaceId) selector.workspaceId = workspaceId;
-  const found = await clientFindDocs((Collections as any).Files, { selector });
-  return (found && found.length) ? (found[0] as any) : null;
+  // Debug: list all IDs if nothing found (helps in failing tests)
+  try {
+    const all = await clientFindDocs((Collections as any).Files, { selector: {} });
+    try { console.debug('[file-manager] getCachedFile allIds=', JSON.stringify((all || []).map((a: any) => a.id))); } catch (_) { }
+  } catch (_) { }
+
+  // Fallback: try a regex-match on path endings (handles leading-slash variants)
+  try {
+    const esc = (pathOrId || '').replace(/[.*+?^${}()|[\\]\\]/g, '\\$&');
+    const regexSel: any = { path: { $regex: `${esc}$` } };
+    if (workspaceId) regexSel.workspaceId = workspaceId;
+    const regexFound = await clientFindDocs((Collections as any).Files, { selector: regexSel });
+    if (regexFound && regexFound.length) return regexFound[0] as any;
+  } catch (_) { /* ignore */ }
+
+  return null;
 }
 
 export async function getAllCachedFiles(workspaceId?: string): Promise<CachedFile[]> {
@@ -228,9 +252,11 @@ export async function loadFile(
 async function loadFileSync(path: string, workspaceType: WorkspaceType = WorkspaceType.Browser, workspaceId?: string): Promise<FileData> {
   const db = await getCacheDB();
   const cached = await getCachedFile(path, workspaceId);
+  try { console.debug('[file-manager] loadFileSync cached=', JSON.stringify(cached)); } catch (_) { }
   if (cached) {
     // Prefer retrieving the canonical doc by id from rxdb-client
     const doc = (await getDoc<FileDoc>('files', cached.id)) || (cached as unknown as FileDoc);
+    try { console.debug('[file-manager] loadFileSync doc=', JSON.stringify(doc)); } catch (_) { }
     const content = doc.content || '';
     return {
       id: doc.id,
@@ -308,6 +334,7 @@ async function saveSyncFile(
   }
 
   const saved = await atomicUpsert<FileDoc>('files', fileId, mutator as any);
+  try { console.debug('[file-manager] saveSyncFile saved=', JSON.stringify(saved)); } catch (_) { }
   try {
     // Ensure final doc persisted (shim-safe)
     await upsertDoc<FileDoc>('files', saved as any);
@@ -351,15 +378,13 @@ export async function deleteFile(path: string, workspaceId?: string): Promise<vo
           selector = { path: { $regex: `^${esc}(?:$|/)` } };
         }
         if (workspaceId) selector = { ...selector, workspaceId };
-        const docs = await db.cached_files.find({ selector }).exec();
+        const docs = await findDocs((Collections as any).Files, { selector }) as any[];
         for (const d of docs) {
           try {
-            await d.remove();
-          } catch (remErr) {
-            console.warn('Failed to remove cached doc during folder delete:', remErr);
-            try {
-              await db.cached_files.find().where('id').eq(d.id).remove();
-            } catch (_) { /* swallow */ }
+              await removeDoc((Collections as any).Files, d.id);
+            } catch (remErr) {
+              console.warn('Failed to remove cached doc during folder delete:', remErr);
+            try { await removeDoc((Collections as any).Files, d.id); } catch (_) { /* swallow */ }
           }
           try {
             if (String(d.workspaceType) !== WorkspaceType.Browser) {
@@ -376,11 +401,10 @@ export async function deleteFile(path: string, workspaceId?: string): Promise<vo
           }
         }
       } else {
-        const doc = await db.cached_files.findOne(cached.id).exec();
-        if (doc && typeof doc.remove === 'function') {
-          await doc.remove();
-        } else {
-          await db.cached_files.find().where('id').eq(cached.id).remove();
+        try {
+          await removeDoc((Collections as any).Files, cached.id);
+        } catch (e) {
+          console.warn('deleteFile fallback remove failed:', e);
         }
         try {
           if (String(cached.workspaceType) !== WorkspaceType.Browser) {
@@ -398,7 +422,7 @@ export async function deleteFile(path: string, workspaceId?: string): Promise<vo
       }
     } catch (err) {
       console.warn('deleteFile fallback remove failed:', err);
-      await db.cached_files.find().where('id').eq(cached.id).remove().catch(() => { });
+      try { await removeDoc((Collections as any).Files, cached.id); } catch (_) { }
     }
   }
 }
@@ -474,11 +498,8 @@ export async function listFiles(dirPath: string = '', workspaceId?: string): Pro
   const db = await getCacheDB();
   const normalizedPath = (dirPath === '/' || dirPath === '') ? '' : dirPath.replace(/\/$/, '').replace(/^\//, '');
   const pattern = normalizedPath ? `${normalizedPath}/` : '';
-  let allFilesQuery: any = db.cached_files.find();
-  if (workspaceId) {
-    allFilesQuery = allFilesQuery.where('workspaceId').eq(workspaceId);
-  }
-  const allFiles = await allFilesQuery.exec();
+  const selector: any = workspaceId ? { workspaceId } : {};
+  const allFiles = await findDocs((Collections as any).Files, { selector }) as any[];
   const children = allFiles.filter(file => {
     const storedPath = file.path ? (file.path.startsWith('/') ? file.path.slice(1) : file.path) : '';
     if (!storedPath.startsWith(pattern)) {
@@ -501,11 +522,8 @@ export async function listFiles(dirPath: string = '', workspaceId?: string): Pro
 
 export async function getAllFiles(workspaceId?: string): Promise<FileMetadata[]> {
   const db = await getCacheDB();
-  let query: any = db.cached_files.find();
-  if (workspaceId) {
-    query = query.where('workspaceId').eq(workspaceId);
-  }
-  const allFiles = await query.exec();
+  const selector: any = workspaceId ? { workspaceId } : {};
+  const allFiles = await findDocs((Collections as any).Files, { selector }) as any[];
   return allFiles.map(file => ({
     id: file.id,
     name: file.name,
@@ -533,9 +551,9 @@ export async function ensureFolderDocs(workspaceId?: string): Promise<void> {
     }
   }
   if (folderSet.size === 0) return;
-  let query: any = db.cached_files.find().where('type').eq(FileType.Dir);
-  if (workspaceId) query = query.where('workspaceId').eq(workspaceId);
-  const existingDirs = await query.exec();
+  const sel: any = { type: FileType.Dir };
+  if (workspaceId) sel.workspaceId = workspaceId;
+  const existingDirs = await findDocs((Collections as any).Files, { selector: sel }) as any[];
   const existingPaths = new Set(existingDirs.map((d: any) => normalizePath(d.path || '')));
   const sample = allFiles.find(() => true);
   const wsType = sample ? (sample.workspaceType as WorkspaceType) : WorkspaceType.Browser;
@@ -564,11 +582,9 @@ export async function ensureFolderDocs(workspaceId?: string): Promise<void> {
 
 export async function getDirtyFiles(workspaceId?: string): Promise<FileMetadata[]> {
   const db = await getCacheDB();
-  let query: any = db.cached_files.find().where('dirty').eq(true);
-  if (workspaceId) {
-    query = query.where('workspaceId').eq(workspaceId);
-  }
-  const dirtyFiles = await query.exec();
+  const selector: any = { dirty: true };
+  if (workspaceId) selector.workspaceId = workspaceId;
+  const dirtyFiles = await findDocs((Collections as any).Files, { selector }) as any[];
   return dirtyFiles.map(file => ({
     id: file.id,
     name: file.name,
@@ -582,13 +598,10 @@ export async function getDirtyFiles(workspaceId?: string): Promise<FileMetadata[
 }
 
 export async function markFileSynced(fileId: string): Promise<void> {
-  const db = await getCacheDB();
-  const file = await db.cached_files.findOne(fileId).exec();
+  // Use rxdb-client API only
+  const file = await getDoc((Collections as any).Files, fileId) as any;
   if (file) {
-    await db.cached_files.upsert({
-      ...(file.toJSON() as any),
-      dirty: false,
-    } as any);
+    await upsertCachedFile({ ...(file as any), dirty: false } as any);
   }
 }
 
@@ -614,18 +627,20 @@ export function subscribeToFileChanges(callback: (files: FileMetadata[]) => void
 
 export async function clearAllFiles(): Promise<void> {
   const db = await getCacheDB();
-  await db.cached_files.find().remove();
+  const files = await findDocs((Collections as any).Files, { selector: {} }) as any[];
+  for (const f of files) {
+    try { await removeDoc((Collections as any).Files, f.id); } catch (_) { }
+  }
 }
 
 export async function switchWorkspaceType(newType: WorkspaceType): Promise<void> {
-  const db = await getCacheDB();
-  const allFiles = await db.cached_files.find().exec();
+  // Use rxdb-client API only
+  const allFiles = await findDocs((Collections as any).Files, { selector: {} }) as any[];
   for (const file of allFiles) {
-    const jsonFile = file.toJSON() as any;
-    await db.cached_files.upsert({
-      ...(jsonFile as any),
+    await upsertCachedFile({
+      ...(file as any),
       workspaceType: newType,
-      dirty: String(newType) !== WorkspaceType.Browser, // Mark dirty for non-browser workspaces
+      dirty: String(newType) !== WorkspaceType.Browser,
     } as any);
   }
 }

@@ -1,4 +1,4 @@
-import { upsertDoc, getDoc } from './rxdb-client';
+import { upsertDoc, getDoc, initializeRxDB } from './rxdb-client';
 
 // NOTE: We persist the actual `FileSystemDirectoryHandle` object into RxDB so
 // the handle is stored via the underlying IndexedDB adapter (structured clone).
@@ -15,6 +15,10 @@ export interface HandleMeta {
 }
 
 export async function storeHandleForWorkspace(workspaceId: string, handle: FileSystemDirectoryHandle): Promise<void> {
+  // Ensure the DB is initialized before attempting to persist handle metadata.
+  // This makes the helper safe to call in tests and in code paths where the
+  // RxDB instance may not have been eagerly created.
+  try { await initializeRxDB(); } catch (_) { /* best-effort */ }
   const meta: any = {
     id: workspaceId,
     workspaceId,
