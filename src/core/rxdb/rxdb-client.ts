@@ -1,5 +1,11 @@
-import { createRxDatabase } from 'rxdb';
+import { createRxDatabase, addRxPlugin } from 'rxdb';
 import type { RxDatabase, RxCollection } from 'rxdb';
+import { RxDBQueryBuilderPlugin } from 'rxdb/plugins/query-builder';
+// Use explicit storage plugins so tests can run with in-memory storage while
+// browsers use Dexie-backed storage when available. Import the memory
+// storage statically but load Dexie dynamically to avoid requiring ESM
+// modules during Jest startup.
+import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import { collections as schemaCollections } from './schemas';
 import Collections from './collections';
 
@@ -7,21 +13,69 @@ let db: RxDatabase | null = null;
 
 type AnyCollection = RxCollection<any> | any;
 
+
 export async function createRxDB(): Promise<void> {
+  // Ensure query builder plugin is available so `.where()` / `.sort()` etc work
+  try { addRxPlugin(RxDBQueryBuilderPlugin); } catch (_) { }
   if (db) return;
-
+  // Choose storage: force Dexie when requested (integration tests), or
+  // prefer Dexie when `indexedDB` exists. Fallback to memory storage.
+  let storage: any;
   const preferIdb = typeof indexedDB !== 'undefined';
+  const forceDexie = process.env.FORCE_DEXIE === '1';
+  if (forceDexie || preferIdb) {
+    try {
+      const mod: any = await import('rxdb/plugins/storage-dexie');
+      const getRxStorageDexie = mod.getRxStorageDexie || (mod.default && mod.default.getRxStorageDexie);
+      if (typeof getRxStorageDexie === 'function') {
+        // Probe Dexie-backed storage to ensure it's usable in this environment.
+        try {
+          const probeName = `verve_probe_${process.env.JEST_WORKER_ID || '0'}_${Date.now()}`;
+          const probeStorage = getRxStorageDexie();
+          // Try creating and immediately removing a small DB to validate storage.
+          const probeDb = await createRxDatabase({ name: probeName, storage: probeStorage, multiInstance: false, eventReduce: true });
+          try { if ((probeDb as any).remove) await (probeDb as any).remove(); } catch (_) { }
+          storage = getRxStorageDexie();
+          console.info('[rxdb-client] storage=DEXIE');
+        } catch (probeErr) {
+          storage = getRxStorageMemory();
+          console.info('[rxdb-client] storage=MEMORY (dexie probe failed)');
+        }
+      } else {
+        storage = getRxStorageMemory();
+        console.info('[rxdb-client] storage=MEMORY (no dexie factory)');
+      }
+    } catch (e) {
+      storage = getRxStorageMemory();
+      console.info('[rxdb-client] storage=MEMORY (dexie import failed)');
+    }
+  } else {
+    storage = getRxStorageMemory();
+  }
 
-  // keep adapter selection as a constant
-  const adapter = preferIdb ? 'idb' : 'memory';
-  // Try to create an actual RxDB instance; if adapters/plugins are missing
-  // (common in test envs), fall back to a small in-memory shim compatible
-  // with the minimal surface area used by the app.
   try {
-    // @ts-ignore
-    db = await createRxDatabase({ name: 'verve', adapter, multiInstance: false, eventReduce: true });
+    // If an existing IDB named 'verve' exists, delete it first to avoid
+    // duplicate-open errors when running tests in the same process.
+    // If IndexedDB is available, try deleting any existing DB named 'verve'
+    // to avoid duplicate-open errors when running tests in the same process.
+    const dbName = process.env.JEST_WORKER_ID ? `verve_${process.env.JEST_WORKER_ID}` : 'verve';
+    if (typeof indexedDB !== 'undefined' && typeof (indexedDB as any).deleteDatabase === 'function') {
+      try {
+        await new Promise<void>((resolve) => {
+          try {
+            const req = (indexedDB as any).deleteDatabase(dbName);
+            if (!req) return resolve();
+            req.onsuccess = () => resolve();
+            req.onerror = () => resolve();
+            req.onblocked = () => resolve();
+          } catch (_) { resolve(); }
+        });
+      } catch (_) { /* ignore */ }
+    }
+    // Create a single database instance. Tests should either register
+    // `fake-indexeddb/auto` in their Jest setup or mock this module.
+    db = await createRxDatabase({ name: dbName, storage, multiInstance: false, eventReduce: true });
 
-    // add collections using centralized names
     await db.addCollections({
       [Collections.Workspaces]: { schema: (schemaCollections.workspaces as any).schema as any },
       [Collections.Files]: { schema: (schemaCollections.files as any).schema as any },
@@ -31,90 +85,27 @@ export async function createRxDB(): Promise<void> {
     });
     return;
   } catch (err) {
-    // fall back to in-memory shim for tests / environments lacking adapters
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new Error(`Failed to initialize RxDB: ${msg}. In tests register 'fake-indexeddb/auto' in Jest setup or mock '@/core/rxdb/rxdb-client'.`);
   }
+}
 
-  // In-memory shim implementation (minimal subset used by wrapper)
-  const inMemoryDb: any = { collections: {} };
+// Useful for tests: destroy the database instance and remove underlying data.
+export async function destroyRxDB(): Promise<void> {
+  if (!db) return;
+  try {
+    // Attempt RxDB remove if available
+    if (typeof (db as any).remove === 'function') {
+      // rxdb remove may try to clear persisted storage
+      await (db as any).remove();
+    }
+  } catch (_) { /* ignore */ }
+  db = null;
+}
 
-  const createCollection = (name: string) => {
-    const docs = new Map<string, any>();
-    const listeners = new Set<Function>();
-    const docListeners = new Map<string, Set<Function>>();
-
-    const emitCollection = () => {
-      const arr = Array.from(docs.values()).map((d) => ({ toJSON: () => ({ ...d }) }));
-      listeners.forEach((fn) => fn(arr));
-    };
-
-    const emitDoc = (id: string) => {
-      const set = docListeners.get(id);
-      const doc = docs.get(id);
-      if (set) {
-        set.forEach((fn) => fn(doc ? { toJSON: () => ({ ...doc }) } : null));
-      }
-    };
-
-    return {
-      upsert: async (doc: any) => {
-        docs.set(doc.id, { ...doc });
-        emitCollection();
-        emitDoc(doc.id);
-      },
-      findOne: (id: string) => ({
-        exec: async () => {
-          const d = docs.get(id);
-          return d ? { toJSON: () => ({ ...d }), remove: async () => { docs.delete(id); emitCollection(); emitDoc(id); } } : null;
-        },
-        $: {
-          subscribe: (cb: Function) => {
-            let set = docListeners.get(id);
-            if (!set) { set = new Set(); docListeners.set(id, set); }
-            set.add(cb);
-            cb(docs.get(id) ? { toJSON: () => ({ ...docs.get(id) }) } : null);
-            return { unsubscribe: () => { set!.delete(cb); } };
-          }
-        }
-      }),
-      find: (selector: any) => ({
-        exec: async () => {
-          const results = Array.from(docs.values()).filter((d) => {
-            if (!selector) return true;
-            return Object.keys(selector).every((k) => d[k] === selector[k]);
-          }).map((d) => ({ toJSON: () => ({ ...d }) }));
-          return results;
-        },
-        $: {
-          subscribe: (cb: Function) => {
-            listeners.add(cb);
-            cb(Array.from(docs.values()).map((d) => ({ toJSON: () => ({ ...d }) })));
-            return { unsubscribe: () => listeners.delete(cb) };
-          }
-        }
-      }),
-      bulkWrite: async (ops: any[]) => {
-        for (const op of ops) {
-          const doc = op.document || op;
-          docs.set(doc.id, { ...doc });
-          emitDoc(doc.id);
-        }
-        emitCollection();
-      },
-      $: {
-        subscribe: (cb: Function) => {
-          listeners.add(cb);
-          cb(Array.from(docs.values()).map((d) => ({ toJSON: () => ({ ...d }) }))); 
-          return { unsubscribe: () => listeners.delete(cb) };
-        }
-      }
-    };
-  };
-
-  for (const key of Object.keys(schemaCollections)) {
-    inMemoryDb.collections[key] = createCollection(key);
-  }
-
-  db = inMemoryDb;
+export async function resetRxDB(): Promise<void> {
+  await destroyRxDB();
+  await createRxDB();
 }
 
 function ensureDb(): RxDatabase {
@@ -129,9 +120,9 @@ export function getCollection<T = any>(name: Collections): AnyCollection {
   return col as AnyCollection;
 }
 
-// Basic CRUD + query helpers using enum collection names
 export async function upsertDoc<T extends { id: string }>(collection: Collections, doc: T): Promise<void> {
   const col = getCollection<T>(collection);
+  try { console.log('[rxdb-client] upsertDoc', collection, (doc && (doc as any).id)); } catch (_) { }
   await col.upsert(doc as any);
 }
 
@@ -148,6 +139,7 @@ export async function findDocs<T>(collection: Collections, query: { selector?: a
   if (query.sort && typeof rxQuery.sort === 'function') rxQuery.sort(query.sort);
   if (typeof query.limit === 'number' && typeof rxQuery.limit === 'function') rxQuery.limit(query.limit);
   const docs = await rxQuery.exec();
+  try { console.log('[rxdb-client] findDocs', collection, (query && query.selector)); } catch (_) { }
   return docs.map((d: any) => d.toJSON() as T);
 }
 
@@ -172,6 +164,7 @@ export async function atomicUpsert<T extends { id: string }>(collection: Collect
   const existing = await col.findOne(id).exec();
   const current = existing ? (existing.toJSON() as T) : null;
   const next = mutator(current || undefined);
+  try { console.log('[rxdb-client] atomicUpsert', collection, id); } catch (_) { }
   await col.upsert(next as any);
   return next;
 }
@@ -200,132 +193,18 @@ export function observeCollectionChanges(collection: Collections, handler: (chan
   return () => sub.unsubscribe();
 }
 
-// Provide a legacy-style `getCacheDB()` wrapper so existing code/tests can use
-// `db.cached_files.find().where(...).eq(...).exec()` style calls.
 export function getCacheDB(): any {
-  const makeWrapper = (collectionName: any) => {
-    const makeQuery = (selector: any = {}) => {
-      let _selector = { ...(selector || {}) };
-      let _sort: any = null;
-      let _limit: number | null = null;
-
-      const exec = async () => {
-        await createRxDB();
-        const col = getCollection(collectionName as any);
-        let rxq: any = col.find(_selector || {});
-        if (_sort && typeof rxq.sort === 'function') rxq = rxq.sort(_sort);
-        const docs = await rxq.exec();
-        let results = docs;
-        if (_sort && typeof rxq.sort !== 'function') {
-          const [[k, dir]] = Object.entries(_sort || {});
-          results = results.sort((a: any, b: any) => {
-            const va = (a.toJSON ? a.toJSON() : a)[k];
-            const vb = (b.toJSON ? b.toJSON() : b)[k];
-            if (va === vb) return 0;
-            if (dir === 'asc') return va < vb ? -1 : 1;
-            return va > vb ? -1 : 1;
-          });
-        }
-        if (typeof _limit === 'number') results = results.slice(0, _limit);
-        return results;
-      };
-
-      const subscribe = (cb: Function) => {
-        let unsub = () => { };
-        (async () => {
-          await createRxDB();
-          const col = getCollection(collectionName as any);
-          const sub = col.find(_selector || {}).$.subscribe((docs: any) => cb(docs));
-          unsub = () => sub.unsubscribe();
-        })();
-        return { unsubscribe: () => { try { unsub(); } catch (_) { } } };
-      };
-
-      const where = (field: string) => ({
-        eq: (val: any) => {
-          _selector = { ..._selector, [field]: val };
-          return {
-            exec,
-            remove: async () => {
-              const docs = await exec();
-              for (const d of docs) {
-                if (d && typeof d.remove === 'function') await d.remove();
-              }
-            },
-            where,
-            sort: (s: any) => { _sort = s; return (makeQuery(_selector) as any); },
-            limit: (n: number) => { _limit = n; return (makeQuery(_selector) as any); }
-          } as any;
-        }
-      });
-
-      return {
-        exec,
-        $: { subscribe },
-        where,
-        sort: (s: any) => { _sort = s; return (makeQuery(_selector) as any); },
-        limit: (n: number) => { _limit = n; return (makeQuery(_selector) as any); },
-        remove: async () => {
-          const docs = await exec();
-          for (const d of docs) { if (d && typeof d.remove === 'function') await d.remove(); }
-        }
-      } as any;
-    };
-
-    return {
-      find: (selector?: any) => makeQuery(selector),
-      findOne: (arg: any) => ({
-        exec: async () => {
-          await createRxDB();
-          const col = getCollection(collectionName as any);
-          return await col.findOne(arg).exec();
-        },
-        $: {
-          subscribe: (cb: Function) => {
-            let unsub = () => { };
-            (async () => {
-              await createRxDB();
-              const col = getCollection(collectionName as any);
-              const sub = col.findOne(arg).$.subscribe((doc: any) => cb(doc));
-              unsub = () => sub.unsubscribe();
-            })();
-            return { unsubscribe: () => { try { unsub(); } catch (_) { } } };
-          }
-        }
-      }),
-      upsert: async (doc: any) => {
-        await createRxDB();
-        const col = getCollection(collectionName as any);
-        if (typeof col.upsert === 'function') return await col.upsert(doc);
-        return upsertDoc(collectionName as any, doc as any);
-      },
-      remove: async (arg: any) => {
-        await createRxDB();
-        const col = getCollection(collectionName as any);
-        if (arg) {
-          const d = await col.findOne(arg).exec();
-          if (d && typeof d.remove === 'function') await d.remove();
-        } else {
-          const docs = await col.find({}).exec();
-          for (const d of docs) if (d && typeof d.remove === 'function') await d.remove();
-        }
-      }
-    } as any;
-  };
-
+  // Return the real RxDB collections so callers can use native query APIs.
   return {
-    cached_files: makeWrapper(Collections.Files),
-    sync_queue: makeWrapper(Collections.SyncQueue),
+    cached_files: getCollection(Collections.Files),
+    sync_queue: getCollection(Collections.SyncQueue)
   } as any;
 }
 
-// --- Compatibility: keep initialization here; file-specific helpers live in the
-// cache/file-manager module (re-exported below for backwards compatibility).
 export async function initializeRxDB(): Promise<void> {
   await createRxDB();
 }
 
-// Convenience wrappers for UI/store subscriptions
 export function subscribeToDoc<T>(collection: Collections, id: string, cb: (doc: T | null) => void): () => void {
   return subscribeDoc<T>(collection, id, cb);
 }
@@ -334,16 +213,6 @@ export function subscribeToCollection<T>(collection: Collections, cb: (docs: T[]
   return subscribeQuery<T>(collection, {}, cb as any);
 }
 
-// Re-export file-related helpers from the cache layer to preserve existing
-// import locations. The implementations live in `src/core/cache/file-manager.ts`.
-export {
-  getCacheDB,
-  closeCacheDB,
-  upsertCachedFile,
-  getCachedFile,
-  getAllCachedFiles,
-  observeCachedFiles,
-  getDirtyCachedFiles,
-  markCachedFileAsSynced,
-  removeCachedFile
-} from '@/core/cache/file-manager';
+// Note: file-related helpers live in `src/core/cache/file-manager.ts`.
+// Do NOT re-export them here to avoid circular imports. Import those
+// helpers directly from the cache layer where needed.

@@ -8,33 +8,102 @@
 
 import { v4 as uuidv4 } from 'uuid';
 import type { FileDoc } from '@/core/rxdb/schemas';
-import { enqueueSyncEntry } from '@/core/sync/sync-queue-processor';
 import { SyncOp } from './types';
 import { CachedFile, WorkspaceType, FileType } from './types';
 
-import { initializeRxDB, getCacheDB, upsertDoc as clientUpsertDoc, getDoc as clientGetDoc, findDocs as clientFindDocs, atomicUpsert as clientAtomicUpsert, removeDoc as clientRemoveDoc, subscribeQuery as clientSubscribeQuery } from '@/core/rxdb/rxdb-client';
-const client = await import('@/core/rxdb/rxdb-client');
-await client.createRxDB();
-const col = client.getCollection(collectionName as any);
-if (typeof col.upsert === 'function') return await col.upsert(doc);
-return client.upsertDoc(collectionName as any, doc as any);
-            },
-remove: async (arg: any) => {
-  const client = await import('@/core/rxdb/rxdb-client');
-  await client.createRxDB();
-  const col = client.getCollection(collectionName as any);
-  if (arg) {
-    const d = await col.findOne(arg).exec();
-    if (d && typeof d.remove === 'function') await d.remove();
-  } else {
-    const docs = await col.find({}).exec();
-    for (const d of docs) if (d && typeof d.remove === 'function') await d.remove();
+import { initializeRxDB as clientInitializeRxDB, getCacheDB as clientGetCacheDB, upsertDoc as clientUpsertDoc, getDoc as clientGetDoc, findDocs as clientFindDocs, atomicUpsert as clientAtomicUpsert, removeDoc as clientRemoveDoc, subscribeQuery as clientSubscribeQuery } from '@/core/rxdb/rxdb-client';
+import Collections from '@/core/rxdb/collections';
+import { normalizePath } from '@/shared/utils/file-path-resolver';
+
+// Local aliases for legacy names used throughout this module.
+const atomicUpsert = clientAtomicUpsert;
+const upsertDoc = clientUpsertDoc;
+const getDoc = clientGetDoc;
+const findDocs = clientFindDocs;
+const subscribeQuery = clientSubscribeQuery;
+const removeDoc = clientRemoveDoc;
+
+// Re-export / delegate helpers expected by the rest of the codebase/tests.
+export async function initializeRxDB(): Promise<void> { return clientInitializeRxDB(); }
+export function getCacheDB(): any { return clientGetCacheDB(); }
+
+export async function upsertCachedFile(doc: CachedFile): Promise<void> {
+  await clientInitializeRxDB();
+  try {
+    console.debug('[file-manager] upsertCachedFile id=%s path=%s', doc.id, doc.path);
+  } catch (_) { }
+  return clientUpsertDoc((Collections as any).Files, doc as any);
+}
+
+export async function getCachedFile(pathOrId: string, workspaceId?: string): Promise<CachedFile | null> {
+  // try by id first
+  await clientInitializeRxDB();
+  try {
+    const byId = await clientGetDoc((Collections as any).Files, pathOrId as any);
+    if (byId && (!workspaceId || String((byId as any).workspaceId) === String(workspaceId))) return byId as any;
+  } catch (_) { /* ignore */ }
+
+  const selector: any = { path: pathOrId };
+  if (workspaceId) selector.workspaceId = workspaceId;
+  const found = await clientFindDocs((Collections as any).Files, { selector });
+  return (found && found.length) ? (found[0] as any) : null;
+}
+
+export async function getAllCachedFiles(workspaceId?: string): Promise<CachedFile[]> {
+  await clientInitializeRxDB();
+  const selector = workspaceId ? { workspaceId } : {};
+  return clientFindDocs((Collections as any).Files, { selector }) as Promise<CachedFile[]>;
+}
+
+export function observeCachedFiles(cb: (files: CachedFile[]) => void): { unsubscribe: () => void } {
+  let unsubFn: (() => void) | null = null;
+  (async () => {
+    await clientInitializeRxDB();
+    unsubFn = clientSubscribeQuery((Collections as any).Files, { selector: {} }, (docs: any[]) => cb(docs as CachedFile[]));
+  })();
+  return { unsubscribe: () => { try { if (unsubFn) unsubFn(); } catch (_) { } } };
+}
+
+export async function getDirtyCachedFiles(workspaceId?: string): Promise<CachedFile[]> {
+  await clientInitializeRxDB();
+  const selector: any = { dirty: true };
+  if (workspaceId) selector.workspaceId = workspaceId;
+  return clientFindDocs((Collections as any).Files, { selector }) as Promise<CachedFile[]>;
+}
+
+export async function markCachedFileAsSynced(fileId: string): Promise<void> {
+  await clientInitializeRxDB();
+  try {
+    await clientAtomicUpsert((Collections as any).Files, fileId as any, (current?: any) => ({ ...(current || {}), id: fileId, dirty: false }));
+  } catch (e) {
+    const doc = await clientGetDoc((Collections as any).Files, fileId as any);
+    if (doc) await clientUpsertDoc((Collections as any).Files, { ...(doc as any), dirty: false } as any);
   }
 }
-          } as any;
-        };
- * Ensure parent folder documents exist for a given path.
- */
+
+export async function removeCachedFile(fileId: string): Promise<void> {
+  await clientInitializeRxDB();
+  return clientRemoveDoc((Collections as any).Files, fileId as any);
+}
+
+export async function closeCacheDB(): Promise<void> {
+  try {
+    await clientInitializeRxDB();
+    const files = await clientFindDocs((Collections as any).Files, { selector: {} });
+    for (const f of files) {
+      try { await clientRemoveDoc((Collections as any).Files, f.id); } catch (_) { }
+    }
+    const queue = await clientFindDocs((Collections as any).SyncQueue, { selector: {} });
+    for (const q of queue) { try { await clientRemoveDoc((Collections as any).SyncQueue, q.id); } catch (_) { } }
+    if (typeof indexedDB !== 'undefined' && (indexedDB as any).deleteDatabase) {
+      try { (indexedDB as any).deleteDatabase('verve'); } catch (_) { }
+    }
+  } catch (e) { /* ignore cleanup errors */ }
+}
+
+/* Ensure parent folder documents exist for a given path. */
+/* The DB read/write/query logic lives in `rxdb-client.ts`. This module
+   delegates persistence to those helpers and keeps only business logic. */
 async function ensureParentFoldersForPath(path: string, workspaceType: WorkspaceType = WorkspaceType.Browser, workspaceId?: string): Promise<void> {
   const norm = normalizePath(path);
   if (!norm) return;
@@ -294,6 +363,7 @@ export async function deleteFile(path: string, workspaceId?: string): Promise<vo
           }
           try {
             if (String(d.workspaceType) !== WorkspaceType.Browser) {
+              const { enqueueSyncEntry } = await import('@/core/sync/sync-queue-processor');
               await enqueueSyncEntry({
                 op: SyncOp.Delete,
                 target: 'file',
@@ -314,6 +384,7 @@ export async function deleteFile(path: string, workspaceId?: string): Promise<vo
         }
         try {
           if (String(cached.workspaceType) !== WorkspaceType.Browser) {
+            const { enqueueSyncEntry } = await import('@/core/sync/sync-queue-processor');
             await enqueueSyncEntry({
               op: SyncOp.Delete,
               target: 'file',

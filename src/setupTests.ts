@@ -31,6 +31,14 @@ afterAll(async () => {
 
 // Debugging helpers were removed to keep test output clean.
 
+// Ensure fake-indexeddb is available for tests that expect `indexedDB`.
+try {
+  // eslint-disable-next-line global-require
+  require('fake-indexeddb/auto');
+} catch (e) {
+  // best-effort; if unavailable we continue and tests that need it will fail
+}
+
 // Log unhandled rejections during tests to help diagnose failures
 process.on('unhandledRejection', (reason) => {
   // eslint-disable-next-line no-console
