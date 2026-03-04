@@ -12,10 +12,15 @@ try {
 // is handled by `src/core/rxdb/rxdb-client.ts` at runtime.
 
 if (typeof indexedDB !== 'undefined' && typeof indexedDB.deleteDatabase === 'function') {
-  // Delete any existing DB named 'verve' to avoid DB8 duplicate errors
+  // Delete any existing DB named 'verve' or 'verve_N' (where N is worker ID) to avoid DB8 duplicate errors
   try {
-    // Some implementations return a request; swallow errors
+    // Delete the main DB
     indexedDB.deleteDatabase('verve');
+    // Also delete worker-isolated DBs (Jest parallel workers use JEST_WORKER_ID)
+    const workerId = process.env.JEST_WORKER_ID;
+    if (workerId) {
+      indexedDB.deleteDatabase(`verve_${workerId}`);
+    }
   } catch (_) { }
 }
 

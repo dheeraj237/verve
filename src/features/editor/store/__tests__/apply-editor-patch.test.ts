@@ -21,7 +21,7 @@ import { useWorkspaceStore } from '@/core/store/workspace-store';
 import { saveFile } from '@/core/cache/file-manager';
 import { getSyncManager } from '@/core/sync/sync-manager';
 import { WorkspaceType } from '@/core/cache/types';
-import { FileCategory } from '@/shared/types';
+// FileCategory removed in unified FileNode; indicate local files via `isLocal`
 
 describe('applyEditorPatch sync behavior', () => {
   beforeEach(() => {
@@ -30,8 +30,8 @@ describe('applyEditorPatch sync behavior', () => {
     // Set up workspace store with active workspace
     useWorkspaceStore.setState({ workspaces: [{ id: 'ws-1', name: 'WS', type: WorkspaceType.Local, createdAt: new Date().toISOString(), lastAccessed: new Date().toISOString() }], activeWorkspaceId: 'ws-1' });
 
-    // Set editor open tabs
-    useEditorStore.setState({ openTabs: [{ id: 'file-1', path: '/doc.md', name: 'doc', content: 'old', category: FileCategory.Local }], activeTabId: 'file-1' });
+    // Set editor open tabs (use `isLocal` flag instead of removed `FileCategory`)
+    useEditorStore.setState({ openTabs: [{ id: 'file-1', path: '/doc.md', name: 'doc', content: 'old', isLocal: true }], activeTabId: 'file-1' });
   });
 
   it('enqueues and processes saved file for active workspace', async () => {

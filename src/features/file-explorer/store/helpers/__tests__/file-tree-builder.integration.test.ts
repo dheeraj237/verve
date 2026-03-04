@@ -15,7 +15,7 @@ describe('file tree builder integration - file vs folder conflict', () => {
 
     expect(nodes).toHaveLength(1);
     const node = nodes[0];
-    expect(node.type).toBe('folder');
+    expect(node.type).toBe('directory');
     expect(node.name).toBe('verve.md');
     expect(node.children).toBeDefined();
 

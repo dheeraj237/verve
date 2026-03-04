@@ -51,5 +51,5 @@ export type ISyncAdapter = IPushAdapter & IPullAdapter & Partial<IWatchableAdapt
 
 // Helper to adapt a FileNode to AdapterFileDescriptor
 export function toAdapterDescriptor(file: FileNode): AdapterFileDescriptor {
-  return { id: file.id, path: file.path, metadata: {} };
+  return { id: file.id, path: file.path, metadata: file.metadata || undefined };
 }

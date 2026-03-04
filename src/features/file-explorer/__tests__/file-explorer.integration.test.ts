@@ -28,8 +28,8 @@ describe('file explorer integration (hierarchy + UI actions)', () => {
     await useFileExplorerStore.getState().refreshFileTree();
 
     const tree = useFileExplorerStore.getState().getFileTree();
-    // root should contain folder 'alpha' and file 'root.md'
-    expect(tree.some((n: any) => n.name === 'alpha' && n.type === 'folder')).toBeTruthy();
+    // root should contain directory 'alpha' and file 'root.md'
+    expect(tree.some((n: any) => n.name === 'alpha' && n.type === 'directory')).toBeTruthy();
     expect(tree.some((n: any) => n.name === 'root.md' && n.type === 'file')).toBeTruthy();
 
     // drill into alpha -> find beta folder and its children

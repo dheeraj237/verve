@@ -13,7 +13,7 @@ import { RxDBJsonDumpPlugin } from 'rxdb/plugins/json-dump';
 import { RxDBMigrationPlugin } from 'rxdb/plugins/migration';
 import { RxDBQueryBuilderPlugin } from 'rxdb/plugins/query-builder';
 
-import { syncQueueSchema, migrationStrategies } from '@/core/cache/schemas';
+import { syncQueueSchema } from '@/core/rxdb/schemas';
 import { FileType, WorkspaceType, SyncOp } from '@/core/cache/types';
 
 // Ensure plugins similar to runtime
@@ -36,8 +36,21 @@ describe('sync queue persistence and retry integration', () => {
       ignoreDuplicate: true,
     });
 
+    // Ensure both `cached_files` and `sync_queue` collections exist for this
+    // integration scenario (tests interact with `db.cached_files`). Use a
+    // minimal schema for `cached_files` sufficient for upsert/find operations.
+    const cachedFilesSchema = {
+      title: 'cached_files (test)',
+      version: 0,
+      type: 'object',
+      primaryKey: 'id',
+      properties: { id: { type: 'string', maxLength: 1024 } },
+      required: ['id']
+    };
+
     await db.addCollections({
-      sync_queue: { schema: syncQueueSchema, migrationStrategies: migrationStrategies.syncQueue || {} },
+      cached_files: { schema: cachedFilesSchema as any },
+      sync_queue: { schema: syncQueueSchema as any },
     });
   });
 

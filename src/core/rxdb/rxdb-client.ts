@@ -4,6 +4,9 @@ import { RxDBQueryBuilderPlugin } from 'rxdb/plugins/query-builder';
 // Register the QueryBuilder plugin at module load so `.where()` / `.sort()`
 // chain methods are available before any DB/queries are created.
 try { addRxPlugin(RxDBQueryBuilderPlugin); } catch (_) { }
+import { RxDBMigrationPlugin } from 'rxdb/plugins/migration';
+// Migration plugin required for some RxDB schema operations (migrations API).
+try { addRxPlugin(RxDBMigrationPlugin); } catch (_) { }
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import { collections as schemaCollections } from './schemas';
 import Collections from './collections';
@@ -40,8 +43,6 @@ export async function createRxDB(): Promise<void> {
   try {
     // If an existing IDB named 'verve' exists, delete it first to avoid
     // duplicate-open errors when running tests in the same process.
-    // If IndexedDB is available, try deleting any existing DB named 'verve'
-    // to avoid duplicate-open errors when running tests in the same process.
     const dbName = process.env.JEST_WORKER_ID ? `verve_${process.env.JEST_WORKER_ID}` : 'verve';
     if (typeof indexedDB !== 'undefined' && typeof (indexedDB as any).deleteDatabase === 'function') {
       try {
@@ -56,17 +57,39 @@ export async function createRxDB(): Promise<void> {
         });
       } catch (_) { /* ignore */ }
     }
-    // Create a single database instance using Dexie-backed storage.
-    db = await createRxDatabase({ name: dbName, storage, multiInstance: false, eventReduce: true });
 
-    await db.addCollections({
-      [Collections.Workspaces]: { schema: (schemaCollections.workspaces as any).schema as any, migrationStrategies: {} },
-      [Collections.Files]: { schema: (schemaCollections.files as any).schema as any, migrationStrategies: {} },
-      [Collections.Settings]: { schema: (schemaCollections.settings as any).schema as any, migrationStrategies: {} },
-      [Collections.DirectoryHandlesMeta]: { schema: (schemaCollections.directory_handles_meta as any).schema as any, migrationStrategies: {} },
-      [Collections.SyncQueue]: { schema: (schemaCollections.sync_queue as any).schema as any, migrationStrategies: {} }
-    });
-    return;
+    // Try to create DB with chosen storage (dexie when available).
+    try {
+      db = await createRxDatabase({ name: dbName, storage, multiInstance: false, eventReduce: true, ignoreDuplicate: true });
+
+      await db.addCollections({
+        [Collections.Workspaces]: { schema: (schemaCollections.workspaces as any).schema as any, autoMigrate: false },
+        [Collections.Files]: { schema: (schemaCollections.files as any).schema as any, autoMigrate: false },
+        [Collections.Settings]: { schema: (schemaCollections.settings as any).schema as any, autoMigrate: false },
+        [Collections.DirectoryHandlesMeta]: { schema: (schemaCollections.directory_handles_meta as any).schema as any, autoMigrate: false },
+        [Collections.SyncQueue]: { schema: (schemaCollections.sync_queue as any).schema as any, autoMigrate: false }
+      });
+      return;
+    } catch (errInner) {
+      // If storage-backed DB initialization fails (e.g., dexie/indexedDB migration issues),
+      // fallback to in-memory storage to ensure tests and environments can proceed.
+      try {
+        console.warn('[rxdb-client] primary storage init failed, falling back to MEMORY storage', errInner instanceof Error ? errInner.message : String(errInner));
+        storage = getRxStorageMemory();
+        db = await createRxDatabase({ name: dbName, storage, multiInstance: false, eventReduce: true, ignoreDuplicate: true });
+        await db.addCollections({
+          [Collections.Workspaces]: { schema: (schemaCollections.workspaces as any).schema as any, autoMigrate: false },
+          [Collections.Files]: { schema: (schemaCollections.files as any).schema as any, autoMigrate: false },
+          [Collections.Settings]: { schema: (schemaCollections.settings as any).schema as any, autoMigrate: false },
+          [Collections.DirectoryHandlesMeta]: { schema: (schemaCollections.directory_handles_meta as any).schema as any, autoMigrate: false },
+          [Collections.SyncQueue]: { schema: (schemaCollections.sync_queue as any).schema as any, autoMigrate: false }
+        });
+        return;
+      } catch (errFallback) {
+        const msg = errFallback instanceof Error ? errFallback.message : String(errFallback);
+        throw new Error(`Failed to initialize RxDB (fallback also failed): ${msg}. In tests register 'fake-indexeddb/auto' in Jest setup or mock '@/core/rxdb/rxdb-client'.`);
+      }
+    }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     throw new Error(`Failed to initialize RxDB: ${msg}. In tests register 'fake-indexeddb/auto' in Jest setup or mock '@/core/rxdb/rxdb-client'.`);

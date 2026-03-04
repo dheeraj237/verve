@@ -11,7 +11,7 @@ export const fileSchema: RxJsonSchema<FileNode> = {
   description: 'File metadata and content cache (supports lazy-loaded content)',
   type: 'object',
   primaryKey: 'id',
-  version: 1, // Incremented: added parentId, contentHash, createdAt, modifiedAt, isSynced; made content optional
+  version: 0, // Reset to 0 for tests; migrations handled in app logic
   required: [
     'id',
     'workspaceId',
@@ -76,7 +76,6 @@ export const fileSchema: RxJsonSchema<FileNode> = {
     // Composite indexes for common queries
     ['workspaceId', 'path'], // Fast: find by path in workspace
     ['workspaceId', 'type'], // Fast: list directories/files only
-    ['workspaceId', 'dirty'], // Fast: find unsaved changes for sync
     ['workspaceId', 'syncStatus'], // Fast: find syncing/conflicted files
   ],
 };

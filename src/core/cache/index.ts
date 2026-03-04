@@ -4,6 +4,5 @@
  */
 
 export * from './types';
-export * from './schemas';
 export * from './file-manager';
 export * from './workspace-manager';

@@ -11,3 +11,19 @@ try {
   // If jest is not available for some reason, fail softly.
   // Tests will still run; individual test files may include their own `jest.unmock`.
 }
+
+// Add afterEach hook to clean up RxDB after each test to prevent stale connections
+// and migration version mismatches. This must be done synchronously at setup time.
+// eslint-disable-next-line no-undef
+afterEach(async () => {
+  try {
+    // Import and call destroy dynamically to avoid circular dependencies
+    // eslint-disable-next-line global-require
+    const { destroyRxDB } = require('@/core/rxdb/rxdb-client');
+    if (typeof destroyRxDB === 'function') {
+      await destroyRxDB();
+    }
+  } catch (_) {
+    // Ignore cleanup errors; tests may fail for other reasons
+  }
+});
