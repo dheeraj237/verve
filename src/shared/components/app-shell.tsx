@@ -3,7 +3,6 @@ import { Panel, PanelGroup, PanelResizeHandle, ImperativePanelHandle } from "rea
 import { usePanelStore } from "@/core/store/panel-store";
 import { useWorkspaceStore } from "@/core/store/workspace-store";
 import { AppToolbar } from "@/shared/components/app-toolbar";
-import { MobileBottomMenu } from "@/shared/components/mobile-bottom-menu";
 import { FileExplorer } from "@/features/file-explorer/components/file-explorer";
 import { LeftNavigationPanel } from "@/shared/components/left-navigation-panel";
 import { TableOfContents } from "@/features/editor/components/table-of-contents";
@@ -66,7 +65,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="h-screen flex flex-col relative">
       <AppToolbar />
       
-      <div className="flex-1 overflow-hidden pb-14 lg:pb-0 relative">
+      <div className="flex-1 overflow-hidden relative">
         {/* Workspace switching overlay - disables pointer events */}
         {(isWorkspaceSwitching || isLoading) && (
           <div className="absolute inset-0 bg-background/50 backdrop-blur-sm z-50 pointer-events-auto">
@@ -131,9 +130,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           )}
         </PanelGroup>
       </div>
-
-      {/* Mobile bottom menu - only visible on screens below lg breakpoint */}
-      <MobileBottomMenu />
     </div>
   );
 }

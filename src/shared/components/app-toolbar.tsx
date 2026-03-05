@@ -17,6 +17,13 @@ import { useUserStore } from "@/core/store/user-store";
 import { ensureGisLoaded, requestAccessTokenForScopes, getGoogleUserProfile } from "@/core/auth/google";
 import { useState } from "react";
 import React from "react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/shared/components/ui/dropdown-menu";
 
 
 
@@ -84,54 +91,13 @@ export function AppToolbar() {
 
   return (
     <div className="h-12 border-b bg-background px-4 flex items-center justify-between shrink-0">
+      {/* Left Section: Panel toggle and title */}
       <div className="flex items-center gap-2">
-        {/* Mobile burger menu for left panel */}
+        {/* Left Panel Toggle - visible on all screen sizes */}
         <Button
           variant="ghost"
           size="icon"
-          className="cursor-pointer h-8 w-8 lg:hidden"
-          onClick={toggleLeft}
-          title="Toggle file explorer"
-        >
-          {leftPanelOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
-        </Button>
-
-        {appTitleEnabled && (
-          <button
-            onClick={() => navigate("/")}
-            className="text-sm font-medium text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
-            title={`${APP_TITLE} - Document Everything`}
-          >
-            {APP_TITLE}
-          </button>
-        )}
-      </div>
-
-      <div className="flex items-center gap-2">
-        {/* Code/Live Switcher - only for markdown files, all screen sizes */}
-        {hasActiveFile && isMarkdown && (
-          <>
-            <Tabs value={isCodeViewMode ? "code" : "live"} onValueChange={(value) => setCodeViewMode(value === "code")}>
-              <TabsList className="h-8">
-                <TabsTrigger value="code" className="gap-1.5 cursor-pointer" title="Code Editor">
-                  <Code2 className={cn("h-3.5 w-3.5", !isCodeViewMode && "text-muted-foreground")} />
-                  <span className="hidden sm:inline text-xs">Code</span>
-                </TabsTrigger>
-                <TabsTrigger value="live" className="gap-1.5 cursor-pointer" title="Live Preview Editor">
-                  <Sparkles className={cn("h-3.5 w-3.5", isCodeViewMode && "text-muted-foreground")} />
-                  <span className="hidden sm:inline text-xs">Live</span>
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-            <Separator orientation="vertical" className="h-6" />
-          </>
-        )}
-
-        {/* Panel toggles - only on desktop */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="cursor-pointer h-8 w-8 hidden lg:inline-flex"
+          className="cursor-pointer h-8 w-8"
           onClick={toggleLeft}
           title="Toggle file explorer"
         >
@@ -141,11 +107,42 @@ export function AppToolbar() {
             <PanelLeft className="h-4 w-4" />
           )}
         </Button>
+
+        {appTitleEnabled && (
+          <button
+            onClick={() => navigate("/")}
+            className="text-sm font-medium text-muted-foreground hover:text-foreground cursor-pointer transition-colors hidden sm:block"
+            title={`${APP_TITLE} - Document Everything`}
+          >
+            {APP_TITLE}
+          </button>
+        )}
+      </div>
+
+      {/* Center Section: Code/Live Switcher */}
+      {hasActiveFile && isMarkdown && (
+        <Tabs value={isCodeViewMode ? "code" : "live"} onValueChange={(value) => setCodeViewMode(value === "code")}>
+          <TabsList className="h-8">
+            <TabsTrigger value="code" className="gap-1.5 cursor-pointer" title="Code Editor">
+              <Code2 className={cn("h-3.5 w-3.5", !isCodeViewMode && "text-muted-foreground")} />
+              <span className="hidden sm:inline text-xs">Code</span>
+            </TabsTrigger>
+            <TabsTrigger value="live" className="gap-1.5 cursor-pointer" title="Live Preview Editor">
+              <Sparkles className={cn("h-3.5 w-3.5", isCodeViewMode && "text-muted-foreground")} />
+              <span className="hidden sm:inline text-xs">Live</span>
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      )}
+
+      {/* Right Section: RoC toggle, mobile menu, and user menu */}
+      <div className="flex items-center gap-1">
+        {/* Right Panel Toggle (ToC) - visible on all screen sizes when applicable */}
         {showToc && (
           <Button
             variant="ghost"
             size="icon"
-            className="cursor-pointer h-8 w-8 hidden lg:inline-flex"
+            className="cursor-pointer h-8 w-8"
             onClick={toggleRight}
             title="Toggle table of contents"
           >
@@ -157,33 +154,67 @@ export function AppToolbar() {
           </Button>
         )}
 
-        {/* Mobile burger menu for right panel (ToC) */}
-        {showToc && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="cursor-pointer h-8 w-8 lg:hidden"
-            onClick={toggleRight}
-            title="Toggle table of contents"
-          >
-            {rightPanelOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
-          </Button>
-        )}
-
+        {/* Separator - desktop only */}
         <Separator orientation="vertical" className="h-6 hidden lg:block" />
-        <ThemeToggle />
-        {!isLoggedIn && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleLogin}
-            disabled={isLoggingIn}
-            className="h-8 hidden sm:inline-flex"
-          >
-            {isLoggingIn ? "Logging in..." : "Login"}
-          </Button>
-        )}
-        {isLoggedIn && <UserMenu />}
+
+        {/* Desktop: Theme toggle and user menu */}
+        <div className="hidden lg:flex items-center gap-1">
+          <ThemeToggle />
+          {!isLoggedIn && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleLogin}
+              disabled={isLoggingIn}
+              className="h-8"
+            >
+              {isLoggingIn ? "Logging in..." : "Login"}
+            </Button>
+          )}
+          {isLoggedIn && <UserMenu />}
+        </div>
+
+        {/* Mobile: Burger menu with theme and user options */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="cursor-pointer h-8 w-8 lg:hidden"
+              title="Menu"
+            >
+              <Menu className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuItem className="cursor-pointer flex items-center justify-between">
+              <span className="text-xs">Theme</span>
+              <div className="ml-2">
+                <ThemeToggle />
+              </div>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            {!isLoggedIn && (
+              <DropdownMenuItem onClick={handleLogin} disabled={isLoggingIn}>
+                {isLoggingIn ? "Logging in..." : "Login"}
+              </DropdownMenuItem>
+            )}
+            {isLoggedIn && (
+              <>
+                <DropdownMenuItem onClick={() => navigate("/settings")}>
+                  Settings
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => {
+                  const { logout } = useUserStore.getState();
+                  logout();
+                  navigate("/");
+                }}>
+                  Logout
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </div>
   );
