@@ -26,7 +26,9 @@ export async function loadSamplesIntoWorkspace(workspaceId: string = 'verve-samp
   for (const sample of sampleFiles) {
     try {
       // Browser-only fetch from public/content
-      const res = await fetch(`/content${sample.path}`);
+      // Use import.meta.env.BASE_URL to handle custom base paths in production
+      const contentUrl = new URL(`content${sample.path}`, import.meta.env.BASE_URL).href;
+      const res = await fetch(contentUrl);
       if (!res.ok) {
         console.warn(`[sample-loader] failed to fetch ${sample.path}: ${res.status}`);
         continue;
