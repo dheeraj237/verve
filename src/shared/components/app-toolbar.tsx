@@ -1,6 +1,6 @@
 "use client";
 
-import { PanelLeft, PanelRight, PanelLeftClose, PanelRightClose, Code2, Sparkles } from "lucide-react";
+import { PanelLeft, PanelRight, PanelLeftClose, PanelRightClose, Code2, Sparkles, Menu, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/shared/components/ui/button";
 import { ThemeToggle } from "@/shared/components/theme-toggle";
@@ -85,6 +85,17 @@ export function AppToolbar() {
   return (
     <div className="h-12 border-b bg-background px-4 flex items-center justify-between shrink-0">
       <div className="flex items-center gap-2">
+        {/* Mobile burger menu for left panel */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="cursor-pointer h-8 w-8 lg:hidden"
+          onClick={toggleLeft}
+          title="Toggle file explorer"
+        >
+          {leftPanelOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+        </Button>
+
         {appTitleEnabled && (
           <button
             onClick={() => navigate("/")}
@@ -122,6 +133,7 @@ export function AppToolbar() {
           size="icon"
           className="cursor-pointer h-8 w-8 hidden lg:inline-flex"
           onClick={toggleLeft}
+          title="Toggle file explorer"
         >
           {leftPanelOpen ? (
             <PanelLeftClose className="h-4 w-4" />
@@ -135,12 +147,26 @@ export function AppToolbar() {
             size="icon"
             className="cursor-pointer h-8 w-8 hidden lg:inline-flex"
             onClick={toggleRight}
+            title="Toggle table of contents"
           >
             {rightPanelOpen ? (
               <PanelRightClose className="h-4 w-4" />
             ) : (
               <PanelRight className="h-4 w-4" />
             )}
+          </Button>
+        )}
+
+        {/* Mobile burger menu for right panel (ToC) */}
+        {showToc && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="cursor-pointer h-8 w-8 lg:hidden"
+            onClick={toggleRight}
+            title="Toggle table of contents"
+          >
+            {rightPanelOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
           </Button>
         )}
 

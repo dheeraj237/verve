@@ -18,7 +18,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const rightPanelRef = useRef<ImperativePanelHandle>(null);
   const [isMobile, setIsMobile] = useState(false);
 
-  const { leftPanelOpen, rightPanelOpen, leftSize, rightSize, setLeftSize, setRightSize } = usePanelStore();
+  const { leftPanelOpen, rightPanelOpen, leftSize, rightSize, setLeftSize, setRightSize, toggleLeft, toggleRight } = usePanelStore();
 
   const { isWorkspaceSwitching } = useWorkspaceStore();
   const isLoading = useLoadingStore((s) => s.isLoading);
@@ -31,19 +31,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   // Track mobile state and handle responsive behavior
   useEffect(() => {
-    setIsMobile(isMobileOrTablet());
+    const mobileState = isMobileOrTablet();
+    setIsMobile(mobileState);
+
+    // On first mobile load, close panels for better mobile UX
+    // If localStorage hasn't been initialized (new user/device), default to closed
+    const panelStorage = localStorage.getItem("panel-storage");
+    if (mobileState && !panelStorage) {
+      toggleLeft();
+      toggleRight();
+    }
+
     const cleanup = onViewportChange(() => {
       setIsMobile(isMobileOrTablet());
     });
     return cleanup;
-  }, []);
+  }, [toggleLeft, toggleRight]);
 
-  // Auto-close left panel when file is selected on mobile
-  // NOTE: Mobile auto-open/close behavior has been removed. Panel visibility
-  // is controlled by explicit toggles. Size persistence and control are
-  // delegated to react-resizable-panels (via `autoSaveId`) instead of storing
-  // sizes in the app store.
-
+  // Panel visibility is controlled by explicit toggles via burger menu on mobile
+  // On desktop, panel visibility is controlled by panel toggle buttons
   useEffect(() => {
     if (!leftPanelRef.current) return;
     if (leftPanelOpen) leftPanelRef.current.expand();
