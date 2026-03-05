@@ -33,19 +33,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     const mobileState = isMobileOrTablet();
     setIsMobile(mobileState);
 
-    // On first mobile load, close panels for better mobile UX
-    // If localStorage hasn't been initialized (new user/device), default to closed
-    const panelStorage = localStorage.getItem("panel-storage");
-    if (mobileState && !panelStorage) {
-      toggleLeft();
-      toggleRight();
-    }
-
     const cleanup = onViewportChange(() => {
       setIsMobile(isMobileOrTablet());
     });
     return cleanup;
-  }, [toggleLeft, toggleRight]);
+  }, []);
 
   // Panel visibility is controlled by explicit toggles via burger menu on mobile
   // On desktop, panel visibility is controlled by panel toggle buttons
@@ -95,9 +87,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <Panel
             ref={leftPanelRef}
             id="left-panel"
-            defaultSize={isMobile ? 90 : leftSize}
+            defaultSize={isMobile ? 50 : leftSize}
             minSize={isMobile ? 0 : 15}
-            maxSize={isMobile ? 90 : 40}
+            maxSize={isMobile ? 80 : 40}
             collapsible
             className="bg-sidebar-background border-r border-sidebar-border"
           >
@@ -118,9 +110,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Panel
                 ref={rightPanelRef}
                 id="right-panel"
-                defaultSize={isMobile ? 90 : rightSize}
+                defaultSize={isMobile ? 50 : rightSize}
                 minSize={isMobile ? 0 : 10}
-                maxSize={isMobile ? 90 : 30}
+                maxSize={isMobile ? 50 : 30}
                 collapsible
                 className="bg-sidebar-background border-l border-sidebar-border"
               >
