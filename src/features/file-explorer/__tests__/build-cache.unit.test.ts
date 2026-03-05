@@ -1,16 +1,21 @@
-import { initializeRxDB, closeCacheDB, upsertCachedFile } from '@/core/cache';
+import { vi } from 'vitest';
+
+vi.unmock('@/core/rxdb/rxdb-client');
+
+import { initializeFileOperations, upsertCachedFile } from '@/core/cache';
+import { destroyRxDB } from '@/core/rxdb/rxdb-client';
 import { useFileExplorerStore } from '@/features/file-explorer/store/file-explorer-store';
 import { FileType, WorkspaceType } from '@/core/cache/types';
 
 describe('_buildFileTreeFromCache builder', () => {
   beforeEach(async () => {
-    try { await initializeRxDB(); } catch (e) { /* ignore */ }
+    try { await initializeFileOperations(); } catch (e) { /* already initialized */ }
     // reset store state
     useFileExplorerStore.setState({ fileMap: {}, rootIds: [], fileTree: [], expandedFolders: new Set(), selectedFileId: null });
   });
 
   afterEach(async () => {
-    try { await closeCacheDB(); } catch (e) { /* ignore */ }
+    try { await destroyRxDB(); } catch (e) { /* ignore */ }
   });
 
   it('produces id-keyed fileMap with children arrays of ids and correct rootIds', async () => {
@@ -49,55 +54,5 @@ describe('_buildFileTreeFromCache builder', () => {
     // rootIds should include the root file; folder should exist in fileMap
     expect(rootIds).toEqual(expect.arrayContaining(['f2']));
     expect(fileMap['dir-folder']).toBeDefined();
-  });
-});
-import { initializeFileOperations, saveFile, createDirectory } from '@/core/cache/file-manager';
-import { useFileExplorerStore } from '@/features/file-explorer/store/file-explorer-store';
-import { WorkspaceType } from '@/core/cache/types';
-
-describe('file-explorer canonical builder', () => {
-  beforeAll(async () => {
-    await initializeFileOperations();
-  });
-
-  test('builds id-keyed fileMap with children id arrays', async () => {
-    const ws = 'test-ws-build-cache';
-
-    // Seed files and a directory
-    await saveFile('a/b/c.md', '# C', WorkspaceType.Browser, { mimeType: 'text/markdown' }, ws);
-    await saveFile('a/d.md', '# D', WorkspaceType.Browser, { mimeType: 'text/markdown' }, ws);
-    await createDirectory('e/f', WorkspaceType.Browser, ws);
-
-    // Call the internal builder
-    const tree = await (useFileExplorerStore.getState() as any)._buildFileTreeFromCache(ws);
-
-    expect(Array.isArray(tree)).toBe(true);
-
-    const state = useFileExplorerStore.getState();
-    expect(state.fileMap).toBeDefined();
-    const mapKeys = Object.keys(state.fileMap || {});
-    expect(mapKeys.length).toBeGreaterThan(0);
-
-    // Ensure keys are ids or node- prefixed (no raw path keys like 'a/b')
-    for (const k of mapKeys) {
-      if (k.includes('/') && !k.startsWith('node-')) {
-        throw new Error(`Found unexpected path-keyed map key: ${k}`);
-      }
-    }
-
-    // rootIds should reference existing map entries and children should be id arrays
-    const roots = state.rootIds || [];
-    expect(Array.isArray(roots)).toBe(true);
-    for (const rid of roots) {
-      const node = state.fileMap[rid];
-      expect(node).toBeDefined();
-      if ((node as any).children) {
-        expect(Array.isArray((node as any).children)).toBe(true);
-        for (const cid of (node as any).children) {
-          expect(typeof cid).toBe('string');
-          expect(state.fileMap[cid]).toBeDefined();
-        }
-      }
-    }
   });
 });

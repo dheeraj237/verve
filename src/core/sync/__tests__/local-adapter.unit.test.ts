@@ -1,17 +1,21 @@
+import { vi } from 'vitest';
+import type { Mock } from 'vitest';
 import { LocalAdapter } from '@/core/sync/adapters/local-adapter';
+import * as workspaceManager from '@/core/cache/workspace-manager';
+import * as fileManager from '@/core/cache/file-manager';
 
 // Mock workspace-manager functions used by adapter (replaces previous idb helper)
-jest.mock('@/core/cache/workspace-manager', () => ({
-  storeDirectoryHandle: jest.fn().mockResolvedValue(undefined),
-  requestPermissionForWorkspace: jest.fn().mockResolvedValue(undefined),
-  removeDirectoryHandle: jest.fn().mockResolvedValue(undefined),
+vi.mock('@/core/cache/workspace-manager', () => ({
+  storeDirectoryHandle: vi.fn().mockResolvedValue(undefined),
+  requestPermissionForWorkspace: vi.fn().mockResolvedValue(undefined),
+  removeDirectoryHandle: vi.fn().mockResolvedValue(undefined),
 }));
 
 // Mock cache upsert/save to avoid RxDB dependency in unit test
-jest.mock('@/core/cache/file-manager', () => ({
-  upsertCachedFile: jest.fn().mockResolvedValue(undefined),
-  saveFile: jest.fn().mockResolvedValue(undefined),
-  getAllFiles: jest.fn().mockResolvedValue([]),
+vi.mock('@/core/cache/file-manager', () => ({
+  upsertCachedFile: vi.fn().mockResolvedValue(undefined),
+  saveFile: vi.fn().mockResolvedValue(undefined),
+  getAllFiles: vi.fn().mockResolvedValue([]),
 }));
 
 class MockFileHandle {
@@ -50,12 +54,12 @@ class MockDirHandle {
 }
 
 describe('LocalAdapter unit', () => {
-  const wm = require('@/core/cache/workspace-manager');
-  const { upsertCachedFile } = require('@/core/cache/file-manager');
-  const { saveFile } = require('@/core/cache/file-manager');
+  const wm = workspaceManager;
+  const { upsertCachedFile } = fileManager;
+  const { saveFile } = fileManager;
 
   afterEach(() => {
-    jest.resetAllMocks();
+    vi.clearAllMocks();
     // cleanup global picker
     // @ts-ignore
     delete (global as any).showDirectoryPicker;
@@ -75,7 +79,7 @@ describe('LocalAdapter unit', () => {
     // @ts-ignore
     (global as any).window = global;
     // @ts-ignore
-    (global as any).window.showDirectoryPicker = jest.fn().mockResolvedValue(root);
+    (global as any).window.showDirectoryPicker = vi.fn().mockResolvedValue(root);
 
     await adapter.openDirectoryPicker('ws-test');
 
@@ -110,9 +114,9 @@ import { upsertCachedFile, saveFile } from '@/core/cache/file-manager';
 
 describe('LocalAdapter FS interactions', () => {
   beforeEach(() => {
-    jest.resetAllMocks();
+    vi.clearAllMocks();
     // provide a fake window and showDirectoryPicker implementation
-    (global as any).window = { showDirectoryPicker: jest.fn() } as any;
+    (global as any).window = { showDirectoryPicker: vi.fn() } as any;
   });
 
   afterEach(() => {
@@ -161,7 +165,7 @@ describe('LocalAdapter FS interactions', () => {
       getDirectoryHandle: async () => storedHandle,
     } as any;
 
-    (requestPermissionForWorkspace as jest.Mock).mockResolvedValue(storedHandle);
+    (requestPermissionForWorkspace as Mock).mockResolvedValue(storedHandle);
 
     const adapter = new LocalAdapter();
     const ok = await adapter.promptPermissionAndRestore('ws-restore');

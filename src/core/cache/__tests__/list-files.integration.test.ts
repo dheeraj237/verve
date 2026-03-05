@@ -1,15 +1,14 @@
 import 'fake-indexeddb/auto';
-
-jest.setTimeout(10000);
+import { vi } from 'vitest';
 
 describe('listFiles integration', () => {
   beforeEach(() => {
-    jest.resetModules();
+    vi.resetModules();
   });
 
   it('lists root files whether stored with or without leading slash', async () => {
     const fileOps = await import('@/core/cache/file-manager');
-    const { WorkspaceType } = require('@/core/cache/types');
+    const { WorkspaceType } = await import('@/core/cache/types');
 
     await fileOps.initializeFileOperations();
 

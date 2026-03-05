@@ -1,9 +1,8 @@
+import { vi } from 'vitest';
 import { initializeRxDB, closeCacheDB, upsertCachedFile, getCachedFile } from '@/core/cache/file-manager';
 import { getSyncManager } from '@/core/sync/sync-manager';
 import { useWorkspaceStore } from '@/core/store/workspace-store';
 import { WorkspaceType } from '@/core/cache/types';
-
-jest.setTimeout(10000);
 
 describe('Integration: active workspace sync', () => {
   beforeEach(async () => {
@@ -39,7 +38,7 @@ describe('Integration: active workspace sync', () => {
     const adapter = {
       name: 'local',
       isReady: () => true,
-      push: jest.fn(async (desc: any, content: string) => {
+      push: vi.fn(async (desc: any, content: string) => {
         pushes.push({ desc, content });
         return true;
       }),

@@ -1,4 +1,5 @@
 import 'fake-indexeddb/auto';
+import { vi } from 'vitest';
 
 import { initializeFileOperations } from '@/core/cache/file-manager';
 import { getSyncManager, initializeSyncManager } from '@/core/sync/sync-manager';
@@ -12,7 +13,7 @@ import { useWorkspaceStore } from '@/core/store/workspace-store';
 
 describe('Local workspace switch (uninitialized LocalAdapter)', () => {
   beforeEach(async () => {
-    jest.resetModules();
+    vi.resetModules();
     // init RxDB
     await initializeFileOperations();
 

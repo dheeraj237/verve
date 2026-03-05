@@ -1,4 +1,7 @@
-// Global teardown to stop background services and close DBs so Jest can exit cleanly
+// Global teardown to stop background services and close DBs so tests can exit cleanly
+
+import { afterAll } from 'vitest';
+
 afterAll(async () => {
   try {
     // require lazily so tests can mock these modules per-test if needed

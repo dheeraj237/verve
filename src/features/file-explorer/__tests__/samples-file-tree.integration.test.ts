@@ -1,4 +1,5 @@
 import 'fake-indexeddb/auto';
+import { vi } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -8,7 +9,7 @@ import { WorkspaceType, FileType } from '@/core/cache/types';
 
 describe('file explorer samples tree', () => {
   beforeEach(async () => {
-    jest.resetModules();
+    vi.resetModules();
     await initFileOps();
 
     // Import stores after RxDB init to ensure same module instances

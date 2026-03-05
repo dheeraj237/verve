@@ -1,10 +1,13 @@
 import 'fake-indexeddb/auto';
+import { vi } from 'vitest';
+
+vi.unmock('@/core/rxdb/rxdb-client');
 
 // Mock workspace-manager to avoid structured-clone issues in tests
-jest.mock('@/core/cache/workspace-manager', () => ({
-  storeDirectoryHandle: jest.fn().mockResolvedValue(undefined),
-  requestPermissionForWorkspace: jest.fn().mockResolvedValue(undefined),
-  removeDirectoryHandle: jest.fn().mockResolvedValue(undefined),
+vi.mock('@/core/cache/workspace-manager', () => ({
+  storeDirectoryHandle: vi.fn().mockResolvedValue(undefined),
+  requestPermissionForWorkspace: vi.fn().mockResolvedValue(undefined),
+  removeDirectoryHandle: vi.fn().mockResolvedValue(undefined),
 }));
 
 import { initializeFileOperations } from '@/core/cache/file-manager';
@@ -53,7 +56,7 @@ class MockDirHandle {
 
 describe('SyncManager + LocalAdapter E2E', () => {
   beforeEach(async () => {
-    jest.resetModules();
+    vi.resetModules();
     await initializeFileOperations();
   });
 
@@ -75,7 +78,7 @@ describe('SyncManager + LocalAdapter E2E', () => {
     // @ts-ignore
     (global as any).window = global;
     // @ts-ignore
-    (global as any).window.showDirectoryPicker = jest.fn().mockResolvedValue(root);
+    (global as any).window.showDirectoryPicker = vi.fn().mockResolvedValue(root);
 
     await mgr.requestOpenLocalDirectory('ws-e2e');
 

@@ -1,10 +1,11 @@
+import { vi } from 'vitest';
 import { WorkspaceType } from '@/core/cache';
 import 'fake-indexeddb/auto';
 
 describe('app startup pulls', () => {
-  beforeEach(() => {
-    jest.resetModules();
-    const { useWorkspaceStore } = require('@/core/store/workspace-store');
+  beforeEach(async () => {
+    vi.resetModules();
+    const { useWorkspaceStore } = await import('@/core/store/workspace-store');
     // set a non-browser workspace as active
     useWorkspaceStore.setState({
       workspaces: [
@@ -17,8 +18,8 @@ describe('app startup pulls', () => {
 
   it('invokes pullWorkspace on the SyncManager during initializeApp', async () => {
     // Prepare a mock getSyncManager that spies on pullWorkspace
-    const pullMock = jest.fn(async () => {});
-    jest.doMock('@/core/sync/sync-manager', () => ({
+    const pullMock = vi.fn(async () => { });
+    vi.doMock('@/core/sync/sync-manager', () => ({
       initializeSyncManager: async (adapters: any[]) => {
         // Return a dummy manager
         return { pullWorkspace: pullMock };

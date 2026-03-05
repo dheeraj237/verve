@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["vitest", "node"],
+    "moduleResolution": "bundler"
+  },
+  "include": [
+    "src",
+    "tests",
+    "scripts",
+    "src/**/*.test.*",
+    "tests/**/*.test.*"
+  ]
+}

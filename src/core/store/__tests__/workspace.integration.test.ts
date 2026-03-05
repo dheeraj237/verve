@@ -1,17 +1,15 @@
+import { vi, beforeEach, describe, it, expect } from 'vitest';
 import 'fake-indexeddb/auto';
-
-// Keep integration tests bounded so CI/dev runners don't wait indefinitely
-jest.setTimeout(10000);
 
 describe('workspace integration tests', () => {
   beforeEach(() => {
-    jest.resetModules();
+    vi.resetModules();
   });
 
   it('switching workspaces reloads files with same hierarchy', async () => {
-    const { useWorkspaceStore } = require('@/core/store/workspace-store');
-    const { useEditorStore } = require('@/features/editor/store/editor-store');
-    const { WorkspaceType } = require('@/core/cache/types');
+    const { useWorkspaceStore } = await import('@/core/store/workspace-store');
+    const { useEditorStore } = await import('@/features/editor/store/editor-store');
+    const { WorkspaceType } = await import('@/core/cache/types');
     const fileOps = await import('@/core/cache/file-manager');
 
     await fileOps.initializeFileOperations();
@@ -63,8 +61,8 @@ describe('workspace integration tests', () => {
   }, 10000);
 
   it('create, read, delete workspaces', async () => {
-    const { useWorkspaceStore } = require('@/core/store/workspace-store');
-    const { WorkspaceType } = require('@/core/cache/types');
+    const { useWorkspaceStore } = await import('@/core/store/workspace-store');
+    const { WorkspaceType } = await import('@/core/cache/types');
     const fileOps = await import('@/core/cache/file-manager');
 
     await fileOps.initializeFileOperations();
@@ -83,8 +81,8 @@ describe('workspace integration tests', () => {
   }, 5000);
 
   it('new workspace creates verve.md with default content and is visible', async () => {
-    const { useWorkspaceStore } = require('@/core/store/workspace-store');
-    const { WorkspaceType } = require('@/core/cache/types');
+    const { useWorkspaceStore } = await import('@/core/store/workspace-store');
+    const { WorkspaceType } = await import('@/core/cache/types');
     const fileOps = await import('@/core/cache/file-manager');
 
     await fileOps.initializeFileOperations();
@@ -117,8 +115,8 @@ describe('workspace integration tests', () => {
   }, 5000);
 
   it('workspace types: gdrive adapter pull populates RxDB and push is invoked on enqueue', async () => {
-    const { useWorkspaceStore } = require('@/core/store/workspace-store');
-    const { WorkspaceType } = require('@/core/cache/types');
+    const { useWorkspaceStore } = await import('@/core/store/workspace-store');
+    const { WorkspaceType } = await import('@/core/cache/types');
     const { getSyncManager, stopSyncManager } = await import('@/core/sync/sync-manager');
     const fileOps = await import('@/core/cache/file-manager');
 
@@ -129,12 +127,12 @@ describe('workspace integration tests', () => {
     useWorkspaceStore.getState().createWorkspace('GDrive WS', 'gdrive', { id: 'gdrive-1' });
 
     // Prepare mock adapter
-    const pullWorkspaceMock = jest.fn(async (workspaceId: any) => {
+    const pullWorkspaceMock = vi.fn(async (workspaceId: any) => {
       return [
         { fileId: '/gdrive/remote.md', content: 'remote file content' },
       ];
     });
-    const pushMock = jest.fn(async () => true);
+    const pushMock = vi.fn(async () => true);
 
     const mockAdapter: any = {
       name: 'gdrive',

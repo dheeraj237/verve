@@ -1,10 +1,11 @@
 import 'fake-indexeddb/auto';
+import { vi } from 'vitest';
 import { initFileOps, destroyCacheDB } from '@/tests/helpers/test-utils';
 import { WorkspaceType, FileType } from '@/core/cache/types';
 
 describe('cached_files schema compatibility', () => {
   beforeEach(async () => {
-    jest.resetModules();
+    vi.resetModules();
     await initFileOps();
   });
 

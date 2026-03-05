@@ -1,4 +1,9 @@
 import 'fake-indexeddb/auto';
+import { vi } from 'vitest';
+
+// Use real RxDB client for this test
+vi.unmock('@/core/rxdb/rxdb-client');
+
 import { createRxDB, upsertDoc, getDoc, findDocs, subscribeDoc } from '../rxdb-client';
 import type { FileDoc } from '../schemas';
 

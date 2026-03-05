@@ -1,11 +1,12 @@
 import 'fake-indexeddb/auto';
+import { vi } from 'vitest';
 
 import { initFileOps, destroyCacheDB } from '@/tests/helpers/test-utils';
 import { SyncOp } from '@/core/cache/types';
 
 describe('sync-queue-processor integration (real cache)', () => {
   beforeEach(async () => {
-    jest.resetModules();
+    vi.resetModules();
     await initFileOps();
   });
 

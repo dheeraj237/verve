@@ -4,8 +4,6 @@ import { FileType, WorkspaceType } from '@/core/cache/types';
 import { useWorkspaceStore } from '@/core/store/workspace-store';
 import { useFileExplorerStore } from '@/features/file-explorer/store/file-explorer-store';
 
-jest.setTimeout(20000);
-
 describe('Integration: preserve tree on create', () => {
   beforeEach(async () => {
     try { await initializeRxDB(); } catch (e) { /* ignore */ }

@@ -1,8 +1,9 @@
+import { vi } from 'vitest';
 import { buildFileTreeFromAdapter } from '../file-tree-builder';
 import { WorkspaceType } from '@/core/cache/types';
 
-jest.mock('@/core/cache/file-manager', () => ({
-  getAllFiles: jest.fn(async (workspaceId: string | undefined) => [
+vi.mock('@/core/cache/file-manager', () => ({
+  getAllFiles: vi.fn(async (workspaceId: string | undefined) => [
     { id: '1', name: 'verve.md', path: 'verve.md', type: 'file', workspaceType: WorkspaceType.Browser, workspaceId },
     { id: '2', name: 'ROOOT.md', path: 'verve.md/ROOOT.md', type: 'file', workspaceType: WorkspaceType.Browser, workspaceId },
     { id: '3', name: 'rooot.md', path: 'verve.md/rooot.md', type: 'file', workspaceType: WorkspaceType.Browser, workspaceId },

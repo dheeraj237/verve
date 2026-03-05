@@ -1,17 +1,16 @@
 import 'fake-indexeddb/auto';
-
-jest.setTimeout(10000);
+import { vi } from 'vitest';
 
 describe('file explorer integration (hierarchy + UI actions)', () => {
   beforeEach(() => {
-    jest.resetModules();
+    vi.resetModules();
   });
 
   it('builds nested tree from flat paths and responds to create/rename/delete via store', async () => {
-    const { useWorkspaceStore } = require('@/core/store/workspace-store');
-    const { useFileExplorerStore } = require('@/features/file-explorer/store/file-explorer-store');
+    const { useWorkspaceStore } = await import('@/core/store/workspace-store');
+    const { useFileExplorerStore } = await import('@/features/file-explorer/store/file-explorer-store');
     const fileOps = await import('@/core/cache/file-manager');
-    const { WorkspaceType } = require('@/core/cache/types');
+    const { WorkspaceType } = await import('@/core/cache/types');
 
     await fileOps.initializeFileOperations();
 

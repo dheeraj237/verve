@@ -3,9 +3,12 @@ import 'fake-indexeddb/auto';
 import * as React from 'react';
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
+import { vi, test, describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { useWorkspaceStore } from '@/core/store/workspace-store';
+import { useFileExplorerStore } from '@/features/file-explorer/store/file-explorer-store';
 
 // Mock the workspace and file-explorer stores to avoid pulling in RxDB/Dexie ESM modules
-jest.mock('@/core/store/workspace-store', () => {
+vi.mock('@/core/store/workspace-store', () => {
   const workspaceState: any = { workspaces: [], activeWorkspaceId: null };
   const useWorkspaceStore = () => ({ activeWorkspace: () => workspaceState.workspaces.find((w: any) => w.id === workspaceState.activeWorkspaceId) });
   useWorkspaceStore.getState = () => workspaceState;
@@ -13,7 +16,7 @@ jest.mock('@/core/store/workspace-store', () => {
   return { useWorkspaceStore };
 });
 
-jest.mock('@/features/file-explorer/store/file-explorer-store', () => {
+vi.mock('@/features/file-explorer/store/file-explorer-store', () => {
   const fileExplorerState: any = {
     fileMap: {},
     rootIds: [],
@@ -57,8 +60,6 @@ jest.mock('@/features/file-explorer/store/file-explorer-store', () => {
   return { useFileExplorerStore };
 });
 
-jest.setTimeout(20000);
-
 /**
  * These UI tests intentionally avoid importing the full `FileExplorer` component
  * because that would pull in RxDB/Dexie and other heavy ESM-only modules. Instead
@@ -72,7 +73,7 @@ describe('FileExplorer UI behaviors (lightweight)', () => {
   let container: HTMLDivElement;
 
   beforeEach(() => {
-    jest.resetModules();
+    vi.resetModules();
     container = document.createElement('div');
     document.body.appendChild(container);
   });
@@ -84,9 +85,6 @@ describe('FileExplorer UI behaviors (lightweight)', () => {
   });
 
   it('computes rootPath from currentDirectoryPath when header New File is used', async () => {
-    const { useWorkspaceStore } = require('@/core/store/workspace-store');
-    const { useFileExplorerStore } = require('@/features/file-explorer/store/file-explorer-store');
-
     // Arrange: set active workspace and currentDirectoryPath
     useWorkspaceStore.setState({ workspaces: [{ id: 'ui-ws', name: 'UI WS', type: 'browser' }], activeWorkspaceId: 'ui-ws' });
     useFileExplorerStore.getState().setCurrentDirectory('RootUI', '/ui-root');
@@ -156,8 +154,6 @@ describe('FileExplorer UI behaviors (lightweight)', () => {
   });
 
   it('folder-level button computes node.path as parent when creating', async () => {
-    const { useWorkspaceStore } = require('@/core/store/workspace-store');
-    const { useFileExplorerStore } = require('@/features/file-explorer/store/file-explorer-store');
 
     useWorkspaceStore.setState({ workspaces: [{ id: 'ui-ws', name: 'UI WS', type: 'browser' }], activeWorkspaceId: 'ui-ws' });
 
@@ -204,8 +200,6 @@ describe('FileExplorer UI behaviors (lightweight)', () => {
   });
 
   it('header New File always targets workspace root when currentDirectoryPath is a file', async () => {
-    const { useWorkspaceStore } = require('@/core/store/workspace-store');
-    const { useFileExplorerStore } = require('@/features/file-explorer/store/file-explorer-store');
 
     // Arrange: active workspace is browser and currentDirectoryPath points to a file
     useWorkspaceStore.setState({ workspaces: [{ id: 'ui-ws', name: 'UI WS', type: 'browser' }], activeWorkspaceId: 'ui-ws' });
@@ -259,8 +253,6 @@ describe('FileExplorer UI behaviors (lightweight)', () => {
   });
 
   it('header New File targets workspace root when fileTree starts with a folder', async () => {
-    const { useWorkspaceStore } = require('@/core/store/workspace-store');
-    const { useFileExplorerStore } = require('@/features/file-explorer/store/file-explorer-store');
 
     useWorkspaceStore.setState({ workspaces: [{ id: 'ui-ws', name: 'UI WS', type: 'browser' }], activeWorkspaceId: 'ui-ws' });
 
@@ -309,8 +301,6 @@ describe('FileExplorer UI behaviors (lightweight)', () => {
   });
 
   it('header New File targets workspace root when fileTree contains only a top-level file', async () => {
-    const { useWorkspaceStore } = require('@/core/store/workspace-store');
-    const { useFileExplorerStore } = require('@/features/file-explorer/store/file-explorer-store');
 
     useWorkspaceStore.setState({ workspaces: [{ id: 'ui-ws', name: 'UI WS', type: 'browser' }], activeWorkspaceId: 'ui-ws' });
 

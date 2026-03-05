@@ -8,8 +8,11 @@
     "build": "tsc && vite build",
     "shadcn:add": "NODE_TLS_REJECT_UNAUTHORIZED=0 npx shadcn@latest",
     "preview": "vite preview",
-    "test": "jest --runInBand",
-    
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "vitest run --config vitest.e2e.config.ts",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:all": "vitest run && vitest run --config vitest.e2e.config.ts && vitest run --config vitest.integration.config.ts",
     "lint": "eslint",
     "security:audit": "yarn audit",
     "security:check": "yarn audit --level moderate"
@@ -79,13 +82,16 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^4.3.4",
+    "@vitest/ui": "^4.0.18",
     "eslint": "^9",
     "fake-indexeddb": "^3.1.7",
     "jest": "^29.6.1",
     "jest-environment-jsdom": "^29.6.1",
+    "jsdom": "^28.1.0",
     "tailwindcss": "^4",
     "ts-jest": "^29.1.0",
     "typescript": "^5",
-    "vite": "^6.0.11"
+    "vite": "^6.0.11",
+    "vitest": "^4.0.18"
   }
 }

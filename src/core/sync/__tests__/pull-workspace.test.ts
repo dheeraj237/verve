@@ -1,8 +1,10 @@
+import { vi, describe, beforeEach, it, expect } from 'vitest';
+import { Mock } from 'vitest';
 import { SyncManager } from '@/core/sync/sync-manager';
 
-jest.mock('@/core/cache/file-manager', () => ({
-  upsertCachedFile: jest.fn(),
-  saveFile: jest.fn(),
+vi.mock('@/core/cache/file-manager', () => ({
+  upsertCachedFile: vi.fn(),
+  saveFile: vi.fn(),
 }));
 
 import { upsertCachedFile, saveFile } from '@/core/cache/file-manager';
@@ -11,7 +13,7 @@ import type { ISyncAdapter } from '@/core/sync/sync-manager';
 
 describe('SyncManager.pullWorkspace', () => {
   beforeEach(() => {
-    jest.resetAllMocks();
+    vi.clearAllMocks();
   });
 
   it('uses adapter.pullWorkspace when available and saves files', async () => {

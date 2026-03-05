@@ -1,4 +1,5 @@
 import 'fake-indexeddb/auto';
+import { vi } from 'vitest';
 import { initFileOps, destroyCacheDB, startSyncManagerWithAdapter, createWorkspace } from '@/tests/helpers/test-utils';
 import { useWorkspaceStore } from '@/core/store/workspace-store';
 import { useFileExplorerStore } from '@/features/file-explorer/store/file-explorer-store';
@@ -22,7 +23,7 @@ describe('FileExplorer headless integration with SyncManager (stores only)', () 
     const adapter = {
       name: 'local',
       isReady: () => true,
-      push: jest.fn(async (desc: any, content: string) => {
+      push: vi.fn(async (desc: any, content: string) => {
         pushes.push({ desc, content });
         return true;
       }),

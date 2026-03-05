@@ -1,4 +1,5 @@
 import 'fake-indexeddb/auto';
+import { vi } from 'vitest';
 
 import { initializeRxDB, closeCacheDB, getDirtyFiles, getAllFiles } from '@/core/cache';
 import { upsertCachedFile } from '@/core/cache/file-manager';
@@ -7,11 +8,9 @@ import type { ISyncAdapter } from '@/core/sync/adapter-types';
 import { WorkspaceType } from '@/core/cache/types';
 import { FileType } from '@/shared/types';
 
-jest.setTimeout(20000);
-
 describe('Integration: load local directory shows files as dirty', () => {
   beforeEach(async () => {
-    jest.resetModules();
+    vi.resetModules();
     await initializeRxDB();
   });
 

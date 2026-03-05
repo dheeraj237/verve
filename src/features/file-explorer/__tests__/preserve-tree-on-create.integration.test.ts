@@ -1,17 +1,16 @@
 import 'fake-indexeddb/auto';
-
-jest.setTimeout(10000);
+import { vi } from 'vitest';
 
 describe('file explorer preserve tree on create/delete', () => {
   beforeEach(() => {
-    jest.resetModules();
+    vi.resetModules();
   });
 
   it('creating a file should not remove other existing root files', async () => {
     const fileOps = await import('@/core/cache/file-manager');
     const { useWorkspaceStore } = await import('@/core/store/workspace-store');
     const { useFileExplorerStore } = await import('@/features/file-explorer/store/file-explorer-store');
-    const { WorkspaceType } = require('@/core/cache/types');
+    const { WorkspaceType } = await import('@/core/cache/types');
 
     await fileOps.initializeFileOperations();
 
@@ -49,7 +48,7 @@ describe('file explorer preserve tree on create/delete', () => {
     const fileOps = await import('@/core/cache/file-manager');
     const { useWorkspaceStore } = await import('@/core/store/workspace-store');
     const { useFileExplorerStore } = await import('@/features/file-explorer/store/file-explorer-store');
-    const { WorkspaceType } = require('@/core/cache/types');
+    const { WorkspaceType } = await import('@/core/cache/types');
 
     await fileOps.initializeFileOperations();
 

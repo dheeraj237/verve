@@ -1,11 +1,13 @@
 import 'fake-indexeddb/auto';
+import { vi } from 'vitest';
 
 import { initializeFileOperations, saveFile, ensureFolderDocs } from '@/core/cache/file-manager';
-import { WorkspaceType } from '@/core/cache/types';
+import { WorkspaceType, FileType } from '@/core/cache/types';
+import { initializeRxDB, closeCacheDB, upsertCachedFile, getAllFiles } from '@/core/cache';
 
 describe('migration: create folder docs', () => {
   beforeEach(async () => {
-    jest.resetModules();
+    vi.resetModules();
     await initializeFileOperations();
   });
 
@@ -17,11 +19,6 @@ describe('migration: create folder docs', () => {
     await expect(ensureFolderDocs('mig-ws')).resolves.not.toThrow();
   });
 });
-import { initializeRxDB, closeCacheDB, upsertCachedFile, getAllFiles } from '@/core/cache';
-import { ensureFolderDocs } from '@/core/cache/file-manager';
-import { FileType, WorkspaceType } from '@/core/cache/types';
-
-jest.setTimeout(20000);
 
 describe('Integration: ensureFolderDocs migration', () => {
   beforeEach(async () => {

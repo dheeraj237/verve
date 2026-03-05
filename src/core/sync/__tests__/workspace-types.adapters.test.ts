@@ -1,8 +1,9 @@
+import { vi } from 'vitest';
 import { SyncManager } from '@/core/sync/sync-manager';
 
-jest.mock('@/core/cache/file-manager', () => ({
-  upsertCachedFile: jest.fn(),
-  saveFile: jest.fn(),
+vi.mock('@/core/cache/file-manager', () => ({
+  upsertCachedFile: vi.fn(),
+  saveFile: vi.fn(),
 }));
 
 import { upsertCachedFile, saveFile } from '@/core/cache/file-manager';
@@ -10,7 +11,7 @@ import { WorkspaceType } from '@/core/cache/types';
 
 describe('SyncManager workspace-type adapters', () => {
   beforeEach(() => {
-    jest.resetAllMocks();
+    vi.clearAllMocks();
   });
 
   it('uses local adapter when workspace type is Local and saves files', async () => {
@@ -61,7 +62,7 @@ describe('SyncManager workspace-type adapters', () => {
     await manager.pullWorkspace(workspaceG);
     expect(upsertCachedFile).toHaveBeenCalledWith(expect.objectContaining({ id: 'g1' }));
 
-    jest.resetAllMocks();
+    vi.clearAllMocks();
 
     // Test using literal 'drive' (older code path) maps to gdrive adapter
     const workspaceDrive = { id: 'ws-drive', type: 'drive', path: '/', createdAt: new Date().toISOString(), lastAccessed: new Date().toISOString() } as any;

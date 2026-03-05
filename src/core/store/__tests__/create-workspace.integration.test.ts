@@ -1,4 +1,5 @@
 import 'fake-indexeddb/auto';
+import { vi } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -7,7 +8,7 @@ import { WorkspaceType } from '@/core/cache/types';
 
 describe('create workspace default file', () => {
   beforeEach(async () => {
-    jest.resetModules();
+    vi.resetModules();
     await initFileOps();
   });
 

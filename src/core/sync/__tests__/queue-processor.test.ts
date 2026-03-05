@@ -1,9 +1,11 @@
+import { vi } from 'vitest';
+import type { Mock } from 'vitest';
 import { processPendingQueueOnce } from '@/core/sync/sync-queue-processor';
 
-jest.mock('@/core/cache/file-manager', () => ({
-  getCacheDB: jest.fn(),
-  getCachedFile: jest.fn(),
-  markCachedFileAsSynced: jest.fn(),
+vi.mock('@/core/cache/file-manager', () => ({
+  getCacheDB: vi.fn(),
+  getCachedFile: vi.fn(),
+  markCachedFileAsSynced: vi.fn(),
 }));
 
 import { getCacheDB, getCachedFile, markCachedFileAsSynced } from '@/core/cache/file-manager';
@@ -12,7 +14,7 @@ import { SyncOp } from '@/core/cache/types';
 
 describe('sync-queue-processor', () => {
   afterEach(() => {
-    jest.resetAllMocks();
+    vi.clearAllMocks();
   });
 
   test('processes put entry successfully and removes it', async () => {
@@ -25,8 +27,8 @@ describe('sync-queue-processor', () => {
       createdAt: Date.now(),
     };
 
-    const remove = jest.fn(async () => {});
-    const patch = jest.fn(async () => {});
+    const remove = vi.fn(async () => { });
+    const patch = vi.fn(async () => { });
 
     const doc = {
       toJSON: () => entry,
@@ -35,14 +37,14 @@ describe('sync-queue-processor', () => {
     };
 
     // Mock DB to return the one queue doc
-    (getCacheDB as jest.Mock).mockReturnValue({
+    (getCacheDB as Mock).mockReturnValue({
       sync_queue: {
         find: () => ({ sort: () => ({ exec: async () => [doc] }) }),
       },
     });
 
     // Mock cached file resolution
-    (getCachedFile as jest.Mock).mockResolvedValue({ id: 'file-1', path: '/f.md', content: 'hi' });
+    (getCachedFile as Mock).mockResolvedValue({ id: 'file-1', path: '/f.md', content: 'hi' });
 
     const calls: any[] = [];
     const mockAdapter: ISyncAdapter = {
@@ -73,8 +75,8 @@ describe('sync-queue-processor', () => {
       createdAt: Date.now(),
     };
 
-    const remove = jest.fn(async () => {});
-    const patch = jest.fn(async () => {});
+    const remove = vi.fn(async () => { });
+    const patch = vi.fn(async () => { });
 
     const doc = {
       toJSON: () => entry,
@@ -82,13 +84,13 @@ describe('sync-queue-processor', () => {
       patch,
     };
 
-    (getCacheDB as jest.Mock).mockReturnValue({
+    (getCacheDB as Mock).mockReturnValue({
       sync_queue: {
         find: () => ({ sort: () => ({ exec: async () => [doc] }) }),
       },
     });
 
-    (getCachedFile as jest.Mock).mockResolvedValue({ id: 'file-2', path: '/f2.md', content: 'bye' });
+    (getCachedFile as Mock).mockResolvedValue({ id: 'file-2', path: '/f2.md', content: 'bye' });
 
     const mockAdapter: ISyncAdapter = {
       name: 'mock',
@@ -114,8 +116,8 @@ describe('sync-queue-processor', () => {
       createdAt: Date.now(),
     };
 
-    const remove = jest.fn(async () => {});
-    const patch = jest.fn(async () => {});
+    const remove = vi.fn(async () => { });
+    const patch = vi.fn(async () => { });
 
     const doc = {
       toJSON: () => entry,
@@ -123,7 +125,7 @@ describe('sync-queue-processor', () => {
       patch,
     };
 
-    (getCacheDB as jest.Mock).mockReturnValue({
+    (getCacheDB as Mock).mockReturnValue({
       sync_queue: {
         find: () => ({ sort: () => ({ exec: async () => [doc] }) }),
       },

@@ -28,6 +28,7 @@ import { toAdapterDescriptor } from './adapter-types';
 import { pushCachedFile } from './adapter-bridge';
 // NEW: FileNode Bridge for type conversions
 import { fileNodeBridge } from './file-node-bridge';
+import { adapterEntryToCachedFile } from './adapter-normalize';
 
 // CRDT/Yjs handling removed from SyncManager. SyncManager now operates
 // on plain file content strings. Adapters should accept/return string
@@ -155,7 +156,7 @@ export class SyncManager {
       const content = await (adapter as any).pull(fileId);
       if (typeof content === 'string') {
         // Normalize into cached file and upsert
-        const normalized = require('./adapter-normalize').adapterEntryToCachedFile({ fileId }, workspaceType as any, workspaceId);
+        const normalized = adapterEntryToCachedFile({ fileId }, workspaceType as any, workspaceId);
         await upsertCachedFile({ ...normalized, dirty: false });
         await saveFile(normalized.path || fileId, content, workspaceType as any, undefined, workspaceId);
       }
@@ -691,7 +692,7 @@ export class SyncManager {
             const id = (item as any).fileId ?? (item as any).id ?? '';
 
             // Normalize minimal info into canonical cached file and upsert
-            const normalized = require('./adapter-normalize').adapterEntryToCachedFile({ fileId: id }, workspace.type as any, workspace.id);
+            const normalized = adapterEntryToCachedFile({ fileId: id }, workspace.type as any, workspace.id);
             await upsertCachedFile({ ...normalized, dirty: false });
             await saveFile(normalized.path || id, content, workspace.type as any, undefined, workspace.id);
           } catch (err) {
@@ -704,7 +705,7 @@ export class SyncManager {
         for (const entry of list || []) {
           try {
             const remoteContent = await adapter.pull(entry.id);
-            const normalized = require('./adapter-normalize').adapterEntryToCachedFile(entry as any, workspace.type as any, workspace.id);
+            const normalized = adapterEntryToCachedFile(entry as any, workspace.type as any, workspace.id);
             await upsertCachedFile({ ...normalized, dirty: false });
             if (typeof remoteContent === 'string' && remoteContent.length > 0) {
               await saveFile(normalized.path || entry.path || entry.id, remoteContent, workspace.type as any, undefined, workspace.id);

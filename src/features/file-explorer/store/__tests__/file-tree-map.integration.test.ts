@@ -1,5 +1,8 @@
-jest.mock('@/core/cache/file-manager', () => ({
-  getAllFiles: jest.fn()
+import { vi } from 'vitest';
+import type { Mock } from 'vitest';
+
+vi.mock('@/core/cache/file-manager', () => ({
+  getAllFiles: vi.fn()
 }));
 
 import { getAllFiles } from '@/core/cache/file-manager';
@@ -7,7 +10,7 @@ import { useFileExplorerStore } from '../file-explorer-store';
 
 describe('build file tree -> map integration', () => {
   beforeEach(() => {
-    (getAllFiles as jest.Mock).mockReset();
+    (getAllFiles as Mock).mockReset();
     // clear store (canonical shape)
     (useFileExplorerStore as any).setState({ fileMap: {}, rootIds: [] });
   });
@@ -20,7 +23,7 @@ describe('build file tree -> map integration', () => {
       { id: 'd1', name: 'docs', path: 'docs', type: 'dir' },
       { id: 'f3', name: 'docs/x.md', path: 'docs/x.md', type: 'file' }
     ];
-    (getAllFiles as jest.Mock).mockResolvedValue(files as any);
+    (getAllFiles as Mock).mockResolvedValue(files as any);
 
     const tree = await (useFileExplorerStore.getState() as any)._buildFileTreeFromCache('ws1');
 

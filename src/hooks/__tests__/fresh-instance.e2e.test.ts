@@ -1,4 +1,8 @@
 import 'fake-indexeddb/auto';
+import { vi } from 'vitest';
+
+vi.unmock('@/core/rxdb/rxdb-client');
+
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -8,7 +12,7 @@ import { useWorkspaceStore } from '@/core/store/workspace-store';
 
 describe('fresh instance end-to-end', () => {
   beforeEach(async () => {
-    jest.resetModules();
+    vi.resetModules();
 
     // Initialize RxDB (uses fake-indexeddb in tests)
     await initFileOps();

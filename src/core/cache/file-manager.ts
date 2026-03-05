@@ -673,7 +673,14 @@ export async function loadSampleFilesFromFolder(): Promise<void> {
     for (const sample of sampleFiles) {
       try {
         // Use import.meta.env.BASE_URL to handle custom base paths in production
-        const contentUrl = new URL(`content${sample.path}`, import.meta.env.BASE_URL).href;
+        let contentUrl: string;
+        try {
+          const baseUrl = import.meta.env.BASE_URL || '/';
+          contentUrl = new URL(`content${sample.path}`, baseUrl).href;
+        } catch (e) {
+          // Fallback for test environments where URL constructor might fail
+          contentUrl = `/content${sample.path}`;
+        }
         const response = await fetch(contentUrl);
         if (!response.ok) {
           console.warn(`[FileOperations] Failed to load ${sample.path}: ${response.status}`);

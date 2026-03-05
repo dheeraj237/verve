@@ -1,20 +1,18 @@
+import { vi, beforeEach, describe, it, expect } from 'vitest';
 import 'fake-indexeddb/auto';
+import { useWorkspaceStore } from '@/core/store/workspace-store';
+import { WorkspaceType } from '@/core/cache/types';
+import * as fileOps from '@/core/cache/file-manager';
 
 // Use the real rxdb-client for this integration test to capture real DB traces
-jest.unmock('@/core/rxdb/rxdb-client');
-
-// Keep integration tests bounded so CI/dev runners don't wait indefinitely
-jest.setTimeout(10000);
+vi.unmock('@/core/rxdb/rxdb-client');
 
 describe('workspace CRUD integration', () => {
   beforeEach(() => {
-    jest.resetModules();
+    vi.resetModules();
   });
 
   it('creates, lists, reads and deletes a workspace', async () => {
-    const { useWorkspaceStore } = require('@/core/store/workspace-store');
-    const { WorkspaceType } = require('@/core/cache/types');
-    const fileOps = await import('@/core/cache/file-manager');
 
     await fileOps.initializeFileOperations();
 

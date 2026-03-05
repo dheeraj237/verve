@@ -1,4 +1,4 @@
-// Polyfill IndexedDB for RxDB/Dexie in Jest Node environment
+// Polyfill IndexedDB for RxDB/Dexie in Vitest Node environment
 try {
   // eslint-disable-next-line global-require
   require('fake-indexeddb/auto');

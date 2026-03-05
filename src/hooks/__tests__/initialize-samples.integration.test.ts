@@ -1,4 +1,5 @@
 import 'fake-indexeddb/auto';
+import { vi } from 'vitest';
 
 // initializeApp will be required after resetModules in tests to ensure module instance consistency
 import { mockFetchForSamples, restoreFetchMock } from '@/tests/helpers/test-utils';
@@ -7,10 +8,10 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 describe('initializeApp loads verve-samples on fresh start', () => {
-  beforeEach(() => {
-    jest.resetModules();
+  beforeEach(async () => {
+    vi.resetModules();
     // Ensure no pre-existing workspaces
-    const { useWorkspaceStore } = require('@/core/store/workspace-store');
+    const { useWorkspaceStore } = await import('@/core/store/workspace-store');
     useWorkspaceStore.setState({ workspaces: [], activeWorkspaceId: undefined });
     // Ensure fetch is mocked so browser-only loader can fetch sample files
     mockFetchForSamples();
@@ -26,7 +27,7 @@ describe('initializeApp loads verve-samples on fresh start', () => {
 
   it('creates verve-samples workspace and populates files from public/content', async () => {
     // Run initializeApp which should create workspace and load sample files
-    const { initializeApp } = require('@/hooks/use-browser-mode');
+    const { initializeApp } = await import('@/hooks/use-browser-mode');
     await initializeApp();
 
     const { getAllFiles, loadFile } = await import('@/core/cache/file-manager');

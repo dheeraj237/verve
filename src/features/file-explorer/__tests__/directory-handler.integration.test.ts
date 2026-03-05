@@ -1,4 +1,5 @@
 import 'fake-indexeddb/auto';
+import { vi } from 'vitest';
 
 import { initializeFileOperations } from '@/core/cache/file-manager';
 import { getSyncManager } from '@/core/sync/sync-manager';
@@ -10,7 +11,7 @@ import { openLocalDirectory } from '@/features/file-explorer/store/helpers/direc
 
 describe('directory-handler integration', () => {
   beforeEach(async () => {
-    jest.resetModules();
+    vi.resetModules();
     await initializeFileOperations();
   });
 

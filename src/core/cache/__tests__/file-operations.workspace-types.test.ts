@@ -1,15 +1,19 @@
 import 'fake-indexeddb/auto';
+import { vi, beforeEach, afterAll, describe, it, expect } from 'vitest';
 
-jest.setTimeout(10000);
+// Use real RxDB client for this test
+vi.unmock('@/core/rxdb/rxdb-client');
+
+import { WorkspaceType } from '@/core/cache/types';
+import * as fileOps from '@/core/cache/file-manager';
 
 describe('file-manager across workspace types', () => {
-  beforeEach(() => {
-    jest.resetModules();
+  beforeEach(async () => {
+    // Don't reset modules as it breaks the initialized imports above
+    await fileOps.initializeFileOperations();
   });
 
   it('browser workspace: create/read/rename/delete files and directories', async () => {
-    const { WorkspaceType } = require('@/core/cache/types');
-    const fileOps = await import('@/core/cache/file-manager');
 
     await fileOps.initializeFileOperations();
 
@@ -43,8 +47,6 @@ describe('file-manager across workspace types', () => {
   });
 
   it('local workspace: dirty flag set and enqueue triggers adapter push', async () => {
-    const { WorkspaceType } = require('@/core/cache/types');
-    const fileOps = await import('@/core/cache/file-manager');
     const { getSyncManager, stopSyncManager } = await import('@/core/sync/sync-manager');
 
     await fileOps.initializeFileOperations();
@@ -59,7 +61,7 @@ describe('file-manager across workspace types', () => {
 
     // register mock adapter and enqueue
     const mgr = getSyncManager();
-    const pushMock = jest.fn(async () => true);
+    const pushMock = vi.fn(async () => true);
     mgr.registerAdapter({ name: 'local', push: pushMock, pull: async () => null, exists: async () => false, delete: async () => false } as any);
 
     await mgr.enqueueAndProcess(saved.id, saved.path, WorkspaceType.Local, wsId);
@@ -81,8 +83,6 @@ describe('file-manager across workspace types', () => {
   });
 
   it('gdrive workspace: dirty flag and sync push via adapter', async () => {
-    const { WorkspaceType } = require('@/core/cache/types');
-    const fileOps = await import('@/core/cache/file-manager');
     const { getSyncManager, stopSyncManager } = await import('@/core/sync/sync-manager');
 
     await fileOps.initializeFileOperations();
@@ -95,7 +95,7 @@ describe('file-manager across workspace types', () => {
     expect(dirty.some(d => d.path === '/g/doc.md')).toBeTruthy();
 
     const mgr = getSyncManager();
-    const pushMock = jest.fn(async () => true);
+    const pushMock = vi.fn(async () => true);
     mgr.registerAdapter({ name: 'gdrive', push: pushMock, pull: async () => null, exists: async () => false, delete: async () => false } as any);
 
     await mgr.enqueueAndProcess(saved.id, saved.path, WorkspaceType.GDrive, wsId);

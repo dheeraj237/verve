@@ -1,4 +1,5 @@
 import 'fake-indexeddb/auto';
+import { vi } from 'vitest';
 
 export async function initFileOps() {
   const fileOps = await import('@/core/cache/file-manager');
@@ -7,7 +8,7 @@ export async function initFileOps() {
 }
 
 export function resetModules() {
-  jest.resetModules();
+  vi.resetModules();
 }
 
 // Export the WorkspaceType enum for convenience in tests
@@ -24,8 +25,7 @@ export async function destroyCacheDB() {
 }
 
 export async function createWorkspace(name: string, type: any, id: string) {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { useWorkspaceStore } = require('@/core/store/workspace-store');
+  const { useWorkspaceStore } = await import('@/core/store/workspace-store');
   useWorkspaceStore.getState().createWorkspace(name, type, { id });
 }
 
@@ -39,7 +39,7 @@ export async function startSyncManagerWithAdapter(adapter: any) {
 
 /**
  * Test helper: mock global.fetch to serve sample files from `public/content` on disk.
- * Use in Node/Jest tests so browser-only `loadSampleFilesFromFolder` can fetch sample files.
+ * Use in Node/Vitest tests so browser-only `loadSampleFilesFromFolder` can fetch sample files.
  */
 export function mockFetchForSamples() {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -48,12 +48,15 @@ export function mockFetchForSamples() {
   const path = require('path');
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (global as any).fetch = jest.fn(async (url: string) => {
+  (global as any).fetch = vi.fn(async (url: string) => {
     try {
-      const prefix = '/content';
-      if (typeof url === 'string' && url.startsWith(prefix)) {
-        const rel = url.slice(prefix.length);
-        const diskPath = path.join(process.cwd(), 'public', 'content', rel.startsWith('/') ? rel.slice(1) : rel);
+      // Handle both relative paths (/content/...) and full URLs (http://localhost:5173/content/...)
+      if (typeof url === 'string' && url.includes('/content')) {
+        // Extract the /content/... part from the URL
+        const contentIndex = url.indexOf('/content');
+        const contentPath = url.slice(contentIndex); // e.g., '/content/01-basic-formatting.md'
+        const rel = contentPath.replace(/^\/content\/?/, ''); // e.g., '01-basic-formatting.md'
+        const diskPath = path.join(process.cwd(), 'public', 'content', rel);
         const text = fs.readFileSync(diskPath, 'utf8');
         return {
           ok: true,
@@ -63,6 +66,7 @@ export function mockFetchForSamples() {
         };
       }
     } catch (e) {
+      console.error('[mockFetchForSamples] Error loading sample file:', e);
       // fall through to not found
     }
 
@@ -77,7 +81,7 @@ export function mockFetchForSamples() {
 
 export function restoreFetchMock() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  if ((global as any).fetch && (global as any).fetch.mockReset) (global as any).fetch.mockReset();
+  if ((global as any).fetch && (global as any).fetch.mockClear) (global as any).fetch.mockClear();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   try { delete (global as any).fetch; } catch (_) { (global as any).fetch = undefined; }
 }

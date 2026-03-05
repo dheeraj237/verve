@@ -1,18 +1,21 @@
+import { vi, beforeEach, describe, it, expect } from 'vitest';
 import 'fake-indexeddb/auto';
 
-// Keep integration tests bounded so CI/dev runners don't wait indefinitely
-jest.setTimeout(10000);
+// Use real RxDB client for this test
+vi.unmock('@/core/rxdb/rxdb-client');
+
+import { useWorkspaceStore } from '@/core/store/workspace-store';
+import { useEditorStore } from '@/features/editor/store/editor-store';
+import { WorkspaceType } from '@/core/cache/types';
+import * as fileOps from '@/core/cache/file-manager';
 
 describe('workspace create & switch integration', () => {
-  beforeEach(() => {
-    jest.resetModules();
+  beforeEach(async () => {
+    // Don't reset modules as it breaks the initialized imports
+    await fileOps.initializeFileOperations();
   });
 
   it('creating workspaces and switching restores workspace-specific tabs and hierarchy', async () => {
-    const { useWorkspaceStore } = require('@/core/store/workspace-store');
-    const { useEditorStore } = require('@/features/editor/store/editor-store');
-    const { WorkspaceType } = require('@/core/cache/types');
-    const fileOps = await import('@/core/cache/file-manager');
 
     await fileOps.initializeFileOperations();
 

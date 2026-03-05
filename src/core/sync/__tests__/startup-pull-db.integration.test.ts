@@ -1,4 +1,5 @@
 import 'fake-indexeddb/auto';
+import { vi } from 'vitest';
 import { initializeFileOperations } from '@/core/cache/file-manager';
 import { getCacheDB } from '@/core/cache/file-manager';
 import { initializeSyncManager, stopSyncManager } from '@/core/sync/sync-manager';
@@ -10,7 +11,7 @@ describe('Startup pull integration (DB upsert)', () => {
   let manager: any;
 
   beforeAll(async () => {
-    jest.resetModules();
+    vi.resetModules();
     // ensure RxDB initialized
     await initializeFileOperations();
 

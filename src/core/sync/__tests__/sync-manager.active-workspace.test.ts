@@ -1,16 +1,18 @@
+import { vi } from 'vitest';
+import type { MockedFunction } from 'vitest';
 import { getSyncManager, stopSyncManager } from '@/core/sync/sync-manager';
 import { useWorkspaceStore } from '@/core/store/workspace-store';
 import { WorkspaceType } from '@/core/cache/types';
 
-jest.mock('@/core/cache', () => ({
-  observeCachedFiles: jest.fn(),
-  loadFile: jest.fn(),
-  markCachedFileAsSynced: jest.fn(),
-  getCacheDB: jest.fn(),
-  getDirtyCachedFiles: jest.fn(),
-  upsertCachedFile: jest.fn(),
-  saveFile: jest.fn(),
-  getCachedFile: jest.fn(),
+vi.mock('@/core/cache', () => ({
+  observeCachedFiles: vi.fn(),
+  loadFile: vi.fn(),
+  markCachedFileAsSynced: vi.fn(),
+  getCacheDB: vi.fn(),
+  getDirtyCachedFiles: vi.fn(),
+  upsertCachedFile: vi.fn(),
+  saveFile: vi.fn(),
+  getCachedFile: vi.fn(),
 }));
 
 import * as cache from '@/core/cache';
@@ -19,7 +21,7 @@ describe('SyncManager - active workspace subscription', () => {
   beforeEach(() => {
     // Reset workspace store to known state
     useWorkspaceStore.setState({ workspaces: [], activeWorkspaceId: null });
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     // Ensure singleton is fresh by stopping any existing manager
     try {
       stopSyncManager();
@@ -38,14 +40,14 @@ describe('SyncManager - active workspace subscription', () => {
 
   it('pushes dirty files only for active workspace', async () => {
     // Mock loadFile to return file content
-    (cache.loadFile as jest.MockedFunction<any>).mockResolvedValue({ content: 'hello' });
+    (cache.loadFile as MockedFunction<any>).mockResolvedValue({ content: 'hello' });
 
     // Create a fake adapter that records push calls
     const pushed: any[] = [];
     const adapter = {
       name: 'local',
       isReady: () => true,
-      push: jest.fn(async (descriptor: any, content: string) => {
+      push: vi.fn(async (descriptor: any, content: string) => {
         pushed.push({ descriptor, content });
         return true;
       }),

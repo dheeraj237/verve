@@ -1,4 +1,5 @@
 import 'fake-indexeddb/auto';
+import { vi } from 'vitest';
 
 import { initFileOps, destroyCacheDB } from '@/tests/helpers/test-utils';
 // Import SyncManager dynamically after initializing file operations to ensure
@@ -7,7 +8,7 @@ import { WorkspaceType } from '@/core/cache/types';
 
 describe('SyncManager.pullWorkspace (integration)', () => {
   beforeEach(async () => {
-    jest.resetModules();
+    vi.resetModules();
     await initFileOps();
   });
 

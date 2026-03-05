@@ -1,18 +1,20 @@
+import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { Mock } from 'vitest';
 import { SyncManager } from '@/core/sync/sync-manager';
 
-jest.mock('@/core/cache/file-manager', () => ({
-  getCachedFile: jest.fn(),
-  markCachedFileAsSynced: jest.fn(),
-  upsertCachedFile: jest.fn(),
-  loadFile: jest.fn(),
-  saveFile: jest.fn(),
+vi.mock('@/core/cache/file-manager', () => ({
+  getCachedFile: vi.fn(),
+  markCachedFileAsSynced: vi.fn(),
+  upsertCachedFile: vi.fn(),
+  loadFile: vi.fn(),
+  saveFile: vi.fn(),
 }));
 
 import { getCachedFile, loadFile } from '@/core/cache/file-manager';
 
 describe('SyncManager syncFile behavior (disable pull-after-push flag)', () => {
   beforeEach(() => {
-    jest.resetAllMocks();
+    vi.clearAllMocks();
   });
 
   it('does not call adapter.pull after a successful push when pullAfterPush is false', async () => {
@@ -20,22 +22,22 @@ describe('SyncManager syncFile behavior (disable pull-after-push flag)', () => {
 
     const adapterA = {
       name: 'gdrive',
-      push: jest.fn().mockResolvedValue(true),
-      pull: jest.fn().mockResolvedValue('remote content A'),
+      push: vi.fn().mockResolvedValue(true),
+      pull: vi.fn().mockResolvedValue('remote content A'),
     } as any;
 
     const adapterB = {
       name: 'local',
-      push: jest.fn().mockResolvedValue(false),
-      pull: jest.fn().mockResolvedValue('remote content B'),
+      push: vi.fn().mockResolvedValue(false),
+      pull: vi.fn().mockResolvedValue('remote content B'),
     } as any;
 
     manager.registerAdapter(adapterA);
     manager.registerAdapter(adapterB);
 
     // Mock cache/file operations
-    (getCachedFile as jest.Mock).mockResolvedValue({ id: 'f1', path: '/f1.md', workspaceType: 'gdrive', workspaceId: 'ws1' });
-    (loadFile as jest.Mock).mockResolvedValue({ content: 'local content' });
+    (getCachedFile as Mock).mockResolvedValue({ id: 'f1', path: '/f1.md', workspaceType: 'gdrive', workspaceId: 'ws1' });
+    (loadFile as Mock).mockResolvedValue({ content: 'local content' });
 
     // Enqueue and process should call into syncFile which will push but not pull
     await manager.enqueueAndProcess('f1', '/f1.md', 'gdrive', 'ws1');

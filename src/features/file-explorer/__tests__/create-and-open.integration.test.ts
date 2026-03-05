@@ -1,10 +1,9 @@
 import 'fake-indexeddb/auto';
+import { vi, describe } from 'vitest';
 
-jest.setTimeout(20000);
-
-describe('create file and open it via editor', () => {
+describe('create file and open it via editor', { timeout: 20000 }, () => {
   beforeEach(() => {
-    jest.resetModules();
+    vi.resetModules();
   });
 
   it('creating a file then opening it loads its content', async () => {
@@ -12,7 +11,7 @@ describe('create file and open it via editor', () => {
     const { useWorkspaceStore } = await import('@/core/store/workspace-store');
     const { useFileExplorerStore } = await import('@/features/file-explorer/store/file-explorer-store');
     const { useEditorStore } = await import('@/features/editor/store/editor-store');
-    const { WorkspaceType } = require('@/core/cache/types');
+    const { WorkspaceType } = await import('@/core/cache/types');
 
     await fileOps.initializeFileOperations();
 

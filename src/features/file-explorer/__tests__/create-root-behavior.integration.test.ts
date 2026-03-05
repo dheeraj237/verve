@@ -1,17 +1,16 @@
 import 'fake-indexeddb/auto';
-
-jest.setTimeout(10000);
+import { vi } from 'vitest';
 
 describe('file-explorer root create & workspace switch behavior', () => {
   beforeEach(() => {
-    jest.resetModules();
+    vi.resetModules();
   });
 
   it('uses currentDirectoryPath as root when creating a new file', async () => {
-    const { useWorkspaceStore } = require('@/core/store/workspace-store');
-    const { useFileExplorerStore } = require('@/features/file-explorer/store/file-explorer-store');
+    const { useWorkspaceStore } = await import('@/core/store/workspace-store');
+    const { useFileExplorerStore } = await import('@/features/file-explorer/store/file-explorer-store');
     const fileOps = await import('@/core/cache/file-manager');
-    const { WorkspaceType } = require('@/core/cache/types');
+    const { WorkspaceType } = await import('@/core/cache/types');
 
     await fileOps.initializeFileOperations();
 
@@ -40,10 +39,10 @@ describe('file-explorer root create & workspace switch behavior', () => {
   });
 
   it('switching active workspace changes currentDirectory and new creates go to the then-active root', async () => {
-    const { useWorkspaceStore } = require('@/core/store/workspace-store');
-    const { useFileExplorerStore } = require('@/features/file-explorer/store/file-explorer-store');
+    const { useWorkspaceStore } = await import('@/core/store/workspace-store');
+    const { useFileExplorerStore } = await import('@/features/file-explorer/store/file-explorer-store');
     const fileOps = await import('@/core/cache/file-manager');
-    const { WorkspaceType } = require('@/core/cache/types');
+    const { WorkspaceType } = await import('@/core/cache/types');
 
     await fileOps.initializeFileOperations();
 

@@ -1,20 +1,22 @@
-import { jest } from '@jest/globals';
+import { vi } from 'vitest';
+import type { Mock } from 'vitest';
 
-const saveFileMock: any = jest.fn(() => Promise.resolve({ id: 'file-1', name: 'doc', path: '/doc.md', content: 'new content' }));
-jest.mock('@/core/cache/file-manager', () => ({
-  initializeFileOperations: jest.fn(),
-  loadFile: jest.fn(),
-  saveFile: saveFileMock,
-  listFiles: jest.fn(),
+const enqueueMock = vi.fn();
+
+vi.mock('@/core/cache/file-manager', () => ({
+  initializeFileOperations: vi.fn(),
+  loadFile: vi.fn(),
+  saveFile: vi.fn(() => Promise.resolve({ id: 'file-1', name: 'doc', path: '/doc.md', content: 'new content' })),
+  listFiles: vi.fn(),
 }));
 
-const enqueueMock = jest.fn();
-jest.mock('@/core/sync/sync-manager', () => ({
+vi.mock('@/core/sync/sync-manager', () => ({
   getSyncManager: () => ({ enqueueAndProcess: enqueueMock }),
 }));
 
-const isFeatureEnabledMock = jest.fn(() => true);
-jest.mock('@/core/config/features', () => ({ isFeatureEnabled: isFeatureEnabledMock }));
+vi.mock('@/core/config/features', () => ({
+  isFeatureEnabled: vi.fn(() => true),
+}));
 
 import { useEditorStore } from '../editor-store';
 import { useWorkspaceStore } from '@/core/store/workspace-store';
@@ -25,7 +27,7 @@ import { WorkspaceType } from '@/core/cache/types';
 
 describe('applyEditorPatch sync behavior', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     // Set up workspace store with active workspace
     useWorkspaceStore.setState({ workspaces: [{ id: 'ws-1', name: 'WS', type: WorkspaceType.Local, createdAt: new Date().toISOString(), lastAccessed: new Date().toISOString() }], activeWorkspaceId: 'ws-1' });
@@ -42,7 +44,7 @@ describe('applyEditorPatch sync behavior', () => {
     // Allow promise microtasks to run
     await new Promise((r) => setTimeout(r, 0));
 
-    expect(saveFileMock).toHaveBeenCalledWith('/doc.md', 'new content', expect.any(String), undefined, 'ws-1');
+    expect(saveFile).toHaveBeenCalledWith('/doc.md', 'new content', expect.any(String), undefined, 'ws-1');
     expect(enqueueMock).toHaveBeenCalledWith('file-1', '/doc.md', expect.any(String), 'ws-1');
   });
 });

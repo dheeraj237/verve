@@ -1,10 +1,11 @@
 import 'fake-indexeddb/auto';
+import { vi } from 'vitest';
 import { initFileOps, destroyCacheDB } from '@/tests/helpers/test-utils';
 import { WorkspaceType } from '@/core/cache/types';
 
 describe('SyncManager pull for active workspace only (integration)', () => {
   beforeEach(async () => {
-    jest.resetModules();
+    vi.resetModules();
     await initFileOps();
   });
 
@@ -25,7 +26,7 @@ describe('SyncManager pull for active workspace only (integration)', () => {
     // Set active workspace in store
     useWorkspaceStore.setState({ workspaces: [{ id: 'ws-active', name: 'Active', type: WorkspaceType.GDrive, createdAt: new Date().toISOString(), lastAccessed: new Date().toISOString() }], activeWorkspaceId: 'ws-active' });
 
-    const adapter = { name: 'gdrive', push: jest.fn().mockResolvedValue(true), pull: jest.fn().mockResolvedValue('remote') } as any;
+    const adapter = { name: 'gdrive', push: vi.fn().mockResolvedValue(true), pull: vi.fn().mockResolvedValue('remote') } as any;
     manager.registerAdapter(adapter);
 
     (manager as any).pullAfterPush = true;
@@ -46,7 +47,7 @@ describe('SyncManager pull for active workspace only (integration)', () => {
 
     useWorkspaceStore.setState({ workspaces: [{ id: 'ws-active', name: 'Active', type: WorkspaceType.GDrive, createdAt: new Date().toISOString(), lastAccessed: new Date().toISOString() }], activeWorkspaceId: 'ws-active' });
 
-    const adapter = { name: 'gdrive', push: jest.fn().mockResolvedValue(true), pull: jest.fn().mockResolvedValue('remote') } as any;
+    const adapter = { name: 'gdrive', push: vi.fn().mockResolvedValue(true), pull: vi.fn().mockResolvedValue('remote') } as any;
     manager.registerAdapter(adapter);
 
     (manager as any).pullAfterPush = true;

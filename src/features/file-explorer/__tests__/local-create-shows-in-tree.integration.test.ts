@@ -1,17 +1,16 @@
 import 'fake-indexeddb/auto';
-
-jest.setTimeout(10000);
+import { vi } from 'vitest';
 
 describe('local workspace create updates file tree immediately', () => {
   beforeEach(() => {
-    jest.resetModules();
+    vi.resetModules();
   });
 
   it('creates a file in RxDB and updates the file tree for Local workspace', async () => {
-    const { useWorkspaceStore } = require('@/core/store/workspace-store');
-    const { useFileExplorerStore } = require('@/features/file-explorer/store/file-explorer-store');
+    const { useWorkspaceStore } = await import('@/core/store/workspace-store');
+    const { useFileExplorerStore } = await import('@/features/file-explorer/store/file-explorer-store');
     const fileOps = await import('@/core/cache/file-manager');
-    const { WorkspaceType } = require('@/core/cache/types');
+    const { WorkspaceType } = await import('@/core/cache/types');
 
     // Ensure RxDB is initialized
     await fileOps.initializeFileOperations();

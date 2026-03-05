@@ -5,7 +5,15 @@
  * - run processor with an adapter that fails => attempts increments
  * - run processor again with adapter that succeeds => entry removed and file marked synced
  */
+/**
+ * Integration test: verify sync_queue persistence and retry across processor runs.
+ *
+ * - enqueue an entry
+ * - run processor with an adapter that fails => attempts increments
+ * - run processor again with adapter that succeeds => entry removed and file marked synced
+ */
 import 'fake-indexeddb/auto';
+import { vi, describe, test, expect, beforeAll, afterAll } from 'vitest';
 import { createRxDatabase, addRxPlugin } from 'rxdb';
 import { getRxStorageDexie } from 'rxdb/plugins/storage-dexie';
 import { RxDBLeaderElectionPlugin } from 'rxdb/plugins/leader-election';
@@ -77,7 +85,7 @@ describe('sync queue persistence and retry integration', () => {
     await db.sync_queue.upsert({ id: 'qretry-1', op: SyncOp.Put, target: 'file', targetId: file.id, attempts: 0, createdAt: Date.now() });
 
     // Mock cache/rxdb helpers to point to our test db
-    jest.doMock('@/core/cache/file-manager', () => ({
+    vi.doMock('@/core/cache/file-manager', () => ({
       getCacheDB: () => db,
       getCachedFile: async (id: string) => {
         const doc = await db.cached_files.findOne({ selector: { id } }).exec();
