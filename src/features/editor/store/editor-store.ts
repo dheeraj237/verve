@@ -13,10 +13,7 @@ import { create } from "zustand";
 import { FileNode, FileType } from "@/shared/types";
 import { useWorkspaceStore } from "@/core/store/workspace-store";
 import { WorkspaceType } from '@/core/cache/types';
-import { initializeFileOperations, getFileNodeWithContent } from "@/core/cache/file-manager";
-import { fileRepo } from '@/core/cache/file-repo';
-import { isFeatureEnabled } from '@/core/config/features';
-import { getSyncManager } from '@/core/sync/sync-manager';
+import { loadFile, saveFile } from "@/core/cache/file-manager";
 
 // Debounce config for auto-save
 const DEBOUNCE_CONFIG = {
@@ -72,7 +69,6 @@ interface EditorStore {
   setCodeViewMode: (isCode: boolean) => void;
   setSourceMode: (isSource: boolean) => void;
   setFileSaving: (fileId: string, isSaving: boolean) => void;
-  setFileLastSaved: (fileId: string, lastSaved: Date) => void;
   setFileSaveError: (fileId: string, error?: string | null) => void;
 }
 
@@ -174,18 +170,6 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     },
   })),
 
-  /**
-   * Sets the last saved timestamp for a file (transient UI state, not persisted to FileNode)
-   */
-  setFileLastSaved: (fileId, lastSaved) => set((state) => ({
-    fileTabUiState: {
-      ...state.fileTabUiState,
-      [fileId]: {
-        ...(state.fileTabUiState[fileId] || {}),
-        lastSaved,
-      },
-    },
-  })),
 
   setFileSaveError: (fileId, error) => set((state) => ({
     fileTabUiState: {
@@ -240,25 +224,16 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       const workspace = useWorkspaceStore.getState().activeWorkspace?.();
       const workspaceId = workspace?.id;
 
-      fileRepo.saveFile(tab.path, content, workspaceType, undefined, workspaceId)
-        .then(async (fileData) => {
+      // Persist via file-manager only. Sync/enqueue behavior moved out of the editor store.
+      saveFile(tab.path, content, workspaceType, undefined, workspaceId)
+        .then((fileData) => {
           get().setFileSaving(fileId, false);
-          get().setFileLastSaved(fileId, new Date());
+          // Update the FileNode.modifiedAt directly on the open tab so UI reads authoritative value
+          const modifiedAt = (fileData as any)?.modifiedAt || new Date().toISOString();
+          set((state) => ({
+            openTabs: state.openTabs.map(t => t.id === fileId ? { ...t, modifiedAt } : t),
+          }));
           get().setFileSaveError(fileId, undefined);
-
-          try {
-            // If this save originated from the active workspace, trigger authoritative push
-            if (
-              isFeatureEnabled('authoritativePush' as any) &&
-              workspaceType !== WorkspaceType.Browser &&
-              workspaceId === useWorkspaceStore.getState().activeWorkspace?.()?.id
-            ) {
-              // fileData.id is the cached file id
-              await getSyncManager().enqueueAndProcess(fileData.id, tab.path, workspaceType, workspaceId);
-            }
-          } catch (e) {
-            console.warn('Failed to enqueue/process sync for saved file:', e);
-          }
         })
         .catch((err) => {
           console.error('Background save failed:', err);
@@ -282,14 +257,16 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       const workspaceType = getActiveWorkspaceType();
       const workspace = useWorkspaceStore.getState().activeWorkspace?.();
       const workspaceId = workspace?.id;
-      const fileData = await fileRepo.loadFile(path, workspaceType, workspaceId);
+
+      const effectiveType = isLocal ? WorkspaceType.Local : workspaceType;
+      const fileData = await loadFile(path, effectiveType, workspaceId);
 
       const fileNode: FileNode = {
         id: fileData.id,
         path: fileData.path,
         name: fileData.name,
         content: fileData.content,
-        workspaceType: isLocal ? WorkspaceType.Local : WorkspaceType.Browser,
+        workspaceType: effectiveType,
         workspaceId: workspaceId || '',
         type: FileType.File,
         dirty: false,
@@ -313,15 +290,12 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
    * Prompts user to select a markdown or text file
    */
   openLocalFile: async () => {
-    try {
-      // Open local directory via SyncManager facade. UI should rely on RxDB as source-of-truth.
-      const sm = await import('@/core/sync/sync-manager');
-      await sm.getSyncManager().requestOpenLocalDirectory();
-      // After directory is opened, UI can select files from the explorer which read from RxDB.
-    } catch (error) {
-      console.error('Error opening local directory via SyncManager:', error);
-      alert('Failed to open local directory: ' + (error as Error).message);
-    }
+    // Local directory opening via SyncManager was removed from the editor store.
+    // Use workspace-manager APIs (storeDirectoryHandle / requestPermissionForWorkspace)
+    // from the workspace flow instead. This is a no-op placeholder so callers
+    // don't crash but are reminded to use the workspace manager.
+    console.warn('openLocalFile removed from editor store; use workspace-manager APIs');
+    return Promise.resolve();
   },
 
   /**
@@ -334,89 +308,53 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
    * @param anchor - Optional heading anchor to scroll to (e.g., "heading-slug")
    */
   openFileByPath: async (relativePath: string, currentFilePath?: string, anchor?: string) => {
-    const { resolveRelativePath, findFileInTree } = await import("@/shared/utils/file-path-resolver");
-    const { useFileExplorerStore } = await import("@/features/file-explorer/store/file-explorer-store");
-
     try {
       set({ isLoading: true });
 
-      // Resolve the relative path
+      // Simple relative path resolver (handles ./ and ../). If relativePath is
+      // absolute (starts with '/'), use as-is.
       let targetPath = relativePath;
-      if (currentFilePath) {
-        const resolved = resolveRelativePath(currentFilePath, relativePath);
-        if (!resolved) {
-          throw new Error(`Invalid link path: ${relativePath}`);
+      if (currentFilePath && !relativePath.startsWith('/')) {
+        const baseDir = currentFilePath.replace(/\/[^/]*$/, '');
+        const baseSegments = baseDir.split('/').filter(Boolean);
+        const relSegments = relativePath.split('/').filter(Boolean);
+        const stack = [...baseSegments];
+        for (const seg of relSegments) {
+          if (seg === '.' || seg === '') continue;
+          if (seg === '..') {
+            stack.pop();
+          } else {
+            stack.push(seg);
+          }
         }
-        targetPath = resolved;
+        targetPath = '/' + stack.join('/');
       }
 
-      // Find the file in the tree (compute on demand from canonical map)
-      const fileTree = useFileExplorerStore.getState().getFileTree();
-      const fileNode = findFileInTree(fileTree, targetPath);
+      const workspaceType = getActiveWorkspaceType();
+      const workspace = useWorkspaceStore.getState().activeWorkspace?.();
+      const workspaceId = workspace?.id;
 
-      if (!fileNode) {
-        throw new Error(`File not found: ${targetPath}`);
-      }
+      // Load via file-manager only. UI-level file-tree lookups and local-file
+      // pulls are out of scope for the editor store (moved to file-explorer / sync).
+      const fileData = await loadFile(targetPath, workspaceType, workspaceId);
 
-      // Handle local files by pulling into RxDB via SyncManager, then reading from cache
-      if (fileNode.id.startsWith('local-file-')) {
-        const sm = await import('@/core/sync/sync-manager');
-        const activeWs = useWorkspaceStore.getState().activeWorkspace?.();
-        if (!activeWs || activeWs.type !== WorkspaceType.Local) {
-          throw new Error('No Local workspace active');
-        }
-        try {
-          await sm.getSyncManager().pullFileToCache(fileNode.path, WorkspaceType.Local, activeWs.id);
-        } catch (e) {
-          console.warn('Failed to pull local file to cache:', e);
-        }
-
-        const fileData = await fileRepo.loadFile(fileNode.path, WorkspaceType.Local, activeWs.id);
-
-        get().openFile({
-          id: fileData?.id || fileNode.id,
-          path: fileNode.path,
-          name: fileNode.name,
-          content: fileData?.content || '',
-          workspaceType: WorkspaceType.Local,
-          workspaceId: activeWs.id,
-          type: FileType.File,
-          dirty: false,
-          isSynced: true,
-          syncStatus: 'idle',
-          version: 0,
-          isLocal: true,
-        });
-      } else {
-        // Load from RxDB cache
-        const workspaceType = getActiveWorkspaceType();
-        const workspace = useWorkspaceStore.getState().activeWorkspace?.();
-        const workspaceId = workspace?.id;
-        const fileData = await fileRepo.loadFile(fileNode.path, workspaceType, workspaceId);
-
-        get().openFile({
-          id: fileData.id,
-          path: fileData.path,
-          name: fileData.name,
-          content: fileData.content,
-          workspaceType: workspaceType,
-          workspaceId: workspaceId || '',
-          type: FileType.File,
-          dirty: false,
-          isSynced: true,
-          syncStatus: 'idle',
-          version: 0,
-        });
-      }
+      get().openFile({
+        id: fileData.id,
+        path: fileData.path,
+        name: fileData.name,
+        content: fileData.content,
+        workspaceType: workspaceType,
+        workspaceId: workspaceId || '',
+        type: FileType.File,
+        dirty: false,
+        isSynced: true,
+        syncStatus: 'idle',
+        version: 0,
+      });
 
       if (anchor) {
-        setTimeout(async () => {
-          const { scrollToHeading } = await import('@/shared/utils/scroll-to-heading');
-          const success = scrollToHeading(anchor);
-          if (!success) {
-            console.warn(`Anchor not found: ${anchor}`);
-          }
-        }, 500);
+        // Anchor scrolling is a UI concern — editor store no longer performs scrolling.
+        console.warn('Anchor handling removed from editor store for openFileByPath');
       }
     } catch (error) {
       console.error('Failed to open file by path:', error);

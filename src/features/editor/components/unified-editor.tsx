@@ -13,7 +13,7 @@ import { LiveMarkdownEditor } from "./live-markdown-editor";
 import { isMarkdownFile } from "@/shared/utils/file-type-detector";
 
 export function Editor() {
-  const { isLoading, applyEditorPatch, setFileSaving, setFileLastSaved, isCodeViewMode, setCodeViewMode, editorViewKey } = useEditorStore();
+  const { isLoading, applyEditorPatch, setFileSaving, isCodeViewMode, setCodeViewMode, editorViewKey } = useEditorStore();
   const currentFile = useCurrentFile();
   const [editableContent, setEditableContent] = useState("");
   const [hasChanges, setHasChanges] = useState(false);
@@ -74,8 +74,7 @@ export function Editor() {
       }
 
       setHasChanges(false);
-      const savedTime = new Date();
-      setFileLastSaved(currentFile.id, savedTime);
+      // `modifiedAt` is provided on the `FileNode` after save; UI should read that value.
       lastContentRef.current = sanitizedContent;
 
       if (!isAutoSave) {
@@ -89,7 +88,7 @@ export function Editor() {
     } finally {
       setFileSaving(currentFile.id, false);
     }
-  }, [currentFile, hasChanges, editableContent, applyEditorPatch, setFileSaving, setFileLastSaved]);
+  }, [currentFile, hasChanges, editableContent, applyEditorPatch, setFileSaving]);
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 's') {

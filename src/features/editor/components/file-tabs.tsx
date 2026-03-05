@@ -19,9 +19,13 @@ export function FileTabs() {
 
   if (openTabs.length === 0) return null;
 
-  const formatLastSaved = (lastSaved?: Date) => {
-    if (!lastSaved) return "Not saved yet";
-    return `Last saved: ${lastSaved.toLocaleString()}`;
+  const formatLastSaved = (modifiedAt?: string) => {
+    if (!modifiedAt) return "Not saved yet";
+    try {
+      return `Last saved: ${new Date(modifiedAt).toLocaleString()}`;
+    } catch (_) {
+      return "Last saved: unknown";
+    }
   };
 
   return (
@@ -38,7 +42,7 @@ export function FileTabs() {
                     : "bg-muted/30 text-muted-foreground hover:bg-muted/50 hover:text-foreground border-t-2 border-t-transparent"
                 )}
                 onClick={() => setActiveTab(tab.id)}
-                title={`${tab.path} - Last saved: ${formatLastSaved(fileTabUiState[tab.id]?.lastSaved)}`}
+                title={`${tab.path} - ${formatLastSaved(tab.modifiedAt)}`}
               >
                 {activeTabId === tab.id && (
                   <div className="absolute bottom-0 left-0 right-0 h-0.5 shadow-sm" />
@@ -84,7 +88,7 @@ export function FileTabs() {
             <TooltipContent side="bottom" sideOffset={8} className="text-xs max-w-xs" asChild={false}>
               <div className="space-y-1">
                 <div className="font-medium">{tab.path}</div>
-                <div className="text-muted-foreground">{formatLastSaved(fileTabUiState[tab.id]?.lastSaved)}</div>
+                <div className="text-muted-foreground">{formatLastSaved(tab.modifiedAt)}</div>
               </div>
             </TooltipContent>
           </Tooltip>
