@@ -41,10 +41,13 @@ export async function createRxDB(): Promise<void> {
     }
 
   try {
-    // If an existing IDB named 'verve' exists, delete it first to avoid
-    // duplicate-open errors when running tests in the same process.
+    // In test environments we may need to delete an existing DB to avoid
+    // duplicate-open errors when running multiple Jest workers. Only delete
+    // the DB when explicitly running under Jest to avoid wiping real user
+    // data (including persisted File System handles) on normal app reloads.
     const dbName = typeof process !== 'undefined' && process.env.JEST_WORKER_ID ? `verve_${process.env.JEST_WORKER_ID}` : 'verve';
-    if (typeof indexedDB !== 'undefined' && typeof (indexedDB as any).deleteDatabase === 'function') {
+    const isJest = typeof process !== 'undefined' && !!process.env.JEST_WORKER_ID;
+    if (isJest && typeof indexedDB !== 'undefined' && typeof (indexedDB as any).deleteDatabase === 'function') {
       try {
         await new Promise<void>((resolve) => {
           try {
