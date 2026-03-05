@@ -18,14 +18,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const rightPanelRef = useRef<ImperativePanelHandle>(null);
   const [isMobile, setIsMobile] = useState(false);
 
-  const {
-    leftPanelCollapsed,
-    rightPanelCollapsed,
-    closeLeftPanel,
-    closeRightPanel,
-    openLeftPanel,
-    openRightPanel,
-  } = usePanelStore();
+  const { leftPanelOpen, rightPanelOpen, leftSize, rightSize, setLeftSize, setRightSize } = usePanelStore();
 
   const { isWorkspaceSwitching } = useWorkspaceStore();
   const isLoading = useLoadingStore((s) => s.isLoading);
@@ -46,60 +39,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Auto-close left panel when file is selected on mobile
-  useEffect(() => {
-    if (isMobile && activeTabId !== null) {
-      closeLeftPanel();
-    }
-  }, [activeTabId, isMobile, closeLeftPanel]);
-
-  // On mobile, if no file is opened, ensure left panel is visible at 90%
-  useEffect(() => {
-    if (isMobile && activeTabId === null && leftPanelRef.current) {
-      // set a large width for explorer and open
-      leftPanelRef.current.resize(90);
-      openLeftPanel();
-    }
-  }, [activeTabId, isMobile, openLeftPanel]);
-
-  // Auto-close right panel when heading is selected on mobile
-  useEffect(() => {
-    // Only act when there's a real selection (non-empty string)
-    if (isMobile && activeId) {
-      closeRightPanel();
-    }
-  }, [activeId, isMobile, closeRightPanel]);
-
-  // When TOC becomes visible on mobile (live mode), open it at 90%
-  useEffect(() => {
-    if (isMobile && showToc && rightPanelRef.current) {
-      rightPanelRef.current.resize(90);
-      openRightPanel();
-    }
-    // If TOC is not shown, ensure it's closed on mobile
-    if (isMobile && !showToc) {
-      closeRightPanel();
-    }
-  }, [isMobile, showToc, openRightPanel, closeRightPanel]);
+  // NOTE: Mobile auto-open/close behavior has been removed. Panel visibility
+  // is controlled by explicit toggles. Size persistence and control are
+  // delegated to react-resizable-panels (via `autoSaveId`) instead of storing
+  // sizes in the app store.
 
   useEffect(() => {
-    if (leftPanelRef.current) {
-      if (leftPanelCollapsed) {
-        leftPanelRef.current.collapse();
-      } else {
-        leftPanelRef.current.expand();
-      }
-    }
-  }, [leftPanelCollapsed]);
+    if (!leftPanelRef.current) return;
+    if (leftPanelOpen) leftPanelRef.current.expand();
+    else leftPanelRef.current.collapse();
+  }, [leftPanelOpen]);
 
   useEffect(() => {
-    if (rightPanelRef.current) {
-      if (rightPanelCollapsed) {
-        rightPanelRef.current.collapse();
-      } else {
-        rightPanelRef.current.expand();
-      }
-    }
-  }, [rightPanelCollapsed]);
+    if (!rightPanelRef.current) return;
+    if (rightPanelOpen) rightPanelRef.current.expand();
+    else rightPanelRef.current.collapse();
+  }, [rightPanelOpen]);
 
   return (
     <div className="h-screen flex flex-col relative">
@@ -118,11 +73,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         )}
 
-        <PanelGroup direction="horizontal" autoSaveId="main-layout">
+        {/* @ts-ignore: react-resizable-panels onLayout callback (sizes array) */}
+        <PanelGroup
+          direction="horizontal"
+          autoSaveId="main-layout"
+          onLayout={(sizes: any) => {
+            // sizes is an array of fractions summing to 1. Map to percentages.
+            if (Array.isArray(sizes) && sizes.length) {
+              const leftPct = Math.round((sizes[0] || 0) * 100);
+              const rightPct = Math.round((sizes[sizes.length - 1] || 0) * 100);
+              setLeftSize(leftPct);
+              setRightSize(rightPct);
+            }
+          }}
+        >
           <Panel
             ref={leftPanelRef}
             id="left-panel"
-            defaultSize={isMobile ? 90 : 20}
+            defaultSize={isMobile ? 90 : leftSize}
             minSize={isMobile ? 0 : 15}
             maxSize={isMobile ? 90 : 40}
             collapsible
@@ -138,7 +106,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               {children}
             </div>
           </Panel>
-
           {showToc && (
             <>
               <PanelResizeHandle className="w-1 bg-sidebar-border hover:bg-primary hover:w-1.5 transition-all cursor-col-resize" />
@@ -146,7 +113,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Panel
                 ref={rightPanelRef}
                 id="right-panel"
-                defaultSize={isMobile ? 90 : 20}
+                defaultSize={isMobile ? 90 : rightSize}
                 minSize={isMobile ? 0 : 10}
                 maxSize={isMobile ? 90 : 30}
                 collapsible

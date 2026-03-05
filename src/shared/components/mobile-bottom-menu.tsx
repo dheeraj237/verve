@@ -10,11 +10,16 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/shared/components/ui/button";
 import { Separator } from "@/shared/components/ui/separator";
 import { usePanelStore } from "@/core/store/panel-store";
+import { useEditorStore, useCurrentFile } from "@/features/editor/store/editor-store";
+import { isMarkdownFile } from "@/shared/utils/file-type-detector";
 import { cn } from "@/shared/utils/cn";
 
 export function MobileBottomMenu() {
-  const { toggleLeftPanel, toggleRightPanel, leftPanelCollapsed, rightPanelCollapsed } =
-    usePanelStore();
+  const { toggleLeft, toggleRight, leftPanelOpen, rightPanelOpen } = usePanelStore();
+  const { activeTabId, isCodeViewMode } = useEditorStore();
+  const currentFile = useCurrentFile();
+  const isMarkdown = currentFile ? isMarkdownFile(currentFile.name) : false;
+  const showToc = activeTabId !== null && isMarkdown && !isCodeViewMode;
   const navigate = useNavigate();
 
   const handleHome = () => {
@@ -29,22 +34,24 @@ export function MobileBottomMenu() {
         variant="ghost"
         size="icon"
         className="cursor-pointer h-10 w-10"
-        onClick={toggleLeftPanel}
-        title={leftPanelCollapsed ? "Show File Explorer" : "Hide File Explorer"}
+        onClick={toggleLeft}
+        title={leftPanelOpen ? "Hide File Explorer" : "Show File Explorer"}
       >
-        <Menu className={cn("h-5 w-5", leftPanelCollapsed === false && "opacity-50")} />
+        <Menu className={cn("h-5 w-5", leftPanelOpen === false && "opacity-50")} />
       </Button>
 
       {/* Table of Contents Toggle */}
-      <Button
-        variant="ghost"
-        size="icon"
-        className="cursor-pointer h-10 w-10"
-        onClick={toggleRightPanel}
-        title={rightPanelCollapsed ? "Show Table of Contents" : "Hide Table of Contents"}
-      >
-        <List className={cn("h-5 w-5", rightPanelCollapsed === false && "opacity-50")} />
-      </Button>
+      {showToc && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="cursor-pointer h-10 w-10"
+          onClick={toggleRight}
+          title={rightPanelOpen ? "Hide Table of Contents" : "Show Table of Contents"}
+        >
+          <List className={cn("h-5 w-5", rightPanelOpen === false && "opacity-50")} />
+        </Button>
+      )}
 
       {/* Home Button */}
       <Separator orientation="vertical" className="h-6" />

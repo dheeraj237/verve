@@ -6,29 +6,31 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 interface PanelState {
-  leftPanelCollapsed: boolean;
-  rightPanelCollapsed: boolean;
+  // Whether left/right panels are open (true) or closed (false)
+  leftPanelOpen: boolean;
+  rightPanelOpen: boolean;
 
-  toggleLeftPanel: () => void;
-  toggleRightPanel: () => void;
-  closeLeftPanel: () => void;
-  closeRightPanel: () => void;
-  openLeftPanel: () => void;
-  openRightPanel: () => void;
+  // Toggle actions for UI buttons
+  toggleLeft: () => void;
+  toggleRight: () => void;
+  // Persisted sizes (percentages 0-100) used as defaults
+  leftSize: number;
+  rightSize: number;
+  setLeftSize: (pct: number) => void;
+  setRightSize: (pct: number) => void;
 }
+
 export const usePanelStore = create<PanelState>()(
   persist(
     (set) => ({
-      leftPanelCollapsed: false,
-      rightPanelCollapsed: false,
-      toggleLeftPanel: () =>
-        set((state) => ({ leftPanelCollapsed: !state.leftPanelCollapsed })),
-      toggleRightPanel: () =>
-        set((state) => ({ rightPanelCollapsed: !state.rightPanelCollapsed })),
-      closeLeftPanel: () => set({ leftPanelCollapsed: true }),
-      closeRightPanel: () => set({ rightPanelCollapsed: true }),
-      openLeftPanel: () => set({ leftPanelCollapsed: false }),
-      openRightPanel: () => set({ rightPanelCollapsed: false }),
+      leftPanelOpen: true,
+      rightPanelOpen: true,
+      leftSize: 20,
+      rightSize: 20,
+      setLeftSize: (pct: number) => set({ leftSize: Math.max(0, Math.min(100, Math.round(pct))) }),
+      setRightSize: (pct: number) => set({ rightSize: Math.max(0, Math.min(100, Math.round(pct))) }),
+      toggleLeft: () => set((s) => ({ leftPanelOpen: !s.leftPanelOpen })),
+      toggleRight: () => set((s) => ({ rightPanelOpen: !s.rightPanelOpen })),
     }),
     {
       name: "panel-storage",

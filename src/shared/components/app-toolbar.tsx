@@ -22,7 +22,7 @@ import React from "react";
 
 export function AppToolbar() {
   const navigate = useNavigate();
-  const { toggleLeftPanel, toggleRightPanel, leftPanelCollapsed, rightPanelCollapsed } = usePanelStore();
+  const { toggleLeft, toggleRight, leftPanelOpen, rightPanelOpen } = usePanelStore();
   const { activeTabId, isCodeViewMode, setCodeViewMode } = useEditorStore();
   const currentFile = useCurrentFile();
   const { isLoggedIn, setProfile } = useUserStore();
@@ -30,6 +30,7 @@ export function AppToolbar() {
 
   const hasActiveFile = activeTabId !== null;
   const isMarkdown = currentFile ? isMarkdownFile(currentFile.name) : false;
+  const showToc = hasActiveFile && isMarkdown && !isCodeViewMode;
   const appTitleEnabled = isFeatureEnabled("appTitle");
   const driveEnabled = isFeatureEnabled("googleDriveSync");
 
@@ -120,26 +121,28 @@ export function AppToolbar() {
           variant="ghost"
           size="icon"
           className="cursor-pointer h-8 w-8 hidden lg:inline-flex"
-          onClick={toggleLeftPanel}
+          onClick={toggleLeft}
         >
-          {leftPanelCollapsed ? (
+          {leftPanelOpen ? (
+            <PanelLeftClose className="h-4 w-4" />
+          ) : (
             <PanelLeft className="h-4 w-4" />
-          ) : (
-              <PanelLeftClose className="h-4 w-4" />
           )}
         </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="cursor-pointer h-8 w-8 hidden lg:inline-flex"
-          onClick={toggleRightPanel}
-        >
-          {rightPanelCollapsed ? (
-            <PanelRight className="h-4 w-4" />
-          ) : (
+        {showToc && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="cursor-pointer h-8 w-8 hidden lg:inline-flex"
+            onClick={toggleRight}
+          >
+            {rightPanelOpen ? (
               <PanelRightClose className="h-4 w-4" />
-          )}
-        </Button>
+            ) : (
+              <PanelRight className="h-4 w-4" />
+            )}
+          </Button>
+        )}
 
         <Separator orientation="vertical" className="h-6 hidden lg:block" />
         <ThemeToggle />

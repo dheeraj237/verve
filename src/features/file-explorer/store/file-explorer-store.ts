@@ -167,6 +167,25 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
         }
       },
 
+      // Replace children for a directory path in a nested FileNode tree
+      _replaceChildrenInTree: (nodes: FileNode[], dirPath: string, newChildren: FileNode[]) => {
+        let replaced = false;
+        function walk(list: FileNode[]): FileNode[] {
+          return list.map((n) => {
+            if (n.path === dirPath) {
+              replaced = true;
+              return { ...n, children: newChildren } as FileNode;
+            }
+            if (n.children && n.children.length) {
+              return { ...n, children: walk(n.children) } as FileNode;
+            }
+            return n;
+          });
+        }
+        const tree = walk(nodes);
+        return { tree, replaced };
+      },
+
       // Helper: normalize paths for comparison (strip leading/trailing slashes)
       normalizePathForCompare: (p: string) => {
         if (!p) return '';
