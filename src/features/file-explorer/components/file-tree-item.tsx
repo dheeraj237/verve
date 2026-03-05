@@ -9,8 +9,7 @@ import { InlineInput } from "./inline-input";
 import { toast } from "@/shared/utils/toast";
 import { Button } from "@/shared/components/ui/button";
 import { useWorkspaceStore } from "@/core/store/workspace-store";
-import { getSyncManager } from '@/core/sync/sync-manager';
-import { loadFile as loadFileData, subscribeToFileChanges, getCachedFile, getDirtyFiles } from "@/core/cache";
+import { loadFile as loadFileData, subscribeToFileChanges, getCachedFile, getDirtyFiles } from "@/core/cache/file-manager";
 import { WorkspaceType } from '@/core/cache/types';
 
 interface FileTreeItemProps {
@@ -153,92 +152,42 @@ export function FileTreeItem({ node, level, parentNode }: FileTreeItemProps) {
 
   const loadFile = async () => {
     setIsLoading(true);
+    const startTime = performance.now();
+    console.log(`[FileTreeItem] Loading file:`, {
+      nodeId: node.id,
+      nodePath: node.path,
+      nodeName: node.name,
+      nodeWorkspaceType: node.workspaceType,
+      nodeWorkspaceId: node.workspaceId,
+    });
 
     try {
-      // Get active workspace to determine how to load the file
-      const activeWorkspace = useWorkspaceStore.getState().activeWorkspace();
+      // Use file-manager to load file content with node's workspace context
+      const fileData = await loadFileData(
+        node.path,
+        node.workspaceType || WorkspaceType.Browser,
+        node.workspaceId
+      );
 
+      console.log(`[FileTreeItem] File data loaded:`, {
+        id: fileData?.id,
+        path: fileData?.path,
+        contentLength: fileData?.content?.length || 0,
+      });
 
-
-
-
-      // Handle local files by asking SyncManager to pull into RxDB, then read from cache
-      if (node.id.startsWith('local-file-')) {
-        if (!activeWorkspace || activeWorkspace.type !== WorkspaceType.Local) {
-          throw new Error('No Local workspace active');
-        }
-        try {
-          await getSyncManager().pullFileToCache(node.path, WorkspaceType.Local, activeWorkspace.id);
-        } catch (e) {
-          console.warn('Failed to pull local file to cache:', e);
-        }
-
-        const fileData = await loadFileData(node.path, WorkspaceType.Local, activeWorkspace?.id);
-
-        openFile({
-          ...fileData,
-          id: fileData?.id || node.id,
-          path: node.path,
-          name: node.name,
-          content: fileData?.content || '',
-          isLocal: true,
-        } as FileNode);
-      } else if (node.id.startsWith('gdrive-')) {
-        // Google Drive file - load from RxDB cache
-        if (!activeWorkspace || activeWorkspace.type !== WorkspaceType.GDrive) {
-          throw new Error('No Google Drive workspace active');
-        }
-
-        const fileData = await loadFileData(node.path, WorkspaceType.GDrive, activeWorkspace?.id);
-
-        openFile({
-          ...fileData,
-          id: fileData?.id || node.id,
-          path: node.path,
-          name: node.name,
-          content: fileData.content,
-        } as FileNode);
-      } else if (node.id.startsWith('samples-') && activeWorkspace?.id === 'verve-samples') {
-        // Load from verve-samples workspace from RxDB cache
-        const fileData = await loadFileData(node.path, WorkspaceType.Browser, activeWorkspace?.id);
-
-        openFile({
-          ...fileData,
-          id: fileData?.id || node.id,
-          path: node.path,
-          name: node.name,
-          content: fileData.content,
-        } as FileNode);
-      } else if (activeWorkspace?.type === WorkspaceType.Browser && activeWorkspace.id !== 'verve-samples') {
-        // Browser workspace (non-samples) - load from RxDB cache
-        const fileData = await loadFileData(node.path, WorkspaceType.Browser, activeWorkspace?.id);
-
-        openFile({
-          ...fileData,
-          id: fileData?.id || node.id,
-          path: node.path,
-          name: node.name,
-          content: fileData.content,
-        } as FileNode);
-      } else {
-        // Fallback: attempt to load from public directory (relative path for Vite)
-        const response = await fetch(`content${node.path}`);
-        if (!response.ok) {
-          throw new Error(`Failed to load file: ${response.statusText}`);
-        }
-        const content = await response.text();
-
-        openFile({
-          id: node.id,
-          path: node.path,
-          name: node.name,
-          content,
-        } as FileNode);
-      }
+      openFile({
+        ...fileData,
+        id: fileData?.id || node.id,
+        path: node.path,
+        name: node.name,
+        content: fileData?.content || '',
+      } as FileNode);
     } catch (error) {
       console.error("Error loading file:", error);
       alert('Failed to load file: ' + (error as Error).message);
     } finally {
+      const elapsed = performance.now() - startTime;
+      console.log(`[FileTreeItem] File loading completed in ${elapsed.toFixed(2)}ms`);
       setIsLoading(false);
     }
   };

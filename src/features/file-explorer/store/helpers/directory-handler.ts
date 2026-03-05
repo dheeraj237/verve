@@ -1,8 +1,13 @@
 import { FileNode } from "@/shared/types";
 import { buildFileTreeFromDirectory, buildFileTreeFromAdapter } from "./file-tree-builder";
-import { getSyncManager } from '@/core/sync/sync-manager';
 import { WorkspaceType } from '@/core/cache/types';
-import { removeDirectoryHandle } from '@/core/cache/workspace-manager';
+import {
+  removeDirectoryHandle,
+  openLocalDirectory as workspaceOpenLocalDirectory,
+  requestPermissionForLocalWorkspace,
+  hasLocalDirectory,
+  clearLocalDirectory as workspaceClearLocalDirectory
+} from '@/core/cache/workspace-manager';
 
 /**
  * Opens a local directory using File System Access API
@@ -18,11 +23,10 @@ export async function openLocalDirectory(workspaceId?: string): Promise<{
   path: string;
   fileTree: FileNode[];
 }> {
-  // Delegate to SyncManager facade which runs user-gesture directory picker and adapter scanning.
-  const sm = getSyncManager();
-  await sm.requestOpenLocalDirectory(workspaceId);
+  // Delegate to workspace manager facade which handles File System Access API and directory scanning
+  await workspaceOpenLocalDirectory(workspaceId);
 
-  // After adapter has scanned and upserted files into RxDB, build file tree from cache.
+  // After directory has been scanned and files upserted into cache, build file tree from cache
   const tree = await buildFileTreeFromAdapter(undefined, '', 'local-', WorkspaceType.Local, workspaceId);
   // Name/path are best-effort: use workspaceId as path when available
   return { name: workspaceId ?? 'Local', path: workspaceId ?? '/', fileTree: tree };
@@ -41,8 +45,7 @@ export async function restoreLocalDirectory(workspaceId: string): Promise<{
   fileTree: FileNode[];
 } | null> {
   try {
-    const sm = getSyncManager();
-    const ok = await sm.requestPermissionForLocalWorkspace(workspaceId);
+    const ok = await requestPermissionForLocalWorkspace(workspaceId);
     if (!ok) return null;
     const tree = await buildFileTreeFromAdapter(undefined, '', 'local-', WorkspaceType.Local, workspaceId);
     return { name: workspaceId, path: workspaceId, fileTree: tree };
@@ -62,8 +65,7 @@ export async function promptPermissionAndRestore(workspaceId: string): Promise<{
   fileTree: FileNode[];
 } | null> {
   try {
-    const sm = getSyncManager();
-    const ok = await sm.requestPermissionForLocalWorkspace(workspaceId);
+    const ok = await requestPermissionForLocalWorkspace(workspaceId);
     if (!ok) return null;
     const tree = await buildFileTreeFromAdapter(undefined, '', 'local-', WorkspaceType.Local, workspaceId);
     return { name: workspaceId, path: workspaceId, fileTree: tree };
@@ -80,9 +82,8 @@ export async function promptPermissionAndRestore(workspaceId: string): Promise<{
  * @returns Promise with the updated file tree or null if no directory is open
  */
 export async function refreshLocalDirectory(): Promise<FileNode[] | null> {
-  // Rebuild tree from RxDB cache for the active local workspace
+  // Rebuild tree from cache for the active local workspace
   try {
-    const sm = getSyncManager();
     // Attempt to discover active workspace id
     const activeWs = (await import('@/core/store/workspace-store')).useWorkspaceStore.getState().activeWorkspace?.();
     const wsId = activeWs?.id;
@@ -99,37 +100,36 @@ export async function refreshLocalDirectory(): Promise<FileNode[] | null> {
  * 
  * @returns true if a directory handle exists
  */
-export function hasLocalDirectory(): boolean {
-  // Query local adapter readiness via SyncManager
-  try {
-    const adapter = getSyncManager().getAdapter('local');
-    if (!adapter) return false;
-    return typeof (adapter as any).isReady === 'function' ? (adapter as any).isReady() : false;
-  } catch (e) {
-    return false;
-  }
+export async function hasLocalDirectoryAsync(): Promise<boolean> {
+  return await hasLocalDirectory();
 }
 
 /**
  * Clears the currently open local directory
  * Removes the global directory handle reference
  */
-export function clearLocalDirectory(): void {
-  // Dispose local adapter and remove stored directory handle from IndexedDB
+export async function clearLocalDirectory(): Promise<void> {
+  // Dispose local adapter and remove stored directory handle from cache
   try {
-    const adapter = getSyncManager().getAdapter('local');
-    if (adapter && typeof (adapter as any).dispose === 'function') {
-      (adapter as any).dispose().catch(() => { });
-    }
+    await workspaceClearLocalDirectory();
   } catch (e) {
     // ignore
   }
   try {
-    import('@/core/store/workspace-store').then((mod) => {
-      try {
-        const wsId = mod.useWorkspaceStore.getState().activeWorkspace?.()?.id;
-        if (wsId) (async () => { try { await removeDirectoryHandle(wsId); } catch (_) { } })();
-      } catch (_) { }
-    }).catch(() => { });
-  } catch (_) { }
+    const mod = await import('@/core/store/workspace-store');
+    try {
+      const wsId = mod.useWorkspaceStore.getState().activeWorkspace?.()?.id;
+      if (wsId) {
+        try {
+          await removeDirectoryHandle(wsId);
+        } catch (_) {
+          // ignore
+        }
+      }
+    } catch (_) {
+      // ignore
+    }
+  } catch (_) {
+    // ignore
+  }
 }

@@ -256,12 +256,25 @@ export async function loadFile(
 async function loadFileSync(path: string, workspaceType: WorkspaceType = WorkspaceType.Browser, workspaceId?: string): Promise<FileData> {
   const db = await getCacheDB();
   const cached = await getCachedFile(path, workspaceId);
+  console.log(`[file-manager] loadFileSync start:`, {
+    path,
+    workspaceType,
+    workspaceId,
+    cachedFound: !!cached,
+  });
   try { console.debug('[file-manager] loadFileSync cached=', JSON.stringify(cached)); } catch (_) { }
   if (cached) {
     // Prefer retrieving the canonical doc by id from rxdb-client
     const doc = (await getDoc<FileNode>('files', cached.id)) || (cached as unknown as FileNode);
+    console.log("loadFileSync", doc);
+    
     try { console.debug('[file-manager] loadFileSync doc=', JSON.stringify(doc)); } catch (_) { }
     const content = doc.content || '';
+    console.log(`[file-manager] loadFileSync returning cached content:`, {
+      docId: doc.id,
+      contentLength: content.length,
+      contentPreview: content.substring(0, 150),
+    });
     return {
       id: doc.id,
       name: doc.name,
@@ -271,6 +284,7 @@ async function loadFileSync(path: string, workspaceType: WorkspaceType = Workspa
       mimeType: doc.mimeType,
     };
   }
+  console.warn(`[file-manager] loadFileSync NO CACHE found, returning empty content for path:`, path);
   return {
     id: uuidv4(),
     name: path.split('/').pop() || 'untitled',

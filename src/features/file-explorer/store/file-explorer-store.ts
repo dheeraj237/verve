@@ -358,11 +358,11 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
       openLocalDirectory: async (workspaceId?: string) => {
         try {
           set({ isLoadingLocalFiles: true });
-          const sm = await import('@/core/sync/sync-manager');
+          const { openLocalDirectory: wsOpenLocalDirectory } = await import('@/core/cache/workspace-manager');
           try {
-            await sm.getSyncManager().requestOpenLocalDirectory(workspaceId);
+            await wsOpenLocalDirectory(workspaceId);
           } catch (err) {
-            console.warn('requestOpenLocalDirectory failed, falling back to cache refresh', err);
+            console.warn('openLocalDirectory failed, falling back to cache refresh', err);
             // fallback to cache refresh
             await get().refreshFileTree();
             const activeWs = useWorkspaceStore.getState().activeWorkspace?.();
@@ -383,8 +383,8 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
       restoreLocalDirectory: async (workspaceId: string): Promise<boolean> => {
         try {
           set({ isLoadingLocalFiles: true });
-          const sm = await import('@/core/sync/sync-manager');
-          const ok = await sm.getSyncManager().requestPermissionForLocalWorkspace(workspaceId);
+          const { requestPermissionForLocalWorkspace } = await import('@/core/cache/workspace-manager');
+          const ok = await requestPermissionForLocalWorkspace(workspaceId);
           if (!ok) {
             await get().refreshFileTree();
             return false;
@@ -406,8 +406,8 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
       requestPermissionForWorkspace: async (workspaceId: string): Promise<boolean> => {
         try {
           set({ isLoadingLocalFiles: true });
-          const sm = await import('@/core/sync/sync-manager');
-          const ok = await sm.getSyncManager().requestPermissionForLocalWorkspace(workspaceId);
+          const { requestPermissionForLocalWorkspace } = await import('@/core/cache/workspace-manager');
+          const ok = await requestPermissionForLocalWorkspace(workspaceId);
           await get().refreshFileTree();
           return !!ok;
         } catch (error) {
@@ -427,37 +427,7 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
         try {
           const filePath = parentPath ? `${parentPath}/${fileName}` : fileName;
           const activeWs = useWorkspaceStore.getState().activeWorkspace?.();
-          // If this is a Local workspace and a directory handle/adapter is available,
-          // create the file on disk first so the FS remains authoritative.
-          if (activeWs && activeWs.type === WorkspaceType.Local) {
-            try {
-              const sm = await import('@/core/sync/sync-manager');
-              const localAdapter = sm.getSyncManager().getAdapter('local');
-              const workspaceId = activeWs.id;
-              if (localAdapter && typeof (localAdapter as any).isReady === 'function' && (localAdapter as any).isReady()) {
-                const fileMeta: any = {
-                  id: filePath,
-                  name: fileName,
-                  path: filePath,
-                  type: FileType.File,
-                  workspaceType: WorkspaceType.Local,
-                  workspaceId: workspaceId,
-                } as FileNode;
-                try {
-                  await (localAdapter as any).push(fileMeta, '');
-                } catch (pe) {
-                  console.warn('Local adapter push failed for createFile, falling back to cache-only', pe);
-                }
-                // Persist to RxDB so file-explorer can rebuild from cache
-                await saveFile(filePath, '', activeWs?.type ?? WorkspaceType.Browser, { mimeType: 'text/markdown' }, workspaceId);
-                await get()._updateFileTreeForDirectory(parentPath || '');
-                return;
-              }
-            } catch (e) {
-              console.warn('Failed to create file on local adapter, falling back to cache-only', e);
-            }
-          }
-
+          // Use file-manager to create file (handles sync internally if needed)
           await saveFile(filePath, '', activeWs?.type ?? WorkspaceType.Browser, { mimeType: 'text/markdown' }, activeWs?.id);
           await get()._updateFileTreeForDirectory(parentPath || '');
         } catch (error) {

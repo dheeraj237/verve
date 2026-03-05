@@ -162,3 +162,62 @@ export async function requestPermissionForWorkspace(workspaceId: string): Promis
     return null;
   }
 }
+
+/**
+ * Request permission for a local workspace handle (must be called from a user gesture).
+ * This internally uses SyncManager to request permission via File System Access API.
+ */
+export async function requestPermissionForLocalWorkspace(workspaceId: string): Promise<boolean> {
+  try {
+    const sm = await import('@/core/sync/sync-manager');
+    const ok = await sm.getSyncManager().requestPermissionForLocalWorkspace(workspaceId);
+    return !!ok;
+  } catch (err) {
+    console.warn('requestPermissionForLocalWorkspace failed:', err);
+    return false;
+  }
+}
+
+/**
+ * Open a local directory using File System Access API.
+ * This internally uses SyncManager to show the directory picker and scan files.
+ */
+export async function openLocalDirectory(workspaceId?: string): Promise<boolean> {
+  try {
+    const sm = await import('@/core/sync/sync-manager');
+    await sm.getSyncManager().requestOpenLocalDirectory(workspaceId);
+    return true;
+  } catch (err) {
+    console.warn('openLocalDirectory failed:', err);
+    return false;
+  }
+}
+
+/**
+ * Check if a local directory is currently open/ready
+ */
+export async function hasLocalDirectory(): Promise<boolean> {
+  try {
+    const sm = await import('@/core/sync/sync-manager');
+    const adapter = sm.getSyncManager().getAdapter('local');
+    if (!adapter) return false;
+    return typeof (adapter as any).isReady === 'function' ? (adapter as any).isReady() : false;
+  } catch (e) {
+    return false;
+  }
+}
+
+/**
+ * Clear the currently open local directory and dispose the adapter
+ */
+export async function clearLocalDirectory(): Promise<void> {
+  try {
+    const sm = await import('@/core/sync/sync-manager');
+    const adapter = sm.getSyncManager().getAdapter('local');
+    if (adapter && typeof (adapter as any).dispose === 'function') {
+      await (adapter as any).dispose().catch(() => { });
+    }
+  } catch (e) {
+    // ignore
+  }
+}

@@ -26,7 +26,20 @@ export function CodeEditor({ file, onContentChange }: CodeEditorProps) {
     const { theme, systemTheme } = useTheme();
     const currentTheme = theme === "system" ? systemTheme : theme;
 
+  console.log(`[CodeEditor] Component mounted/updated with file:`, {
+    fileId: file.id,
+    filePath: file.path,
+    fileName: file.name,
+    contentLength: file.content?.length || 0,
+    contentPreview: file.content?.substring(0, 200),
+    isHtmlContent: file.content?.includes('<!DOCTYPE') || file.content?.includes('<html'),
+  });
+
   useEffect(() => {
+    console.log(`[CodeEditor] useEffect updating content:`, {
+      fileId: file.id,
+      contentLength: file.content?.length || 0,
+    });
       setContent(file.content);
   }, [file.id, file.content]);
 

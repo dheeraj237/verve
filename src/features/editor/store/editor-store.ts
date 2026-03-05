@@ -90,17 +90,29 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
    * Opens a file in a new tab or switches to it if already open
    * Prevents duplicate tabs for the same file
    */
-  openFile: (file) => set((state) => {
+  openFile: (file) => {
+    console.log(`[EditorStore] openFile called with:`, {
+      fileId: file.id,
+      filePath: file.path,
+      fileName: file.name,
+      contentLength: file.content?.length || 0,
+      contentPreview: file.content?.substring(0, 200),
+      isHtmlContent: file.content?.includes('<!DOCTYPE') || file.content?.includes('<html'),
+    });
     
-    const existingTab = state.openTabs.find(tab => tab.id === file.id);
-    if (existingTab) {
-      return { activeTabId: file.id };
-    }
-    return {
-      openTabs: [...state.openTabs, file],
-      activeTabId: file.id,
-    };
-  }),
+    set((state) => {
+      const existingTab = state.openTabs.find(tab => tab.id === file.id);
+      if (existingTab) {
+        console.log(`[EditorStore] File already open (switching tab)`);
+        return { activeTabId: file.id };
+      }
+      console.log(`[EditorStore] Creating new tab for file`);
+      return {
+        openTabs: [...state.openTabs, file],
+        activeTabId: file.id,
+      };
+    });
+  },
 
   /**
    * Closes a tab by file ID
