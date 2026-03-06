@@ -1,4 +1,5 @@
 import { toast as sonnerToast } from "sonner";
+import type { ReactNode } from "react";
 
 /**
  * Central toast notification system
@@ -49,6 +50,18 @@ export const toast = {
     }
   ) => {
     return sonnerToast.promise(promise, messages);
+  },
+
+  custom: (content: ReactNode, options?: { duration?: number; position?: string }) => {
+    const toastId = sonnerToast.custom(
+      () => content as any,
+      {
+        duration: options?.duration ?? 0,
+      }
+    );
+    return {
+      dismiss: () => sonnerToast.dismiss(toastId),
+    };
   },
 
   dismiss: (toastId?: string | number) => {

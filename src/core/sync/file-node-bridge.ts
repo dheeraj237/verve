@@ -130,6 +130,11 @@ class DefaultConverter implements AdapterConverter {
       mime.includes('directory') ||
       path.endsWith('/');
 
+    // Extract content from metadata if available (for adapters that include it)
+    const content: string | undefined = metadata.content && typeof metadata.content === 'string'
+      ? metadata.content
+      : undefined;
+
     return {
       id: String(id),
       path: String(path),
@@ -145,6 +150,7 @@ class DefaultConverter implements AdapterConverter {
       mimeType: metadata.mimeType ?? metadata.mime_type ?? undefined,
       createdAt: metadata.createdTime ?? metadata.createdAt ?? undefined,
       modifiedAt: metadata.modifiedTime ?? metadata.modifiedAt ?? undefined,
+      content,
     };
   }
 

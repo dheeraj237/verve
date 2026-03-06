@@ -25,10 +25,10 @@ export class GDriveMock implements IPushAdapter, IPullAdapter, IWorkspaceAdapter
     return items;
   }
 
-  async pullWorkspace(workspaceId?: string): Promise<Array<{ fileId: string; content: string }>> {
-    const out: Array<{ fileId: string; content: string }> = [];
+  async pullWorkspace(workspaceId?: string): Promise<Array<{ id: string; path: string; metadata?: Record<string, any> }>> {
+    const out: Array<{ id: string; path: string; metadata?: Record<string, any> }> = [];
     for (const [k, v] of this.store.entries()) {
-      out.push({ fileId: k, content: v });
+      out.push({ id: k, path: k, metadata: { content: v } });
     }
     return out;
   }

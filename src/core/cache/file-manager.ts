@@ -351,7 +351,8 @@ async function saveSyncFile(
   }
   // Use atomicUpsert to safely increment version and avoid races
   const name = path.split('/').pop() || 'untitled';
-  const shouldMarkDirty = options?.markDirty !== false && String(workspaceType) !== WorkspaceType.Browser;
+  // By default, mark edits as dirty unless explicitly disabled via options.markDirty
+  const shouldMarkDirty = options?.markDirty !== false;
   const mutator = (current?: any) => {
     const nextVersion = (current && current.version ? current.version : 0) + 1;
     return {
@@ -378,11 +379,11 @@ async function saveSyncFile(
     console.warn('[RxDB] saveFile logging failed', e);
   }
 
-  const saved = await atomicUpsert<FileNode>('files', fileId, mutator as any);
+  const saved = await atomicUpsert<FileNode>(Collections.Files, fileId, mutator as any);
   try { console.debug('[file-manager] saveSyncFile saved=', JSON.stringify(saved)); } catch (_) { }
   try {
     // Ensure final doc persisted (shim-safe)
-    await upsertDoc<FileNode>('files', saved as any);
+    await upsertDoc<FileNode>(Collections.Files, saved as any);
   } catch (e) {
     // Non-fatal: atomicUpsert already persisted via underlying helpers
   }
@@ -404,7 +405,7 @@ async function saveSyncFile(
 export async function getFile(pathOrId: string, workspaceId?: string): Promise<FileNode | null> {
   const cached = await getCachedFile(pathOrId, workspaceId);
   if (!cached) return null;
-  const doc = await getDoc<FileNode>('files', cached.id);
+  const doc = await getDoc<FileNode>(Collections.Files, cached.id);
   return doc;
 }
 
@@ -423,13 +424,13 @@ export async function deleteFile(path: string, workspaceId?: string): Promise<vo
           selector = { path: { $regex: `^${esc}(?:$|/)` } };
         }
         if (workspaceId) selector = { ...selector, workspaceId };
-        const docs = await findDocs((Collections as any).Files, { selector }) as any[];
+        const docs = await findDocs(Collections.Files, { selector }) as any[];
         for (const d of docs) {
           try {
-              await removeDoc((Collections as any).Files, d.id);
+              await removeDoc(Collections.Files, d.id);
             } catch (remErr) {
               console.warn('Failed to remove cached doc during folder delete:', remErr);
-            try { await removeDoc((Collections as any).Files, d.id); } catch (_) { /* swallow */ }
+            try { await removeDoc(Collections.Files, d.id); } catch (_) { /* swallow */ }
           }
           try {
             if (String(d.workspaceType) !== WorkspaceType.Browser) {
@@ -447,7 +448,7 @@ export async function deleteFile(path: string, workspaceId?: string): Promise<vo
         }
       } else {
         try {
-          await removeDoc((Collections as any).Files, cached.id);
+          await removeDoc(Collections.Files, cached.id);
         } catch (e) {
           console.warn('deleteFile fallback remove failed:', e);
         }
@@ -467,7 +468,7 @@ export async function deleteFile(path: string, workspaceId?: string): Promise<vo
       }
     } catch (err) {
       console.warn('deleteFile fallback remove failed:', err);
-      try { await removeDoc((Collections as any).Files, cached.id); } catch (_) { }
+      try { await removeDoc(Collections.Files, cached.id); } catch (_) { }
     }
   }
 }

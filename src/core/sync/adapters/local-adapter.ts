@@ -250,6 +250,8 @@ export class LocalAdapter implements ISyncAdapter {
    * Requires user interaction (button click, etc.).
    * 
    * After this succeeds, adapter should transition to READY.
+   * Only requests READ permission initially. WRITE permission is requested on-demand during push().
+   * Scans directory and upserts all found files into RxDB cache.
    */
   async openDirectoryPicker(): Promise<void> {
     console.log(`[LocalAdapter] openDirectoryPicker() for workspace: ${this.workspaceId}`);
@@ -272,6 +274,22 @@ export class LocalAdapter implements ISyncAdapter {
       // User gesture: open directory picker
       const dirHandle = await (window as any).showDirectoryPicker();
 
+      // Verify we have READ permission for initial loading (showDirectoryPicker grants this)
+      const hasReadPermission = await this.hasPermission(dirHandle, 'read');
+      if (!hasReadPermission) {
+        const err = new AdapterInitError(
+          AdapterErrorCode.PERMISSION_DENIED,
+          'Read access not granted for selected directory'
+        );
+        this.setState(AdapterState.ERRORED, err);
+        this.emitEvent({
+          type: 'initialization-failed',
+          error: err,
+          timestamp: new Date(),
+        });
+        return;
+      }
+
       // Persist handle metadata to IndexedDB
       try {
         await workspaceStoreDirectoryHandle(this.workspaceId, dirHandle);
@@ -284,11 +302,14 @@ export class LocalAdapter implements ISyncAdapter {
       this.dirHandle = dirHandle;
       this.setState(AdapterState.READY);
 
-      // Scan and populate cache with directory contents
+      // Scan and populate cache with directory contents (READ operations only)
       try {
+        console.log(`[LocalAdapter] Scanning directory contents for workspace: ${this.workspaceId}`);
         const tree = await buildFileTreeFromDirectory(dirHandle);
+        console.log(`[LocalAdapter] Found ${tree.length} top-level items in directory`);
+
         await this.walkAndUpsertTree(tree);
-        console.log(`[LocalAdapter] Scanned and cached directory contents`);
+        console.log(`[LocalAdapter] ✓ Scanned and cached directory contents`);
       } catch (e) {
         console.warn('[LocalAdapter] Failed to scan directory contents:', e);
       }
@@ -298,7 +319,7 @@ export class LocalAdapter implements ISyncAdapter {
         workspaceId: this.workspaceId,
         timestamp: new Date(),
       });
-      console.log(`[LocalAdapter] ✓ Directory picker succeeded, adapter is READY`);
+      console.log(`[LocalAdapter] ✓ Directory picker succeeded, adapter is READY. Write permission will be requested on first file modification.`);
     } catch (err) {
       if ((err as DOMException | any).name === 'AbortError') {
         // User cancelled
@@ -367,6 +388,8 @@ export class LocalAdapter implements ISyncAdapter {
   /**
    * Push (write) a file to local storage.
    * Requires adapter to be in READY state.
+   * Requests WRITE permission on first write operation using native browser dialog.
+   * Uses MDN-recommended createWritable() pattern.
    */
   async push(descriptor: AdapterFileDescriptor, content: string): Promise<boolean> {
     const context = `[LocalAdapter] push(${descriptor.id})`;
@@ -377,14 +400,37 @@ export class LocalAdapter implements ISyncAdapter {
     }
 
     try {
+      if (!this.dirHandle) {
+        throw new Error('Directory handle not available');
+      }
+
+      // Request WRITE permission before attempting to write
+      // This uses the native browser dialog on first write
+      const hasWritePermission = await this.requestMode(this.dirHandle, 'readwrite');
+      if (!hasWritePermission) {
+        console.error(`${context}: Write permission denied by user`);
+        return false;
+      }
+
+      // Get or create file handle with permission handling
       const fileHandle = await this.getFileHandle(descriptor.path, true);
-      if (!fileHandle) throw new Error('Failed to get file handle');
+      if (!fileHandle) {
+        console.error(`${context}: Unable to create file`);
+        return false;
+      }
 
+      // Use createWritable() per MDN best practices
       const writable = await fileHandle.createWritable();
-      await writable.write(content);
-      await writable.close();
 
-      console.debug(`${context}: ✓ Written`);
+      try {
+      // Write content to the stream
+        await writable.write(content);
+      } finally {
+      // Always close the stream
+        await writable.close();
+      }
+
+      console.debug(`${context}: ✓ Written ${content.length} bytes`);
       return true;
     } catch (err) {
       console.error(`${context}: ${err instanceof Error ? err.message : String(err)}`);
@@ -395,6 +441,7 @@ export class LocalAdapter implements ISyncAdapter {
   /**
    * Pull (read) a file from local storage.
    * Requires adapter to be in READY state.
+   * Uses MDN-recommended getFile() pattern.
    */
   async pull(fileId: string, localVersion?: number): Promise<string | null> {
     const context = `[LocalAdapter] pull(${fileId})`;
@@ -405,14 +452,17 @@ export class LocalAdapter implements ISyncAdapter {
     }
 
     try {
+      // Get file handle (don't create if not found)
       const fileHandle = await this.getFileHandle(fileId, false);
       if (!fileHandle) {
         console.debug(`${context}: File not found`);
         return null;
       }
 
+      // Use getFile() per MDN best practices
       const file = await fileHandle.getFile();
       const content = await file.text();
+
       console.debug(`${context}: ✓ Read ${content.length} bytes`);
       return content;
     } catch (err) {
@@ -430,27 +480,69 @@ export class LocalAdapter implements ISyncAdapter {
     try {
       const handle = await this.getFileHandle(fileId, false);
       return !!handle;
-    } catch {
+    } catch (err) {
+      console.debug('[LocalAdapter] exists check failed:', err);
       return false;
     }
   }
 
   /**
    * Delete a file.
+   * Requires write permissions on parent directory.
+   * Requests WRITE permission using native browser dialog if needed.
    */
   async delete(fileId: string): Promise<boolean> {
-    if (!this.validateReady()) return false;
+    const context = `[LocalAdapter] delete(${fileId})`;
+
+    if (!this.validateReady()) {
+      console.error(`${context}: Adapter not in READY state`);
+      return false;
+    }
 
     try {
-      const parts = fileId.split('/').filter(Boolean);
-      const fileName = parts.pop()!;
-      const dir = await this.getDirectoryHandle(parts.join('/'));
+      if (!this.dirHandle) {
+        throw new Error('Directory handle not available');
+      }
 
-      await dir.removeEntry(fileName);
-      console.debug(`[LocalAdapter] delete(${fileId}): ✓ Deleted`);
-      return true;
+      // Request WRITE permission before attempting to delete
+      const hasWritePermission = await this.requestMode(this.dirHandle, 'readwrite');
+      if (!hasWritePermission) {
+        console.error(`${context}: Write permission denied by user`);
+        return false;
+      }
+
+      const parts = fileId.split('/').filter(Boolean);
+      const fileName = parts.pop();
+
+      if (!fileName) {
+        throw new Error('Invalid file path');
+      }
+
+      // Navigate to parent directory
+      const dir = await this.getDirectoryHandle(parts.join('/'), false);
+      if (!dir) {
+        console.warn(`${context}: Parent directory not found`);
+        return false;
+      }
+
+      // Remove entry using removeEntry() (MDN-recommended for directories)
+      try {
+        await dir.removeEntry(fileName, { recursive: false });
+        console.debug(`${context}: ✓ Deleted`);
+        return true;
+      } catch (err: any) {
+        if (err?.name === 'NotFoundError') {
+          console.debug(`${context}: File not found`);
+          return false;
+        }
+        if (err?.name === 'NotAllowedError' || err?.name === 'PermissionError') {
+          console.error(`${context}: Permission denied`);
+          return false;
+        }
+        throw err;
+      }
     } catch (err) {
-      console.error('[LocalAdapter] delete error:', err);
+      console.error(`${context}: ${err instanceof Error ? err.message : String(err)}`);
       return false;
     }
   }
@@ -471,7 +563,12 @@ export class LocalAdapter implements ISyncAdapter {
     const out: Array<{ id: string; path: string; name: string }> = [];
 
     try {
-      const dir = await this.getDirectoryHandle(directory);
+      const dir = await this.getDirectoryHandle(directory, false);
+      if (!dir) {
+        console.warn(`[LocalAdapter] listFiles: Directory not found: "${directory}"`);
+        return out;
+      }
+
       await this.walkDirectoryForFiles(dir, directory, out);
     } catch (err) {
       console.warn(`[LocalAdapter] listFiles error for directory "${directory}":`, err);
@@ -493,17 +590,28 @@ export class LocalAdapter implements ISyncAdapter {
     for await (const entry of dir.values()) {
       const entryPath = currentPath ? `${currentPath}/${entry.name}` : entry.name;
 
-      if (entry.kind === 'file') {
-        out.push({ id: entryPath, path: entryPath, name: entry.name });
-      } else if (entry.kind === 'directory') {
-        // Recursively walk subdirectories
-        try {
-          const subDir = await dir.getDirectoryHandle(entry.name, { create: false });
-          await this.walkDirectoryForFiles(subDir, entryPath, out);
-        } catch (err) {
-          console.warn(`[LocalAdapter] Failed to walk subdirectory "${entryPath}":`, err);
-          // Continue to next entry
+      try {
+        if (entry.kind === 'file') {
+          out.push({ id: entryPath, path: entryPath, name: entry.name });
+        } else if (entry.kind === 'directory') {
+          // Recursively walk subdirectories
+          try {
+            const subDir = await dir.getDirectoryHandle(entry.name, { create: false });
+            await this.walkDirectoryForFiles(subDir, entryPath, out);
+          } catch (err: any) {
+            if (err?.name === 'NotFoundError') {
+              console.debug(`[LocalAdapter] Subdirectory not accessible: "${entryPath}"`);
+            } else if (err?.name === 'NotAllowedError' || err?.name === 'PermissionError') {
+              console.warn(`[LocalAdapter] Permission denied accessing subdirectory: "${entryPath}"`);
+            } else {
+              console.warn(`[LocalAdapter] Failed to walk subdirectory "${entryPath}":`, err);
+            }
+            // Continue to next entry
+          }
         }
+      } catch (err) {
+        console.warn(`[LocalAdapter] Error processing entry "${entryPath}":`, err);
+        // Continue to next entry
       }
     }
   }
@@ -537,7 +645,7 @@ export class LocalAdapter implements ISyncAdapter {
   async pullWorkspace(
     workspaceId?: string,
     directory = ''
-  ): Promise<Array<{ fileId: string; content: string }>> {
+  ): Promise<Array<{ id: string; path: string; metadata?: Record<string, any> }>> {
     const wsId = workspaceId || this.workspaceId;
     if (wsId !== this.workspaceId) {
       throw new Error(`Cannot pull workspace ${wsId} (adapter is for ${this.workspaceId})`);
@@ -553,24 +661,39 @@ export class LocalAdapter implements ISyncAdapter {
         `[LocalAdapter] Found ${files.length} files to pull: ${files.map((f) => f.path).join(', ')}`
       );
 
-      const out: Array<{ fileId: string; content: string }> = [];
+      const out: Array<{ id: string; path: string; metadata?: Record<string, any> }> = [];
 
       for (const f of files) {
         try {
           const content = (await this.pull(f.path)) ?? '';
-          out.push({ fileId: f.path, content });
+          // Return AdapterEntry-compatible structure
+          out.push({
+            id: f.path,
+            path: f.path,
+            metadata: {
+              name: f.name,
+              content: content
+            }
+          });
           console.debug(
             `[LocalAdapter] Loaded file "${f.path}" (${content.length} bytes)`
           );
         } catch (err) {
           console.warn(`[LocalAdapter] Failed to pull file "${f.path}":`, err);
           // Still add to output with empty content to track the file
-          out.push({ fileId: f.path, content: '' });
+          out.push({
+            id: f.path,
+            path: f.path,
+            metadata: {
+              name: f.name,
+              content: ''
+            }
+          });
         }
       }
 
       console.log(
-        `[LocalAdapter] ✓ pullWorkspace completed: ${out.length} files loaded (total content: ${out.reduce((sum, f) => sum + f.content.length, 0)} bytes)`
+        `[LocalAdapter] ✓ pullWorkspace completed: ${out.length} files loaded`
       );
       return out;
     } catch (err) {
@@ -644,13 +767,98 @@ export class LocalAdapter implements ISyncAdapter {
   }
 
   /**
-   * Helper: Get or create a file handle.
+   * Helper: Check if we have read+write permission on a directory handle.
+   * Uses MDN-recommended queryPermission pattern.
+   * Returns true if read+write is granted, false if denied or prompt needed.
+   */
+  private async hasPermission(
+    dirHandle: FileSystemDirectoryHandle,
+    mode: 'read' | 'readwrite' = 'readwrite'
+  ): Promise<boolean> {
+    try {
+      const status = await (dirHandle.queryPermission as any)?.({ mode });
+      return status === 'granted';
+    } catch {
+      // queryPermission not supported - assume permission granted
+      return true;
+    }
+  }
+
+  /**
+   * Helper: Request permission on a directory handle if needed.
+   * Uses native browser dialog.
+   * Returns true if permission granted, false if denied.
+   */
+  private async requestMode(
+    dirHandle: FileSystemDirectoryHandle,
+    mode: 'read' | 'readwrite' = 'readwrite'
+  ): Promise<boolean> {
+    try {
+      const status = await (dirHandle.requestPermission as any)?.({ mode });
+      return status === 'granted';
+    } catch {
+      // requestPermission not supported - assume permission granted
+      return true;
+    }
+  }
+
+  /**
+   * Helper: Get or create a directory.
+   * Does NOT request permissions - caller is responsible for that.
+   * Follows MDN best practices for FileSystem API.
+   */
+  private async getOrCreateDir(
+    parent: FileSystemDirectoryHandle,
+    dirName: string,
+    create = false
+  ): Promise<FileSystemDirectoryHandle | null> {
+    try {
+      return await parent.getDirectoryHandle(dirName, { create });
+    } catch (err: any) {
+      if (err?.name === 'NotAllowedError' || err?.name === 'PermissionError') {
+        console.warn(`[LocalAdapter] Permission denied accessing directory: ${dirName}`);
+        return null;
+      }
+      if (err?.name === 'NotFoundError' && !create) {
+        return null;
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * Helper: Get or create a file.
+   * Does NOT request permissions - caller (push/delete) is responsible for that.
+   * Follows MDN best practices for FileSystem API.
+   */
+  private async getOrCreateFile(
+    parent: FileSystemDirectoryHandle,
+    fileName: string,
+    create = false
+  ): Promise<FileSystemFileHandle | null> {
+    try {
+      return await parent.getFileHandle(fileName, { create });
+    } catch (err: any) {
+      if (err?.name === 'NotAllowedError' || err?.name === 'PermissionError') {
+        console.warn(`[LocalAdapter] Permission denied accessing file: ${fileName}`);
+        return null;
+      }
+      if (err?.name === 'NotFoundError' && !create) {
+        return null;
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * Helper: Get or create a file handle, navigating the full path.
    * Navigates directory tree and returns file handle.
+   * Returns null if any permission is denied or path not found (and create=false).
    */
   private async getFileHandle(
     path: string,
     create = false
-  ): Promise<FileSystemFileHandle | undefined> {
+  ): Promise<FileSystemFileHandle | null> {
     if (!this.dirHandle) {
       throw new Error('Root directory handle not initialized');
     }
@@ -659,17 +867,24 @@ export class LocalAdapter implements ISyncAdapter {
     const fileName = parts.pop()!;
     let dir: FileSystemDirectoryHandle = this.dirHandle;
 
+    // Navigate directory path
     for (const part of parts) {
-      dir = await dir.getDirectoryHandle(part, { create });
+      const subDir = await this.getOrCreateDir(dir, part, create);
+      if (!subDir) {
+        return null;
+      }
+      dir = subDir;
     }
 
-    return await dir.getFileHandle(fileName, { create });
+    // Get or create the file
+    return await this.getOrCreateFile(dir, fileName, create);
   }
 
   /**
-   * Helper: Get a directory handle.
+   * Helper: Get a directory handle, navigating the full path.
+   * Returns null if any permission is denied or path not found (and create=false).
    */
-  private async getDirectoryHandle(path: string, create = false): Promise<FileSystemDirectoryHandle> {
+  private async getDirectoryHandle(path: string, create = false): Promise<FileSystemDirectoryHandle | null> {
     if (!this.dirHandle) {
       throw new Error('Root directory handle not initialized');
     }
@@ -679,8 +894,13 @@ export class LocalAdapter implements ISyncAdapter {
     const parts = path.split('/').filter(Boolean);
     let dir: FileSystemDirectoryHandle = this.dirHandle;
 
+    // Navigate directory path
     for (const part of parts) {
-      dir = await dir.getDirectoryHandle(part, { create });
+      const subDir = await this.getOrCreateDir(dir, part, create);
+      if (!subDir) {
+        return null;
+      }
+      dir = subDir;
     }
 
     return dir;

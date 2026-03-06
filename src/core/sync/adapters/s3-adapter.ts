@@ -184,7 +184,7 @@ export class S3Adapter implements ISyncAdapter {
   /**
    * Optional: pull multiple files for a workspace. Not implemented yet.
    */
-  async pullWorkspace(workspaceId?: string, path?: string): Promise<Array<{ fileId: string; content: string }>> {
+  async pullWorkspace(workspaceId?: string, path?: string): Promise<Array<{ id: string; path: string; metadata?: Record<string, any> }>> {
     console.info('S3Adapter.pullWorkspace: stub (not implemented)');
     return [];
   }

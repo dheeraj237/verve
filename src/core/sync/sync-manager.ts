@@ -604,6 +604,8 @@ export class SyncManager {
 
   /**
    * Pull entire workspace from adapter (during workspace switch).
+   * For Local workspaces, ensures all files are fetched and upserted to RxDB.
+   * Handles adapter readiness and logs detailed information.
    */
   async pullWorkspace(workspace: { id: string; type: WorkspaceType | string }): Promise<void> {
     console.log(`[SyncManager] Pulling workspace: ${workspace.id} (type: ${workspace.type})`);
@@ -617,29 +619,40 @@ export class SyncManager {
         return;
       }
 
+      // Check adapter readiness
       if (!adapter.validateReady()) {
-        console.info(`[SyncManager] Adapter not ready for pull, skipping`);
+        const readinessInfo = adapter.getReadinessInfo();
+        console.info(
+          `[SyncManager] Adapter not ready for workspace ${workspace.id} (state: ${readinessInfo.state}). ` +
+          `For Local workspaces, user must grant directory access first.`
+        );
         return;
       }
 
       if (typeof (adapter as any).pullWorkspace === 'function') {
+        console.log(`[SyncManager] Fetching all files from adapter for workspace ${workspace.id}...`);
         const entries = await (adapter as any).pullWorkspace(workspace.id);
+
+        console.log(`[SyncManager] Received ${entries.length} file entries from adapter`);
+
         const fileNodes = fileNodeBridge.adapterResponseToFileNode(
           entries,
           adapter.name as any,
           workspace.id
         );
 
+        // Upsert all files into RxDB
         for (const fileNode of fileNodes) {
           try {
             await saveFileNode(fileNode);
+            console.debug(`[SyncManager] Upserted file to RxDB: ${fileNode.id} (path: ${fileNode.path})`);
           } catch (e) {
             console.warn(`[SyncManager] Failed to save FileNode ${fileNode.id}`, e);
           }
         }
 
         console.info(
-          `[SyncManager] Pulled ${fileNodes.length} files from ${adapter.name} for workspace ${workspace.id}`
+          `[SyncManager] ✓ Pulled and upserted ${fileNodes.length} files from ${adapter.name} for workspace ${workspace.id}`
         );
       }
     } catch (e) {
@@ -677,6 +690,13 @@ export class SyncManager {
         } catch (e) {
           console.warn('pullWorkspace after openLocalDirectory failed:', e);
         }
+        // Trigger sync of any dirty files after adapter is ready
+        try {
+          console.log(`[SyncManager] Syncing dirty files for workspace ${workspaceId} after directory picker...`);
+          await this.syncNow();
+        } catch (e) {
+          console.warn('syncNow after openLocalDirectory failed:', e);
+        }
       }
       return;
     }
@@ -699,6 +719,13 @@ export class SyncManager {
           await this.pullWorkspace({ id: workspaceId, type: WorkspaceType.Local });
         } catch (e) {
           console.warn('pullWorkspace after permission restore failed:', e);
+        }
+        // Trigger sync of any dirty files after adapter is ready
+        try {
+          console.log(`[SyncManager] Syncing dirty files for workspace ${workspaceId} after permission restore...`);
+          await this.syncNow();
+        } catch (e) {
+          console.warn('syncNow after permission restore failed:', e);
         }
       }
       return !!res;
@@ -743,6 +770,40 @@ export class SyncManager {
     } catch (err) {
       console.error('enqueueAndProcess error for', fileId, err);
     }
+  }
+
+  /**
+   * Check if a Local workspace adapter needs directory handle/permission.
+   * Returns readiness info and indicates what action is needed.
+   * 
+   * Used by UI to determine whether to show "Grant Permission" or "Pick Directory" prompt.
+   */
+  getLocalAdapterReadinessForWorkspace(workspaceId: string): {
+    isReady: boolean;
+    state: AdapterState | string;
+    needsUserGesture: boolean;
+    error?: AdapterInitError | null;
+  } {
+    const adapter = this.adaptersByWorkspace.get(workspaceId);
+    if (!adapter) {
+      return {
+        isReady: false,
+        state: 'not-initialized',
+        needsUserGesture: true,
+      };
+    }
+
+    const readinessInfo = adapter.getReadinessInfo();
+    const needsUserGesture =
+      readinessInfo.state === AdapterState.INITIALIZING ||
+      readinessInfo.state === AdapterState.UNINITIALIZED;
+
+    return {
+      isReady: readinessInfo.isReady,
+      state: readinessInfo.state,
+      needsUserGesture,
+      error: readinessInfo.error,
+    };
   }
 
   // ============================================================================

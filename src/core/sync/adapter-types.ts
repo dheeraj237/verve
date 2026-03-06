@@ -35,7 +35,7 @@ export interface IWatchableAdapter {
 
 export interface IWorkspaceAdapter {
   listWorkspaceFiles?(workspaceId?: string, path?: string): Promise<{ id: string; path: string; metadata?: any }[]>;
-  pullWorkspace?(workspaceId?: string, path?: string): Promise<Array<{ fileId: string; content: string }>>;
+  pullWorkspace?(workspaceId?: string, path?: string): Promise<Array<{ id: string; path: string; metadata?: Record<string, any> }>>;
 }
 
 export interface IRemoteOps {

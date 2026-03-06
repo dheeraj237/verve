@@ -208,8 +208,80 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
         // Refresh file tree for the newly active workspace from RxDB cache
         await refreshFileTree();
 
-        // Inform user that adapter integrations are disabled in the UI
+        // For Local workspaces, check if directory handle is ready
+        // If not ready, prompt user to grant permission or pick directory
         if (workspace.type === WorkspaceType.Local) {
+          try {
+            const sm = (await import('@/core/sync/sync-manager')).getSyncManager();
+            const readiness = sm.getLocalAdapterReadinessForWorkspace(workspace.id);
+
+            if (!readiness.isReady && readiness.needsUserGesture) {
+              // Adapter is not ready - show modal to prompt for directory access
+              console.log('[WorkspaceDropdown] Local adapter not ready, showing permission prompt...');
+
+              let userActionCompleted = false;
+
+              // Show toast with action button
+              const actionToast = toast.custom(
+                <div className="space-y-2">
+                  <div className="text-sm font-medium">Directory Access Required</div>
+                  <div className="text-sm">This local workspace needs to access your file system to sync files.</div>
+                  <div className="flex gap-2 flex-wrap">
+                    <Button
+                      size="sm"
+                      variant="default"
+                      onClick={async () => {
+                        if (userActionCompleted) return;
+                        try {
+                          // Try to restore from existing stored handle first (requires user gesture)
+                          console.log('[WorkspaceDropdown] Attempting to restore from stored handle...');
+                          const restored = await restoreLocalDirectory(workspace.id);
+                          if (restored) {
+                            // Files were loaded, refresh tree
+                            await refreshFileTree();
+                            userActionCompleted = true;
+                            actionToast.dismiss();
+                            toast.success('Directory access restored successfully');
+                          } else {
+                            // No stored handle, need to open directory picker
+                            console.log('[WorkspaceDropdown] No stored handle, opening directory picker...');
+                            await openLocalDirectory(workspace.id);
+                            await refreshFileTree();
+                            userActionCompleted = true;
+                            actionToast.dismiss();
+                            toast.success('Directory selected and scanned successfully');
+                          }
+                        } catch (err) {
+                          console.error('[WorkspaceDropdown] Error in grant access flow:', err);
+                          toast.error('Failed to access directory. Please try again.');
+                        }
+                      }}
+                    >
+                      Grant Access
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        actionToast.dismiss();
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>,
+                {
+                  duration: 0, // Don't auto-dismiss
+                }
+              );
+
+              return; // Exit early - await user action through toast
+            }
+          } catch (err) {
+            console.warn('[WorkspaceDropdown] Failed to check Local adapter readiness:', err);
+            // Continue anyway - adapter might become ready later
+          }
+
           toast.info('Local workspace opened (cache-only). Direct filesystem access is disabled in the UI.');
         } else if (workspace.type === WorkspaceType.GDrive) {
           toast.info('Drive workspace opened (cache-only). Direct Google Drive sync is disabled in the UI.');

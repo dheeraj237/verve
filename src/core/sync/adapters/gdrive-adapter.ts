@@ -309,7 +309,7 @@ export class GDriveAdapter implements IPushAdapter, IPullAdapter {
   /**
    * Optional: pull multiple files for a workspace. Not implemented yet.
    */
-  async pullWorkspace(workspaceId?: string, path?: string): Promise<Array<{ fileId: string; content: string }>> {
+  async pullWorkspace(workspaceId?: string, path?: string): Promise<Array<{ id: string; path: string; metadata?: Record<string, any> }>> {
     if (!this.driveClient || !this.driveClient.files) {
       console.info('GDriveAdapter.pullWorkspace: drive client not available');
       return [];
@@ -317,7 +317,7 @@ export class GDriveAdapter implements IPushAdapter, IPullAdapter {
 
     try {
       const files = await this.listWorkspaceFiles(workspaceId, path);
-      const items: Array<{ fileId: string; content: string }> = [];
+      const items: Array<{ id: string; path: string; metadata?: Record<string, any> }> = [];
       for (const f of files) {
         try {
           // Attempt to download file media
@@ -325,7 +325,15 @@ export class GDriveAdapter implements IPushAdapter, IPullAdapter {
           const data = (res && (res.data || res.result || res)) || null;
           if (data) {
             const buf = data instanceof ArrayBuffer ? Buffer.from(data) : Buffer.from(data);
-            items.push({ fileId: f.id, content: buf.toString('utf-8') });
+            const content = buf.toString('utf-8');
+            items.push({
+              id: f.id,
+              path: f.path,
+              metadata: {
+                ...f.metadata,
+                content
+              }
+            });
           }
         } catch (err) {
           console.warn('GDriveAdapter.pullWorkspace: failed to download', f.id, err);
