@@ -1,0 +1,13 @@
+{
+  "ignoreNames": [".DS_Store", "Thumbs.db", ".localized", ".gitkeep"],
+  "ignoreExtensions": [
+    ".exe", ".dll", ".class", ".jar", ".zip", ".tar", ".gz",
+    ".bin", ".dylib", ".so", ".o", ".obj", ".pyc"
+  ],
+  "ignoreFolders": [
+    ".git", ".hg", ".svn", "node_modules", "__pycache__",
+    ".venv", ".venv3", ".cache", "dist", "build",
+    ".next", ".nuxt", ".output", "vendor"
+  ],
+  "maxFileSizeMB": 5
+}
