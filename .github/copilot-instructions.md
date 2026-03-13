@@ -48,6 +48,7 @@ Where to look first (key files)
 - Architecture docs: `docs/ARCHITECTURE.md`
 
 Small, practical guardrails for agents
+- always use java doc style comments for functions and classes and only use inline comments for complex logic or non-obvious decisions.
 - Do not change project architecture assumptions (feature-based layout) without explicit instruction.
 - Preserve shadcn/ui usage and Tailwind variables; add new components into `src/shared/components/ui/` only.
 - When changing saving/merge logic, update `docs/ARCHITECTURE.md` and add tests in `tests/integration/`.

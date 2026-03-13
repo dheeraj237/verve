@@ -28,8 +28,9 @@ export async function createWorkspace(name: string, type: WorkspaceType, id?: st
     lastAccessed: new Date().toISOString(),
   };
 
-  // Only create a default `verve.md` for browser workspaces (skip samples and non-browser types)
-  if (type === WorkspaceType.Browser && workspaceId !== 'verve-samples') {
+  // Create a default `verve.md` for all non-local workspace types (browser, gdrive, s3, etc.)
+  // Skip for the special sample workspace and local workspaces (those come with their own files)
+  if (type !== WorkspaceType.Local && workspaceId !== 'verve-samples') {
     try {
       await initializeRxDB();
     } catch (e) {
