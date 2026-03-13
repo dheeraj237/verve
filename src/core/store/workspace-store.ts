@@ -64,6 +64,10 @@ interface WorkspaceStore {
   saveTabsForWorkspace: (workspaceId?: string) => void;
   /** Restore editor tabs from the store for a workspace (reloads content from file manager) */
   restoreTabsForWorkspace: (workspaceId?: string) => Promise<void>;
+  /** Per-workspace flag set by SyncManager when filesystem permission is required */
+  permissionNeeded: Record<string, boolean>;
+  /** Called by SyncManager to surface a permission-needed state for the UI */
+  setPermissionNeeded: (workspaceId: string, needed: boolean) => void;
 }
 
 /**
@@ -78,6 +82,7 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
       isWorkspacePickerOpen: false,
       isWorkspaceSwitching: false,
       tabsByWorkspace: {},
+      permissionNeeded: {},
 
       /**
        * Creates a new workspace with the specified type and options
@@ -120,11 +125,13 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
        * If deleting the active workspace, switches to the first available workspace
        */
       deleteWorkspace: (id) => {
+        // Destroy the adapter and cancel push timers before removing from state
+        try { getSyncManager().unmountWorkspace(id); } catch (_) { }
         set((state) => {
           const newWorkspaces = state.workspaces.filter(w => w.id !== id);
-          const newActiveId = state.activeWorkspaceId === id ? 
+          const newActiveId = state.activeWorkspaceId === id ?
             (newWorkspaces[0]?.id || null) : state.activeWorkspaceId;
-          
+
           return {
             workspaces: newWorkspaces,
             activeWorkspaceId: newActiveId,
@@ -173,31 +180,16 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
           };
         });
 
-        // Clean up old workspace's adapter (non-blocking)
-        if (oldWorkspaceId) {
-          try {
-            await getSyncManager().cleanupForWorkspace(oldWorkspaceId);
-          } catch (err) {
-            console.warn('Failed to cleanup previous workspace adapter:', err);
-          }
-        }
-
-        // Initialize adapter for new workspace (may prompt for permissions)
+        // Mount the new workspace (pull + subscribe to dirty files).
+        // This is the first async operation so Chrome preserves any user-gesture
+        // activation for permission prompts inside ensureHandle().
         if (targetWorkspace) {
           try {
-            await getSyncManager().initializeForWorkspace(id);
+            const wsType = targetWorkspace.type === WorkspaceType.Local ? 'local' : 'browser';
+            await getSyncManager().mountWorkspace(id, wsType);
           } catch (err) {
-            console.warn('Failed to initialize adapter for new workspace:', err);
+            console.warn('Failed to mount workspace:', err);
           }
-        }
-
-        // Pull fresh data from the remote source for this workspace (blocking)
-        try {
-          if (targetWorkspace) {
-            await getSyncManager().pullWorkspace(targetWorkspace);
-          }
-        } catch (err) {
-          console.warn('Failed to pull workspace contents during switch:', err);
         }
 
         // Restore tabs for the newly active workspace (reloads content from RxDB)
@@ -285,6 +277,12 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
        * Restore editor tabs for the provided workspaceId (or active workspace if omitted)
        * Reloads file contents from the file manager to ensure fresh data for the workspace
        */
+      setPermissionNeeded: (workspaceId, needed) => {
+        set((state) => ({
+          permissionNeeded: { ...state.permissionNeeded, [workspaceId]: needed },
+        }));
+      },
+
       restoreTabsForWorkspace: async (workspaceId) => {
         const idToRestore = workspaceId ?? get().activeWorkspaceId;
         if (!idToRestore) return;

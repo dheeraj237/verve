@@ -5,10 +5,7 @@
 
 import { useEffect, useState } from 'react';
 import { initializeFileOperations, loadSampleFilesFromFolder } from '@/core/cache/file-manager';
-import { initializeSyncManager, getSyncManager } from '@/core/sync/sync-manager';
-import { LocalAdapter } from '@/core/sync/adapters/local-adapter';
-import { AdapterRegistry } from '@/core/sync/adapter-registry';
-import type { AdapterConfig, AdapterInitContext } from '@/core/sync/adapter-types';
+import { getSyncManager } from '@/core/sync/sync-manager';
 import { useWorkspaceStore } from '@/core/store/workspace-store';
 import { WorkspaceType } from '@/core/cache/types';
 import { checkAndHandleDeployment } from '@/core/init/deployment-version-manager';
@@ -47,35 +44,18 @@ export async function initializeApp(adapters?: any[]) {
     await loadSampleFilesFromFolder();
   }
 
-  // Register adapter factories with AdapterRegistry (Java-style singleton)
-  const registry = AdapterRegistry.getInstance();
+  // Start SyncManager — subscribes to workspace store changes and mounts the active workspace.
+  getSyncManager().start();
 
-  // Factory for LocalAdapter - workspace-scoped instance
-  registry.register('local', async (config: AdapterConfig, context?: Partial<AdapterInitContext>) => {
-    const workspaceId = context?.workspaceId || '';
-    const adapter = await LocalAdapter.create(workspaceId);
-    // Don't call initialize() here - SyncManager will do it
-    return adapter;
-  });
-
-  // TODO: Register GDrive and S3 factories when implementations are complete
-  // registry.register('gdrive', async (config, context) => { ... })
-  // registry.register('s3', async (config, context) => { ... })
-
-  // Initialize SyncManager with new patterns
-  // SyncManager will call initializeForWorkspace for the active workspace
-  await initializeSyncManager();
-
-  // After sync manager initialized, pull the active workspace to populate cache
+  // Explicitly mount any non-browser active workspace so the initial pull runs now
+  // (start() subscribes for future changes; the current workspace needs a manual trigger).
   try {
     const active = useWorkspaceStore.getState().activeWorkspace?.();
     if (active && active.type !== WorkspaceType.Browser) {
-      const manager = getSyncManager();
-      await manager.initializeForWorkspace(active.id);
-      await manager.pullWorkspace(active);
+      await getSyncManager().mountWorkspace(active.id, 'local');
     }
   } catch (err) {
-    console.warn('Failed to initialize adapter or pull active workspace during initializeApp:', err);
+    console.warn('[initializeApp] Failed to mount active workspace:', err);
   }
 }
 
