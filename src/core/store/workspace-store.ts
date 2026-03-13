@@ -117,6 +117,16 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
           } catch (err) {
             console.warn('Failed to create workspace via workspace-manager:', err);
           }
+          // Refresh the file explorer so the default verve.md (or any seeded files) appears
+          // immediately after creation without the user needing to press reload.
+          try {
+            const { useFileExplorerStore } = await import('@/features/file-explorer/store/file-explorer-store');
+            if (get().activeWorkspaceId === workspaceId) {
+              await useFileExplorerStore.getState().refreshFileTree();
+            }
+          } catch (err) {
+            console.warn('Failed to refresh file tree after workspace creation:', err);
+          }
         })();
       },
 
@@ -197,6 +207,14 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
           await get().restoreTabsForWorkspace(id);
         } catch (err) {
           console.warn('Failed to restore tabs for workspace:', err);
+        }
+
+        // Refresh the file explorer so it immediately shows the switched workspace's files.
+        try {
+          const { useFileExplorerStore } = await import('@/features/file-explorer/store/file-explorer-store');
+          await useFileExplorerStore.getState().refreshFileTree();
+        } catch (err) {
+          console.warn('Failed to refresh file tree after workspace switch:', err);
         } finally {
           // Clear loading state
           set({ isWorkspaceSwitching: false });

@@ -623,15 +623,20 @@ if (typeof window !== 'undefined') {
 }
 
 // Subscribe to workspace file changes and refresh the explorer when files change.
+// Also re-subscribe whenever the active workspace changes so the RxDB query always
+// targets the correct workspace.
 try {
   let currentWsId = useWorkspaceStore.getState().activeWorkspace?.()?.id ?? null;
   let unsubFiles = subscribeToWorkspaceFiles(currentWsId, async () => {
     try { await useFileExplorerStore.getState().refreshFileTree(); } catch (e) { /* ignore */ }
   });
 
-  const unsubWorkspace = (useWorkspaceStore.subscribe as any)(s => s.activeWorkspaceId, (newId) => {
+  // Use the standard Zustand subscribe(listener) API (two-state-args form) so this
+  // works without the subscribeWithSelector middleware.
+  const unsubWorkspace = useWorkspaceStore.subscribe((state, prevState) => {
+    if (state.activeWorkspaceId === prevState.activeWorkspaceId) return;
     try { unsubFiles(); } catch (_) { }
-    currentWsId = newId ?? null;
+    currentWsId = state.activeWorkspaceId ?? null;
     unsubFiles = subscribeToWorkspaceFiles(currentWsId, async () => {
       try { await useFileExplorerStore.getState().refreshFileTree(); } catch (e) { /* ignore */ }
     });
