@@ -2,7 +2,7 @@ import { FileNode } from "@/shared/types";
 import { buildFileTreeFromDirectory, buildFileTreeFromAdapter } from "./file-tree-builder";
 import { WorkspaceType } from '@/core/cache/types';
 import { getSyncManager } from '@/core/sync/sync-manager';
-import { getHandle, removeHandle } from '@/core/sync/handle-store';
+import { LocalAdapter } from '@/core/sync/adapters/local-adapter';
 
 /**
  * Opens a local directory using File System Access API
@@ -97,8 +97,7 @@ export async function hasLocalDirectoryAsync(): Promise<boolean> {
   const { useWorkspaceStore } = await import('@/core/store/workspace-store');
   const activeWs = useWorkspaceStore.getState().activeWorkspace?.();
   if (!activeWs || activeWs.type !== 'local') return false;
-  const handle = await getHandle(activeWs.id);
-  return handle != null;
+  return LocalAdapter.hasPersistedHandle(activeWs.id);
 }
 
 /**
@@ -111,7 +110,7 @@ export async function clearLocalDirectory(): Promise<void> {
     const wsId = useWorkspaceStore.getState().activeWorkspace?.()?.id;
     if (wsId) {
       getSyncManager().unmountWorkspace(wsId);
-      await removeHandle(wsId);
+      await LocalAdapter.clearPersistedHandle(wsId);
     }
   } catch (_) {
     // ignore

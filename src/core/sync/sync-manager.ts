@@ -62,12 +62,15 @@ export class SyncManager {
   start(): void {
     if (this._workspaceSub) return; // already running
 
-    this._workspaceSub = (useWorkspaceStore.subscribe as any)(
-      (s: any) => s.activeWorkspaceId,
-      (newId: string | null) => {
+    // Use the standard two-argument subscribe(listener) API so this works without
+    // the subscribeWithSelector middleware. The two-arg selector form is silently
+    // broken in vanilla Zustand — the callback would never fire.
+    this._workspaceSub = useWorkspaceStore.subscribe((state, prevState) => {
+      if (state.activeWorkspaceId !== prevState.activeWorkspaceId) {
+        const newId = state.activeWorkspaceId;
         if (newId) this.mountWorkspace(newId, this._resolveType(newId));
-      },
-    );
+      }
+    });
 
     const currentId = useWorkspaceStore.getState().activeWorkspaceId;
     if (currentId) {

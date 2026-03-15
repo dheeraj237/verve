@@ -23,7 +23,7 @@ vi.mock('../workspace-ignore.json', () => ({
 }));
 
 import { upsertCachedFile } from '@/core/cache/file-manager';
-import { getHandle } from '../handle-store';
+import { getHandle, removeHandle } from '../handle-store';
 import { LocalAdapter, PermissionError } from '../adapters/local-adapter';
 
 // ---------------------------------------------------------------------------
@@ -272,6 +272,159 @@ describe('LocalAdapter', () => {
       adapter.destroy();
       expect((adapter as any)._destroyed).toBe(true);
       expect((adapter as any)._dirHandle).toBeNull();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Static helpers
+  // -------------------------------------------------------------------------
+
+  describe('hasPersistedHandle()', () => {
+    it('returns true when getHandle resolves to a handle', async () => {
+      (getHandle as ReturnType<typeof vi.fn>).mockResolvedValueOnce(makeDirHandle({}));
+      await expect(LocalAdapter.hasPersistedHandle('ws1')).resolves.toBe(true);
+    });
+
+    it('returns false when getHandle resolves to null', async () => {
+      (getHandle as ReturnType<typeof vi.fn>).mockResolvedValueOnce(null);
+      await expect(LocalAdapter.hasPersistedHandle('ws-none')).resolves.toBe(false);
+    });
+  });
+
+  describe('clearPersistedHandle()', () => {
+    it('calls removeHandle with the workspaceId', async () => {
+      await LocalAdapter.clearPersistedHandle('ws-clear');
+      expect(removeHandle).toHaveBeenCalledWith('ws-clear');
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // ensurePermission() — IDB restore path + showDirectoryPicker fallback
+  // -------------------------------------------------------------------------
+
+  describe('ensurePermission()', () => {
+    it('returns true using persisted IDB handle without opening picker', async () => {
+      const persistedHandle = makeDirHandle({});
+      // queryPermission returns 'granted' on first call
+      persistedHandle.queryPermission = vi.fn().mockResolvedValue('granted');
+      (getHandle as ReturnType<typeof vi.fn>).mockResolvedValueOnce(persistedHandle);
+
+      const adapter = new LocalAdapter('ws-idb');
+      const result = await adapter.ensurePermission();
+      expect(result).toBe(true);
+      // showDirectoryPicker should NOT have been called
+      expect((window as any).showDirectoryPicker).not.toBeDefined();
+    });
+
+    it('falls back to showDirectoryPicker when no IDB handle exists', async () => {
+      (getHandle as ReturnType<typeof vi.fn>).mockResolvedValueOnce(null);
+      const pickedHandle: any = makeDirHandle({});
+      pickedHandle.queryPermission = vi.fn().mockResolvedValue('granted');
+      (window as any).showDirectoryPicker = vi.fn().mockResolvedValue(pickedHandle);
+
+      const adapter = new LocalAdapter('ws-picker');
+      const result = await adapter.ensurePermission();
+      expect(result).toBe(true);
+      expect((window as any).showDirectoryPicker).toHaveBeenCalledWith({ mode: 'readwrite' });
+      // Handle should be cached and persisted
+      const { setHandle } = await import('../handle-store');
+      expect(setHandle).toHaveBeenCalledWith('ws-picker', pickedHandle);
+
+      delete (window as any).showDirectoryPicker;
+    });
+
+    it('returns false when picker is cancelled (AbortError)', async () => {
+      (getHandle as ReturnType<typeof vi.fn>).mockResolvedValueOnce(null);
+      (window as any).showDirectoryPicker = vi.fn().mockRejectedValue(Object.assign(new Error('Aborted'), { name: 'AbortError' }));
+
+      const adapter = new LocalAdapter('ws-abort');
+      const result = await adapter.ensurePermission();
+      expect(result).toBe(false);
+
+      delete (window as any).showDirectoryPicker;
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // _verifyPermission via ensureHandle — requestPermission called on any
+  // non-granted status (not just 'prompt')
+  // -------------------------------------------------------------------------
+
+  describe('_verifyPermission (via pull)', () => {
+    it('calls requestPermission when queryPermission returns denied and grants on retry', async () => {
+      const handle = makeDirHandle({ 'a.md': makeFileEntry('a.md', 'hello') });
+      handle.queryPermission = vi.fn().mockResolvedValue('denied');
+      handle.requestPermission = vi.fn().mockResolvedValue('granted');
+
+      const adapter = adapterWithHandle(handle);
+      // pull should succeed because requestPermission returns 'granted'
+      await adapter.pull();
+      expect(handle.requestPermission).toHaveBeenCalledWith({ mode: 'read' });
+      expect(upsertCachedFile).toHaveBeenCalledOnce();
+    });
+
+    it('throws PermissionError when both queryPermission and requestPermission are denied', async () => {
+      const handle = makeDirHandle({});
+      handle.queryPermission = vi.fn().mockResolvedValue('denied');
+      handle.requestPermission = vi.fn().mockResolvedValue('denied');
+
+      const adapter = adapterWithHandle(handle);
+      await expect(adapter.pull()).rejects.toThrow(PermissionError);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // window.confirm fallback for 'readwrite' mode in ensureHandle / push
+  // -------------------------------------------------------------------------
+
+  describe('push() window.confirm fallback', () => {
+    it('shows confirm dialog and retries when write permission is denied then user confirms', async () => {
+      const mockWritable = { write: vi.fn().mockResolvedValue(undefined), close: vi.fn().mockResolvedValue(undefined) };
+      const mockFileHandle = { createWritable: vi.fn().mockResolvedValue(mockWritable) };
+      const handle: any = {
+        kind: 'directory',
+        name: 'root',
+        // denied on first _verifyPermission attempt, granted on retry after confirm
+        queryPermission: vi.fn()
+          .mockResolvedValueOnce('denied')   // 1st call: initial check before confirm
+          .mockResolvedValueOnce('granted'), // 2nd call: retry after user confirms
+        requestPermission: vi.fn().mockResolvedValue('denied'),
+        getDirectoryHandle: vi.fn().mockResolvedValue({ getFileHandle: vi.fn().mockResolvedValue(mockFileHandle), queryPermission: vi.fn().mockResolvedValue('granted') }),
+        getFileHandle: vi.fn().mockResolvedValue(mockFileHandle),
+      };
+      handle[Symbol.asyncIterator] = function* () { };
+
+      // User clicks OK in the confirm dialog
+      const confirmMock = vi.fn().mockReturnValue(true);
+      (window as any).confirm = confirmMock;
+
+      const adapter = adapterWithHandle(handle);
+      await adapter.push('notes.md', '# hi');
+
+      expect(confirmMock).toHaveBeenCalled();
+      expect(mockWritable.write).toHaveBeenCalledWith('# hi');
+
+      delete (window as any).confirm;
+    });
+
+    it('throws PermissionError when user cancels the confirm dialog', async () => {
+      const handle: any = {
+        kind: 'directory',
+        name: 'root',
+        queryPermission: vi.fn().mockResolvedValue('denied'),
+        requestPermission: vi.fn().mockResolvedValue('denied'),
+      };
+      handle[Symbol.asyncIterator] = function* () { };
+
+      const confirmMock = vi.fn().mockReturnValue(false);
+      (window as any).confirm = confirmMock;
+
+      const adapter = adapterWithHandle(handle);
+      await expect(adapter.push('notes.md', '# hi')).rejects.toThrow(PermissionError);
+
+      expect(confirmMock).toHaveBeenCalled();
+
+      delete (window as any).confirm;
     });
   });
 });

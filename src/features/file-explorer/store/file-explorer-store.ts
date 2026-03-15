@@ -360,7 +360,14 @@ export const useFileExplorerStore = create<FileExplorerStore>()(
           set({ isLoadingLocalFiles: true });
           const { getSyncManager } = await import('@/core/sync/sync-manager');
           try {
-            await getSyncManager().requestPermission(workspaceId ?? 'local');
+            const granted = await getSyncManager().requestPermission(workspaceId ?? 'local');
+            // Refresh the file tree immediately after a successful pull so callers
+            // always see populated files without needing their own refresh call.
+            if (granted) {
+              await get().refreshFileTree();
+              const activeWs = useWorkspaceStore.getState().activeWorkspace?.();
+              set({ currentDirectoryName: activeWs?.name ?? null, currentDirectoryPath: '/' });
+            }
           } catch (err) {
             console.warn('openLocalDirectory failed, falling back to cache refresh', err);
             await get().refreshFileTree();

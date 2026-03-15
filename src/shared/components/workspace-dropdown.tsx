@@ -60,7 +60,7 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
     deleteWorkspace
   } = useWorkspaceStore();
 
-  const { openLocalDirectory, restoreLocalDirectory, requestPermissionForWorkspace, setGoogleFolder, setSelectedFile, refreshFileTree, clearLocalDirectory, isSyncingDrive, pendingSyncCount } = useFileExplorerStore();
+  const { openLocalDirectory, setGoogleFolder, setSelectedFile, refreshFileTree, clearLocalDirectory, isSyncingDrive, pendingSyncCount } = useFileExplorerStore();
 
   const currentWorkspace = activeWorkspace();
 
@@ -132,27 +132,19 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
 
     try {
       if (selectedWorkspaceType === WorkspaceType.Local) {
-        // Create a local workspace entry — UI does not perform filesystem access
         const newWorkspaceId = `local-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         createWorkspace(newWorkspaceName, WorkspaceType.Local, { id: newWorkspaceId });
-        toast.success("Local workspace created (cache-only)");
-        try {
-          // Prompt user to select a local directory when the platform supports it
-          await openLocalDirectory(newWorkspaceId);
-          toast.success("Directory selected and scanned successfully");
-        } catch (err) {
-          // Directory picker failed or wasn't supported — show empty workspace and guide user
-          console.warn('[Workspace] Directory picker failed:', err);
-          toast.error("Directory picker not available. Use the Search bar to open a folder.");
-        } finally {
-          // Refresh file tree regardless of openLocalDirectory success/failure
-          // This shows the file explorer with either scanned files or empty state
-          try {
-            await refreshFileTree();
-          } catch (e) {
-            console.warn('Failed to refresh file tree after creating local workspace', e);
-          }
-        }
+
+        // Dismiss the dialog BEFORE opening the native directory picker.
+        // Chrome blocks showDirectoryPicker() when a modal dialog is still in the DOM
+        // (SecurityError), and the error is swallowed silently inside openLocalDirectory.
+        setIsCreateDialogOpen(false);
+        setNewWorkspaceName("");
+        setSelectedWorkspaceType(WorkspaceType.Browser);
+
+        // openLocalDirectory handles picker + pull + tree refresh internally.
+        await openLocalDirectory(newWorkspaceId);
+        return; // dialog already dismissed above — skip the shared close below
       } else if (selectedWorkspaceType === WorkspaceType.GDrive) {
         // Create a Drive workspace entry — do not call Google APIs from UI
         createWorkspace(newWorkspaceName, WorkspaceType.GDrive, {});
@@ -207,86 +199,6 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
 
         // Refresh file tree for the newly active workspace from RxDB cache
         await refreshFileTree();
-
-        // For Local workspaces, check if directory permission is needed
-        if (workspace.type === WorkspaceType.Local) {
-          try {
-            const { useWorkspaceStore: wsStore } = await import('@/core/store/workspace-store');
-            const needsPermission = wsStore.getState().permissionNeeded[workspace.id];
-
-            if (needsPermission) {
-              // Adapter is not ready - show modal to prompt for directory access
-              console.log('[WorkspaceDropdown] Local adapter not ready, showing permission prompt...');
-
-              let userActionCompleted = false;
-
-              // Show toast with action button
-              const actionToast = toast.custom(
-                <div className="space-y-2">
-                  <div className="text-sm font-medium">Directory Access Required</div>
-                  <div className="text-sm">This local workspace needs to access your file system to sync files.</div>
-                  <div className="flex gap-2 flex-wrap">
-                    <Button
-                      size="sm"
-                      variant="default"
-                      onClick={async () => {
-                        if (userActionCompleted) return;
-                        try {
-                          // Try to restore from existing stored handle first (requires user gesture)
-                          console.log('[WorkspaceDropdown] Attempting to restore from stored handle...');
-                          const restored = await restoreLocalDirectory(workspace.id);
-                          if (restored) {
-                            // Files were loaded, refresh tree
-                            await refreshFileTree();
-                            userActionCompleted = true;
-                            actionToast.dismiss();
-                            toast.success('Directory access restored successfully');
-                          } else {
-                            // No stored handle, need to open directory picker
-                            console.log('[WorkspaceDropdown] No stored handle, opening directory picker...');
-                            await openLocalDirectory(workspace.id);
-                            await refreshFileTree();
-                            userActionCompleted = true;
-                            actionToast.dismiss();
-                            toast.success('Directory selected and scanned successfully');
-                          }
-                        } catch (err) {
-                          console.error('[WorkspaceDropdown] Error in grant access flow:', err);
-                          toast.error('Failed to access directory. Please try again.');
-                        }
-                      }}
-                    >
-                      Grant Access
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        actionToast.dismiss();
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </div>,
-                {
-                  duration: 0, // Don't auto-dismiss
-                }
-              );
-
-              return; // Exit early - await user action through toast
-            }
-          } catch (err) {
-            console.warn('[WorkspaceDropdown] Failed to check Local adapter readiness:', err);
-            // Continue anyway - adapter might become ready later
-          }
-
-          toast.info('Local workspace opened (cache-only). Direct filesystem access is disabled in the UI.');
-        } else if (workspace.type === WorkspaceType.GDrive) {
-          toast.info('Drive workspace opened (cache-only). Direct Google Drive sync is disabled in the UI.');
-        }
-
-        // Files are already in RxDB cache, no need for explicit pre-caching
 
         toast.success(`Switched to "${workspace.name}"`);
       } catch (e) {
