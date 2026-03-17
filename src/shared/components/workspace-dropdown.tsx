@@ -27,20 +27,19 @@ import {
   MoreHorizontal,
   ChevronDown,
   AlertTriangle,
-  Lock
+  Lock,
+  Loader2
 } from "lucide-react";
 import { useWorkspaceStore, Workspace } from "@/core/store/workspace-store";
 import { WorkspaceType } from '@/core/cache/types';
 import { runWithLoading } from '@/core/loading/run-with-loading';
 import { useFileExplorerStore } from "@/features/file-explorer/store/file-explorer-store";
+import { useUserStore } from "@/core/store/user-store";
 import { cn } from "@/shared/utils/cn";
 import { toast } from "@/shared/utils/toast";
-import { WorkspaceTypePicker } from "@/shared/components/workspace-type-picker";
 import {
-  isFileSystemAccessSupported,
-  pickDirectory,
   hasPermission,
-  verifyPermission
+  requestPermission
 } from '@/core/sync/directory-picker';
 import {
   getHandle,
@@ -56,16 +55,19 @@ interface WorkspaceDropdownProps {
 
 export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [isTypePickerOpen, setIsTypePickerOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [workspaceToDelete, setWorkspaceToDelete] = useState<Workspace | null>(null);
   const [newWorkspaceName, setNewWorkspaceName] = useState("");
   const [selectedWorkspaceType, setSelectedWorkspaceType] = useState<Workspace['type']>(WorkspaceType.Browser);
   const [isSwitching, setIsSwitching] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
   const [isPermissionDialogOpen, setIsPermissionDialogOpen] = useState(false);
   const [workspaceNeedingPermission, setWorkspaceNeedingPermission] = useState<Workspace | null>(null);
+  const [workspaceHandleForPermission, setWorkspaceHandleForPermission] = useState<FileSystemDirectoryHandle | null>(null);
   const [pendingDirectoryHandle, setPendingDirectoryHandle] = useState<FileSystemDirectoryHandle | null>(null);
   
+  const isLoggedIn = useUserStore((s) => s.isLoggedIn);
+
   const { 
     workspaces, 
     activeWorkspace, 
@@ -119,12 +121,86 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
   // Listen for new workspace modal trigger
   React.useEffect(() => {
     const handleOpenModal = () => {
-      setIsTypePickerOpen(true);
+      setIsCreateDialogOpen(true);
     };
 
     document.addEventListener('openNewWorkspaceModal', handleOpenModal);
     return () => document.removeEventListener('openNewWorkspaceModal', handleOpenModal);
   }, []);
+
+  /**
+   * Handle directory picker for local workspaces.
+   * MUST be called from a user gesture (button click).
+   * 
+   * CRITICAL: Calls window.showDirectoryPicker() directly inline to ensure
+   * the API is invoked immediately within the user gesture context without
+   * any function call abstraction that could break the gesture association.
+   */
+  const handlePickDirectory = () => {
+    // Check API support first (synchronous)
+    if (typeof window === 'undefined' || !('showDirectoryPicker' in window)) {
+      toast.error(
+        'File System Access API not supported',
+        'Please use a modern browser like Chrome 86+, Edge 86+, or Safari 15.2+'
+      );
+      return;
+    }
+
+    // CRITICAL: Call window.showDirectoryPicker() DIRECTLY without any wrapper
+    // This must be the first async operation in the call stack to preserve user gesture
+    const pickerPromise = (window as any).showDirectoryPicker({
+      mode: 'readwrite',
+    });
+
+    // Handle the promise result asynchronously
+    pickerPromise
+      .then(async (directoryHandle: FileSystemDirectoryHandle) => {
+        if (!directoryHandle) {
+          // User cancelled
+          toast.info('Directory selection was cancelled');
+          return;
+        }
+
+        // Check if we already have permission
+        let hasPermissionGranted = false;
+        try {
+          const permissionStatus = await (directoryHandle as any).queryPermission({ mode: 'readwrite' });
+          hasPermissionGranted = permissionStatus === 'granted';
+        } catch (e) {
+          console.warn('Failed to query permission:', e);
+        }
+
+        // Request permission if needed
+        if (!hasPermissionGranted) {
+          try {
+            const permissionStatus = await (directoryHandle as any).requestPermission({ mode: 'readwrite' });
+            hasPermissionGranted = permissionStatus === 'granted';
+          } catch (e) {
+            console.error('Failed to request permission:', e);
+          }
+        }
+
+        if (!hasPermissionGranted) {
+          toast.error('Permission denied', 'Unable to read/write to the selected directory');
+          setPendingDirectoryHandle(null);
+          return;
+        }
+
+        // Store handle temporarily
+        setPendingDirectoryHandle(directoryHandle);
+        toast.success(`Selected directory: ${directoryHandle.name}`);
+      })
+      .catch((err: any) => {
+        // User cancelled
+        if (err?.name === 'AbortError') {
+          toast.info('Directory selection was cancelled');
+          return;
+        }
+        console.error('Directory picker error:', err);
+        toast.error('Failed to open directory picker', err?.message || 'Unknown error');
+        setPendingDirectoryHandle(null);
+      });
+  };
 
   /**
    * Check if a local workspace has the required permission.
@@ -148,33 +224,6 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
   };
 
   /**
-   * Request permission for a local workspace.
-   * MUST be called from a user gesture (button click).
-   */
-  const requestLocalWorkspacePermission = async (workspaceId: string): Promise<boolean> => {
-    try {
-      const handle = await getHandle(workspaceId);
-      if (!handle) {
-        toast.error('Directory handle not found', 'Please recreate the workspace');
-        return false;
-      }
-
-      // Request permission (requires user gesture)
-      const granted = await verifyPermission(handle, true);
-      if (!granted) {
-        toast.error('Permission denied', 'Unable to access the directory');
-        return false;
-      }
-
-      return true;
-    } catch (error: any) {
-      console.error('Error requesting permission:', error);
-      toast.error('Failed to request permission', error?.message || 'Unknown error');
-      return false;
-    }
-  };
-
-  /**
    * Mount a local workspace after permissions are verified.
    */
   const mountLocalWorkspace = async (workspaceId: string): Promise<void> => {
@@ -188,56 +237,12 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
   };
 
   /**
-   * Handle workspace type selection from the type picker.
-   * For local workspaces, immediately call directory picker to preserve user gesture.
+   * Handle workspace creation form submission
    */
-  const handleTypeSelected = async (type: Workspace['type']) => {
-    setSelectedWorkspaceType(type);
+  const handleCreateWorkspace = async (e?: React.FormEvent) => {
+    e?.preventDefault();
 
-    // For local workspaces, call directory picker IMMEDIATELY while user gesture is fresh
-    if (type === WorkspaceType.Local) {
-      // Check API support first (synchronous)
-      if (!isFileSystemAccessSupported()) {
-        toast.error(
-          'File System Access API not supported',
-          'Please use a modern browser like Chrome 86+, Edge 86+, or Safari 15.2+'
-        );
-        return;
-      }
-
-      try {
-        // CRITICAL: Call pickDirectory() immediately from user gesture
-        const directoryHandle = await pickDirectory();
-
-        if (!directoryHandle) {
-          // User cancelled - don't show name dialog
-          toast.info('Directory selection was cancelled');
-          return;
-        }
-
-        // Verify permission while still in user gesture context
-        const granted = await verifyPermission(directoryHandle, true);
-        if (!granted) {
-          toast.error('Permission denied', 'Unable to read/write to the selected directory');
-          return;
-        }
-
-        // Store handle temporarily and show name input dialog
-        setPendingDirectoryHandle(directoryHandle);
-        setIsCreateDialogOpen(true);
-      } catch (err: any) {
-        console.error('Directory picker error:', err);
-        toast.error('Failed to open directory picker', err?.message || 'Unknown error');
-      }
-    } else {
-      // For non-local workspaces, just show the name dialog
-      setPendingDirectoryHandle(null);
-      setIsCreateDialogOpen(true);
-    }
-  };
-
-  const handleCreateWorkspace = async () => {
-    // Validate workspace name first
+    // Validate workspace name
     if (!newWorkspaceName.trim()) {
       toast.error("Please enter a workspace name");
       return;
@@ -252,15 +257,17 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
       return;
     }
 
+    // For local workspaces, verify directory is selected
+    if (selectedWorkspaceType === WorkspaceType.Local && !pendingDirectoryHandle) {
+      toast.error('Please select a directory', 'Click "Select Directory" to choose a folder');
+      return;
+    }
+
+    setIsCreating(true);
+
     try {
       if (selectedWorkspaceType === WorkspaceType.Local) {
-        // For local workspaces, we should already have a directory handle from handleTypeSelected
-        if (!pendingDirectoryHandle) {
-          toast.error('No directory selected', 'Please try again');
-          return;
-        }
-
-        const directoryHandle = pendingDirectoryHandle;
+        const directoryHandle = pendingDirectoryHandle!;
         const newWorkspaceId = `local-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         const tempWorkspaceName = newWorkspaceName.trim();
 
@@ -270,7 +277,7 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
         setSelectedWorkspaceType(WorkspaceType.Browser);
         setPendingDirectoryHandle(null);
 
-        // Create and mount workspace
+        // Create and mount workspace with loading
         await runWithLoading(async () => {
           try {
             // Save handle to IndexedDB
@@ -294,35 +301,42 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
             toast.error('Failed to load directory', error?.message || 'Unknown error');
           }
         });
-
-        return; // dialog already dismissed above — skip the shared close below
       } else if (selectedWorkspaceType === WorkspaceType.GDrive) {
-        // Create a Drive workspace entry — do not call Google APIs from UI
-        createWorkspace(newWorkspaceName, WorkspaceType.GDrive, {});
-        toast.success("Drive workspace created (cache-only)");
-        // Refresh file tree to show empty state
-        try {
+        const tempWorkspaceName = newWorkspaceName.trim();
+
+        // Close dialog and clear state
+        setIsCreateDialogOpen(false);
+        setNewWorkspaceName("");
+        setSelectedWorkspaceType(WorkspaceType.Browser);
+
+        // Create workspace with loading
+        await runWithLoading(async () => {
+          createWorkspace(tempWorkspaceName, WorkspaceType.GDrive, {});
           await refreshFileTree();
-        } catch (e) {
-          console.warn('Failed to refresh file tree after creating GDrive workspace', e);
-        }
+          toast.success(`Drive workspace "${tempWorkspaceName}" created successfully!`);
+        });
       } else {
         // Browser workspace
         const workspaceId = `${WorkspaceType.Browser}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        createWorkspace(newWorkspaceName, WorkspaceType.Browser, { id: workspaceId });
-        try {
+        const tempWorkspaceName = newWorkspaceName.trim();
+
+        // Close dialog and clear state
+        setIsCreateDialogOpen(false);
+        setNewWorkspaceName("");
+        setSelectedWorkspaceType(WorkspaceType.Browser);
+
+        // Create workspace with loading
+        await runWithLoading(async () => {
+          createWorkspace(tempWorkspaceName, WorkspaceType.Browser, { id: workspaceId });
           await refreshFileTree();
-        } catch (e) {
-          console.warn('Failed to refresh file tree after creating workspace', e);
-        }
-        toast.success("Browser workspace created successfully!");
+          toast.success(`Browser workspace "${tempWorkspaceName}" created successfully!`);
+        });
       }
-      
-      setIsCreateDialogOpen(false);
-      setNewWorkspaceName("");
-      setSelectedWorkspaceType(WorkspaceType.Browser);
-    } catch (error) {
-      toast.error("Failed to create workspace", (error as Error).message);
+    } catch (error: any) {
+      console.error('Failed to create workspace:', error);
+      toast.error("Failed to create workspace", error?.message || 'Unknown error');
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -351,11 +365,26 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
           const hasPermissionGranted = await checkLocalWorkspacePermission(workspace.id);
 
           if (!hasPermissionGranted) {
-            // Permission needed - show dialog to request it
-            setWorkspaceNeedingPermission(workspace);
-            setIsPermissionDialogOpen(true);
-            setIsSwitching(false);
-            return;
+            // Permission needed - fetch handle and show dialog to request it
+            try {
+              const handle = await getHandle(workspace.id);
+              if (!handle) {
+                toast.error('Directory handle not found', 'Please recreate the workspace');
+                setIsSwitching(false);
+                return;
+              }
+
+              setWorkspaceNeedingPermission(workspace);
+              setWorkspaceHandleForPermission(handle);
+              setIsPermissionDialogOpen(true);
+              setIsSwitching(false);
+              return;
+            } catch (error: any) {
+              console.error('Error fetching handle for permission:', error);
+              toast.error('Failed to access workspace', error?.message || 'Unknown error');
+              setIsSwitching(false);
+              return;
+            }
           }
 
           // Permission granted - switch and mount
@@ -380,28 +409,43 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
   /**
    * Handle permission grant request from the permission dialog.
    * MUST be called from a user gesture (button click).
+   * 
+   * CRITICAL: Calls handle.requestPermission() directly inline to ensure
+   * the API is invoked immediately within the user gesture context.
    */
-  const handleGrantPermission = async () => {
-    if (!workspaceNeedingPermission) return;
+  const handleGrantPermission = () => {
+    if (!workspaceNeedingPermission || !workspaceHandleForPermission) return;
 
-    try {
-      const granted = await requestLocalWorkspacePermission(workspaceNeedingPermission.id);
+    const workspace = workspaceNeedingPermission;
+    const handle = workspaceHandleForPermission;
 
-      if (granted) {
-        // Permission granted - close dialog and switch workspace
-        setIsPermissionDialogOpen(false);
-        setWorkspaceNeedingPermission(null);
+    // CRITICAL: Call handle.requestPermission() DIRECTLY without any wrapper
+    const permissionPromise = (handle as any).requestPermission({ mode: 'readwrite' });
 
-        await runWithLoading(async () => {
-          await switchWorkspace(workspaceNeedingPermission.id);
-          await mountLocalWorkspace(workspaceNeedingPermission.id);
-          toast.success(`Switched to "${workspaceNeedingPermission.name}"`);
-        });
-      }
-    } catch (error: any) {
-      console.error('Error granting permission:', error);
-      toast.error('Failed to grant permission', error?.message || 'Unknown error');
-    }
+    // Handle the promise result asynchronously
+    permissionPromise
+      .then(async (permissionStatus: string) => {
+        const granted = permissionStatus === 'granted';
+        
+        if (granted) {
+          // Permission granted - close dialog and switch workspace
+          setIsPermissionDialogOpen(false);
+          setWorkspaceNeedingPermission(null);
+          setWorkspaceHandleForPermission(null);
+
+          await runWithLoading(async () => {
+            await switchWorkspace(workspace.id);
+            await mountLocalWorkspace(workspace.id);
+            toast.success(`Switched to "${workspace.name}"`);
+          });
+        } else {
+          toast.error('Permission denied', 'Unable to access the directory');
+        }
+      })
+      .catch((error: any) => {
+        console.error('Error granting permission:', error);
+        toast.error('Failed to grant permission', error?.message || 'Unknown error');
+      });
   };
 
   const handleDeleteClick = (workspace: Workspace) => {
@@ -555,7 +599,7 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
           ))}
           {workspaces.length > 0 && <DropdownMenuSeparator />}
           <DropdownMenuItem 
-            onClick={() => setIsTypePickerOpen(true)} 
+            onClick={() => setIsCreateDialogOpen(true)} 
             disabled={isSwitching}
             className="cursor-pointer"
           >
@@ -565,72 +609,219 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {/* Create Workspace Dialog */}
+      {/* Create Workspace Dialog - Unified Form */}
       <Dialog
         open={isCreateDialogOpen}
         onOpenChange={(open) => {
-          setIsCreateDialogOpen(open);
-          if (!open) {
-            // Clear state when dialog closes
-            setPendingDirectoryHandle(null);
-            setNewWorkspaceName("");
+          if (!isCreating) {
+            setIsCreateDialogOpen(open);
+            if (!open) {
+              // Clear state when dialog closes
+              setPendingDirectoryHandle(null);
+              setNewWorkspaceName("");
+              setSelectedWorkspaceType(WorkspaceType.Browser);
+            }
           }
         }}
       >
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>
-              Create {selectedWorkspaceType === WorkspaceType.Browser ? 'Browser' : selectedWorkspaceType === WorkspaceType.Local ? 'Local' : 'Google Drive'} Workspace
-            </DialogTitle>
+            <DialogTitle>Create New Workspace</DialogTitle>
             <DialogDescription>
-              Give your {selectedWorkspaceType === WorkspaceType.Browser ? 'browser' : selectedWorkspaceType === WorkspaceType.Local ? 'local' : 'Google Drive'} workspace a name.
+              Enter a name for your workspace and select where you'd like to store it.
             </DialogDescription>
           </DialogHeader>
-            <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="workspace-name">Workspace Name</Label>
-              <Input
-                id="workspace-name"
-                value={newWorkspaceName}
-                onChange={(e) => setNewWorkspaceName(e.target.value)}
-                placeholder={`My ${selectedWorkspaceType === WorkspaceType.Browser ? 'Browser' : selectedWorkspaceType === WorkspaceType.Local ? 'Local' : 'Drive'} Workspace`}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleCreateWorkspace();
-                  }
-                }}
-              />
+          <form onSubmit={handleCreateWorkspace}>
+            <div className="space-y-6 py-4">
+              {/* Workspace Name Input */}
+              <div className="space-y-2">
+                <Label htmlFor="workspace-name">Workspace Name *</Label>
+                <Input
+                  id="workspace-name"
+                  value={newWorkspaceName}
+                  onChange={(e) => setNewWorkspaceName(e.target.value)}
+                  placeholder="My Workspace"
+                  disabled={isCreating}
+                  autoFocus
+                />
+              </div>
+
+              {/* Workspace Type Selection */}
+              <div className="space-y-3">
+                <Label>Storage Type *</Label>
+                <div className="space-y-2">
+                  {/* Browser option */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedWorkspaceType(WorkspaceType.Browser);
+                      setPendingDirectoryHandle(null);
+                    }}
+                    disabled={isCreating}
+                    className={cn(
+                      "w-full text-left p-4 rounded-lg border-2 transition-colors",
+                      "hover:border-primary/50 focus:outline-none focus:border-primary",
+                      selectedWorkspaceType === WorkspaceType.Browser
+                        ? "border-primary bg-primary/5"
+                        : "border-border",
+                      isCreating && "opacity-50 cursor-not-allowed"
+                    )}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className={cn(
+                        "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
+                        selectedWorkspaceType === WorkspaceType.Browser
+                          ? "border-primary"
+                          : "border-muted-foreground"
+                      )}>
+                        {selectedWorkspaceType === WorkspaceType.Browser && (
+                          <div className="w-2 h-2 rounded-full bg-primary" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <Globe className="h-4 w-4" />
+                          <span className="font-medium">Browser Storage</span>
+                        </div>
+                        <div className="text-sm text-muted-foreground mt-1">
+                          Saved locally in your browser
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* Local File System option */}
+                  <div
+                    className={cn(
+                      "w-full text-left p-4 rounded-lg border-2 transition-colors",
+                      selectedWorkspaceType === WorkspaceType.Local
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-primary/50",
+                      isCreating && "opacity-50 cursor-not-allowed"
+                    )}
+                  >
+                    <div className="space-y-3">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedWorkspaceType(WorkspaceType.Local)}
+                        disabled={isCreating}
+                        className="w-full text-left focus:outline-none"
+                      >
+                        <div className="flex items-center space-x-3">
+                          <div className={cn(
+                            "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
+                            selectedWorkspaceType === WorkspaceType.Local
+                              ? "border-primary"
+                              : "border-muted-foreground"
+                          )}>
+                            {selectedWorkspaceType === WorkspaceType.Local && (
+                              <div className="w-2 h-2 rounded-full bg-primary" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <FolderOpen className="h-4 w-4" />
+                              <span className="font-medium">Local Directory</span>
+                            </div>
+                            <div className="text-sm text-muted-foreground mt-1">
+                              {pendingDirectoryHandle
+                                ? `Selected: ${pendingDirectoryHandle.name}`
+                                : 'Connect to a folder on your computer'
+                              }
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+
+                      {/* Directory picker button inside card */}
+                      {selectedWorkspaceType === WorkspaceType.Local && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handlePickDirectory}
+                          disabled={isCreating}
+                          className="w-full"
+                        >
+                          <FolderOpen className="h-4 w-4 mr-2" />
+                          {pendingDirectoryHandle ? 'Change Directory' : 'Select Directory'}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Google Drive option */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (isLoggedIn) {
+                        setSelectedWorkspaceType(WorkspaceType.GDrive);
+                        setPendingDirectoryHandle(null);
+                      }
+                    }}
+                    disabled={!isLoggedIn || isCreating}
+                    className={cn(
+                      "w-full text-left p-4 rounded-lg border-2 transition-colors",
+                      "hover:border-primary/50 focus:outline-none focus:border-primary",
+                      selectedWorkspaceType === WorkspaceType.GDrive
+                        ? "border-primary bg-primary/5"
+                        : "border-border",
+                      (!isLoggedIn || isCreating) && "opacity-60 cursor-not-allowed"
+                    )}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className={cn(
+                        "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
+                        selectedWorkspaceType === WorkspaceType.GDrive
+                          ? "border-primary"
+                          : "border-muted-foreground"
+                      )}>
+                        {selectedWorkspaceType === WorkspaceType.GDrive && (
+                          <div className="w-2 h-2 rounded-full bg-primary" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <Cloud className="h-4 w-4" />
+                          <span className="font-medium">Google Drive</span>
+                        </div>
+                        <div className="text-sm text-muted-foreground mt-1">
+                          {isLoggedIn ? 'Sync with your Google Drive' : 'Sign in to enable Google Drive'}
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                </div>
+              </div>
             </div>
-            <div className="text-sm text-muted-foreground">
-              {selectedWorkspaceType === WorkspaceType.Browser
-                ? 'Your workspace will be saved in browser storage and available on this device.'
-                : selectedWorkspaceType === WorkspaceType.Local
-                  ? `Directory selected: ${pendingDirectoryHandle?.name || 'Unknown'}. Enter a name for this workspace.`
-                  : 'Your workspace will be created as a Drive workspace (UI uses RxDB cache only; direct Google Drive sync is disabled).'
-              }
-            </div>
-          </div>
-          <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                setIsCreateDialogOpen(false);
-                setPendingDirectoryHandle(null);
-                setNewWorkspaceName("");
-                setIsTypePickerOpen(true);
-              }}
-              type="button"
-            >
-              Back
-            </Button>
-            <Button 
-              onClick={handleCreateWorkspace}
-              type="button"
-            >
-              Create Workspace
-            </Button>
-          </DialogFooter>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setIsCreateDialogOpen(false)}
+                type="button"
+                disabled={isCreating}
+              >
+                Cancel
+              </Button>
+              <Button 
+                type="submit"
+                disabled={
+                  isCreating ||
+                  !newWorkspaceName.trim() ||
+                  (selectedWorkspaceType === WorkspaceType.Local && !pendingDirectoryHandle)
+                }
+              >
+                {isCreating ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  'Create Workspace'
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 
@@ -681,15 +872,18 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Workspace Type Picker */}
-      <WorkspaceTypePicker
-        open={isTypePickerOpen}
-        onOpenChange={setIsTypePickerOpen}
-        onSelectType={handleTypeSelected}
-      />
-
       {/* Permission Request Dialog */}
-      <Dialog open={isPermissionDialogOpen} onOpenChange={setIsPermissionDialogOpen}>
+      <Dialog
+        open={isPermissionDialogOpen}
+        onOpenChange={(open) => {
+          setIsPermissionDialogOpen(open);
+          if (!open) {
+            // Clear state when dialog closes
+            setWorkspaceNeedingPermission(null);
+            setWorkspaceHandleForPermission(null);
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -715,6 +909,7 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
               onClick={() => {
                 setIsPermissionDialogOpen(false);
                 setWorkspaceNeedingPermission(null);
+                setWorkspaceHandleForPermission(null);
               }}
             >
               Cancel
