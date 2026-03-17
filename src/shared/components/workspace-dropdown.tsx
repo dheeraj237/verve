@@ -300,7 +300,7 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
             }
             toast.error('Failed to load directory', error?.message || 'Unknown error');
           }
-        });
+        }, 'Creating Workspace...');
       } else if (selectedWorkspaceType === WorkspaceType.GDrive) {
         const tempWorkspaceName = newWorkspaceName.trim();
 
@@ -314,7 +314,7 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
           createWorkspace(tempWorkspaceName, WorkspaceType.GDrive, {});
           await refreshFileTree();
           toast.success(`Drive workspace "${tempWorkspaceName}" created successfully!`);
-        });
+        }, 'Creating Workspace...');
       } else {
         // Browser workspace
         const workspaceId = `${WorkspaceType.Browser}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -330,7 +330,7 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
           createWorkspace(tempWorkspaceName, WorkspaceType.Browser, { id: workspaceId });
           await refreshFileTree();
           toast.success(`Browser workspace "${tempWorkspaceName}" created successfully!`);
-        });
+        }, 'Creating Workspace...');
       }
     } catch (error: any) {
       console.error('Failed to create workspace:', error);
@@ -353,7 +353,7 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
 
     setIsSwitching(true);
 
-    // Wrap the entire switching flow with runWithLoading so the global AppLoader
+    // Wrap the entire switching flow with runWithLoading so the global loader
     // remains visible until refresh completes.
     await runWithLoading(async () => {
       try {
@@ -401,7 +401,7 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
         console.error('Failed to switch workspace:', e);
         toast.error("Failed to switch workspace");
       }
-    });
+    }, 'Switching Workspace...');
 
     setIsSwitching(false);
   };
@@ -437,7 +437,7 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
             await switchWorkspace(workspace.id);
             await mountLocalWorkspace(workspace.id);
             toast.success(`Switched to "${workspace.name}"`);
-          });
+          }, 'Switching Workspace...');
         } else {
           toast.error('Permission denied', 'Unable to access the directory');
         }
@@ -613,14 +613,12 @@ export function WorkspaceDropdown({ className }: WorkspaceDropdownProps) {
       <Dialog
         open={isCreateDialogOpen}
         onOpenChange={(open) => {
-          if (!isCreating) {
-            setIsCreateDialogOpen(open);
-            if (!open) {
-              // Clear state when dialog closes
-              setPendingDirectoryHandle(null);
-              setNewWorkspaceName("");
-              setSelectedWorkspaceType(WorkspaceType.Browser);
-            }
+          setIsCreateDialogOpen(open);
+          if (!open) {
+            // Clear state when dialog closes
+            setPendingDirectoryHandle(null);
+            setNewWorkspaceName("");
+            setSelectedWorkspaceType(WorkspaceType.Browser);
           }
         }}
       >

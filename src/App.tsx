@@ -2,7 +2,7 @@ import { Routes, Route } from 'react-router-dom';
 import { ThemeProvider } from '@/shared/components/theme-provider';
 import { GrowthBookWrapper } from '@/core/config/growthbook-provider';
 import { Toaster } from '@/shared/components/toaster';
-import { AppLoader } from '@/shared/components/app-loader';
+import { GlobalLoader } from '@/shared/components/global-loader';
 import { SyncIndicator } from '@/shared/components/sync-indicator';
 import { PatchFetchClient } from '@/core/init/patch-fetch-client';
 import { LandingPage } from '@/shared/components/landing-page';
@@ -45,7 +45,7 @@ function App() {
         disableTransitionOnChange
         storageKey="theme"
       >
-        <AppLoader />
+        <GlobalLoader />
         <SyncIndicator />
         <PatchFetchClient />
         <Routes>

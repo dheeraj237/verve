@@ -2,10 +2,10 @@
 import { useEffect } from "react";
 import { useLoadingStore } from "@/core/store/loading-store";
 
-// This component patches the global fetch to increment/decrement the loading counter
+// This component patches the global fetch to show/hide the loading indicator
 export function PatchFetchClient() {
-  const increment = useLoadingStore((s) => s.increment);
-  const decrement = useLoadingStore((s) => s.decrement);
+  const show = useLoadingStore((s) => s.show);
+  const hide = useLoadingStore((s) => s.hide);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -16,15 +16,15 @@ export function PatchFetchClient() {
     if ((nativeFetch as any).__patched_for_loading) return;
 
     const wrappedFetch: typeof window.fetch = async (input: RequestInfo, init?: RequestInit) => {
-      increment();
+      show();
       try {
         const res = await nativeFetch(input, init);
         return res;
       } catch (err) {
         throw err;
       } finally {
-        // ensure decrement even on error
-        setTimeout(() => decrement(), 0);
+        // ensure hide even on error
+        setTimeout(() => hide(), 0);
       }
     };
 
@@ -39,7 +39,7 @@ export function PatchFetchClient() {
         // ignore
       }
     };
-  }, [increment, decrement]);
+  }, [show, hide]);
 
   return null;
 }
